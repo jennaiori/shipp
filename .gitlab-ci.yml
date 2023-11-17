@@ -21,4 +21,5 @@ stages:          # List of stages for jobs, and their order of execution
 
 test:
  script:
+  - conda -V
   - echo 0
