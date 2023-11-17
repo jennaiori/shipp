@@ -19,7 +19,13 @@
 stages:         
   - test
 
+default:
+  before_script:
+    - echo "Execute this `before_script` in all jobs by default."
+    - conda -V
+  after_script:
+    - echo "Execute this `after_script` in all jobs by default."
+
 test:
  script:
-  - python --version
   - echo 0
