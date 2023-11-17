@@ -32,4 +32,4 @@ default:
 
 test:
   script:
-    - echo 0
+    - python -m pytest
