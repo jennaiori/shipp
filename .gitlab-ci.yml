@@ -25,6 +25,7 @@ default:
     - echo $Env:PATH
     - conda -V
     - conda init powershell
+    - "if (test-path $PROFILE.CurrentUserAllHosts) { & $PROFILE.CurrentUserAllHosts}"
     - conda activate sizing_opt_hpp
   after_script:
     - echo "Execute this after_script in all jobs by default."
