@@ -21,5 +21,4 @@ stages:          # List of stages for jobs, and their order of execution
 
 test:
  script:
-  - '$Env:PATH'
-  - 'conda activate sizing_opt_hpp'
+  - echo 0
