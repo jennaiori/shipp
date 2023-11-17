@@ -26,10 +26,11 @@ default:
     - conda -V
     - conda init powershell
     - "if (test-path $PROFILE.CurrentUserAllHosts) { & $PROFILE.CurrentUserAllHosts}"
-    - conda activate sizing_opt_hpp
+    - conda install pip
   after_script:
     - echo "Execute this after_script in all jobs by default."
 
 test:
   script:
+    - pip install .[test]
     - python -m pytest
