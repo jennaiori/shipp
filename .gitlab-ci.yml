@@ -22,10 +22,10 @@ stages:
 default:
   before_script:
     - echo "Execute this `before_script` in all jobs by default."
-    - conda -V
+    - echo $Env:PATH
   after_script:
     - echo "Execute this `after_script` in all jobs by default."
 
 test:
- script:
-  - echo 0
+  script:
+    - echo 0
