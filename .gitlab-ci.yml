@@ -21,4 +21,5 @@ stages:          # List of stages for jobs, and their order of execution
 
 test:
  script:
-  - python -v
+  - echo conda -V
+  - conda activate sizing_opt_hpp
