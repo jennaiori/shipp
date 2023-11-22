@@ -26,12 +26,12 @@ class TimeSeries:
         '''Compute the standard deviation of the data'''
         if self.data is None:
             return None
-        else:
-            return np.std(self.data)
+
+        return np.std(self.data)
 
     def mean(self):
         '''Compute the mean value of the data'''
         if self.data is None:
             return None
-        else:
-            return np.mean(self.data)
+
+        return np.mean(self.data)

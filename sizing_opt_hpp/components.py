@@ -26,7 +26,7 @@ class Storage:
             - p_cost: cost per unit of power capacity [kEur/MW]
     '''
 
-    def __init__(self, e_cap=0, p_cap=0, eff_in=1, eff_out=1, e_cost=0, 
+    def __init__(self, e_cap=0, p_cap=0, eff_in=1, eff_out=1, e_cost=0,
                  p_cost=0) -> None:
         self.e_cap = e_cap
         self.p_cap = p_cap
