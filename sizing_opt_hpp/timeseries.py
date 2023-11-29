@@ -16,7 +16,11 @@ class TimeSeries:
     '''
 
     def __init__(self, data=None, dt=0):
-        self.data = data
+        if data is None:
+            self.data = None
+        else:
+            self.data = np.array(data)
+
         self.dt = dt
 
     def __str__(self):
@@ -30,8 +34,12 @@ class TimeSeries:
         return np.std(self.data)
 
     def mean(self):
-        '''Compute the mean value of the data'''
+        '''Computes the mean value of the data'''
         if self.data is None:
             return None
 
         return np.mean(self.data)
+
+    def time(self):
+        '''Computes the time vector with increment dt'''
+        return np.arange(0, self.dt*len(self.data), self.dt)
