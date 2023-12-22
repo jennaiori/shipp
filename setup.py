@@ -10,5 +10,6 @@ setup(
    install_requires=['numpy'], #external packages as dependencies
    extras_require={
         'test': [
-            'pytest',]}
+            'pytest',
+            'mosek']}
 )
