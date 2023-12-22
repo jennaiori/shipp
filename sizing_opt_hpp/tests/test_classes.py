@@ -1,6 +1,4 @@
-'''
-    Module containing unit tests for the package
-'''
+'''Module containing unit tests for the package'''
 
 from ..components import Storage, Production, OpSchedule
 from ..timeseries import TimeSeries
@@ -12,7 +10,7 @@ def test_simple():
     '''
     data = [1, 1, 1, 1]
     dt = 1
-    ts = TimeSeries(data)
+    ts = TimeSeries(data, dt)
 
     assert ts.std() == 0
     assert ts.mean() == 1
@@ -22,14 +20,15 @@ def test_simple():
     print('empty',ts_empty.std())
     print('empty',ts_empty.mean())
 
-    prod_unit = Production(0.5, 2, 0)
-    prod_p = prod_unit.get_production(ts)
+    prod_unit = Production(ts, 0)
+    cost_prod = prod_unit.get_tot_costs()
 
+    # assert ts.dt == prod_unit.power.dt
     stor_unit = Storage()
     stor_p = TimeSeries([1,1,1,1], dt)
     stor_e = TimeSeries([0, 1, 2, 3], dt)
 
-    os = OpSchedule( [prod_unit], [stor_unit], [prod_p], [stor_p], [stor_e])
+    os = OpSchedule( [prod_unit], [stor_unit], [prod_unit.power], [stor_p], [stor_e])
     print(os)
 
     # os.plot_powerflow()

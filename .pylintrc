@@ -1,0 +1,9 @@
+[TYPECHECK]
+ignored-classes=prosta,solsta,streamtype,boundkey,objsense,iparam,dparam,iinfitem,dinfitem,soltype,onoffkey,variabletype
+
+max-args=20
+max-locals=150
+max-branches=30
+max-statements=150
+min-public-methods=1
+max-module-lines=3000
