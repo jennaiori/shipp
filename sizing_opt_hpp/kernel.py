@@ -711,19 +711,19 @@ def build_lp_cst_sparse(power: np.ndarray, dt: float, p_min: float|np.ndarray,
     assert np.isfinite(losses_batt)
     assert np.isfinite(losses_h2)
 
-    if rate_batt == -1:
+    if rate_batt == -1 or rate_batt is None:
         rate_batt = p_max
 
-    if rate_h2 == -1:
+    if rate_h2 == -1 or rate_h2 is None:
         rate_fc = p_max
         rate_h2 = p_max
     else:
         rate_fc = rate_h2
 
-    if max_soc == -1:
+    if max_soc == -1 or max_soc is None:
         max_soc = n*dt*rate_batt #MWh
 
-    if max_h2 == -1:
+    if max_h2 == -1 or max_h2 is None:
         max_h2 = 100*1400*0.0333 #MWh  (1400kg H2 and 1kg is 33.3 kWh)
 
     assert np.isfinite(rate_batt)
@@ -2342,5 +2342,166 @@ def solve_milp_sparse(power_ts: TimeSeries, price_ts: TimeSeries,
                                      TimeSeries(losses_fc, dt)],
                         storage_e = [TimeSeries(soc, dt),
                                      TimeSeries(h2, dt)])
+
+    return os_res
+
+def os_rule_based(price_ts: TimeSeries, prod_wind: Production,
+                  prod_pv: Production, stor_batt: Storage, stor_h2: Storage,
+                  discount_rate: float, n_year: int, p_min: float | np.ndarray,
+                  p_rule: float, price_min: float,
+                  n: int) -> OpSchedule:
+
+    """Build the operation schedule following a rule-based control.
+
+    This function builds the operation schedule for a hybrid power plant
+    following a rule-based approach. The objective of the controller is
+    to satisfy a baseload power represented by p_min.
+    The control rules are as follow:
+        - if the power from wind and pv is above a given value (p_rule),
+        the storage systems are charged: first the battery (short-term)
+        and then the hydrogen system (long-term).
+        - if the power from wind and pv is below p_rule but above the
+        baseload, and if the price is above a threshold (price_min), the
+        storage systems should sell power
+        - if the power output is below the required baseload, power is
+        delivered from the storage systems: first long-term, then the
+        short-term one.
+
+
+    This implementation is based on the work by Jasper Kreeft for the
+    sizing of the Baseload Power Hub.
+
+    Params:
+        price_ts (TimeSeries): Time series of the price of electricity
+            on theday-ahead market [currency/MWh].
+        prod_wind (Production): Object describing the wind production.
+        prod_pv (Production): Object describing the solar pv production.
+        stor_batt (Storage): Object describing the battery storage.
+        stor_h2 (Storage): Object describing the hydrogen storage system.
+        discount_rate (float): Discount rate for the NPV calculation [-].
+        n_year (int): Number of years for the NPV calculation [-].
+        p_min (float or np.ndarray): Minimum power requirement [MW].
+        p_rule (float): Power above which the storage should charge [MW].
+        price_min (float): Price above which the storage should
+            discharge [currency]
+        n (int): Number of time steps to consider in the optimization.
+
+    Returns:
+        os_res (OpSchedule): Object describing the operational schedule.
+
+    Raises:
+        AssertionError: if the time step of the power and price time
+            series do not match.
+        RuntimeError: if the optimization algorithm fails to solve the
+            problem.
+
+    """
+
+
+
+    dt = prod_wind.power.dt
+    assert prod_pv.power.dt == dt
+
+    power_res = prod_wind.power.data[:n] + prod_pv.power.data[:n]
+
+    soc_batt = np.zeros((n,))
+    soc_h2 = np.zeros((n,))
+    power_batt = np.zeros((n,))
+    power_h2 = np.zeros((n,))
+
+    p_max = max(power_res)
+    rate_h2_min = 0.0*p_max
+    # p_sb = 0.0  #standby power, unused
+    p_mid = 10*p_max  #electrolyzer efficiency reduced abpve p_mid
+    tmp_slope = 1.0 #0.8
+    tmp_cst = -(tmp_slope-1) * p_mid * dt
+
+    for t in range(0,n):
+
+        avail_power = power_res[t] - p_rule
+
+        if avail_power>=0:
+
+            power_batt[t] = max(-stor_batt.p_cap,
+                            -(stor_batt.e_cap-soc_batt[t])/dt/stor_batt.eff_in,
+                            -avail_power )
+
+            avail_power += power_batt[t]  # power_res is <0
+
+            power_h2[t] = max(-stor_h2.p_cap,
+                              -(stor_h2.e_cap - soc_h2[t])/dt/stor_h2.eff_in,
+                              -avail_power )
+
+            avail_power += power_h2[t]
+
+
+
+        elif power_res[t]  >= p_min:
+            power_batt[t] = 0
+            power_h2[t] = 0
+            #if the price is high enough, sell as much as posible
+            if price_ts.data[t]>price_min:
+                if soc_h2[t]>0:
+                    power_h2[t] = min(stor_h2.p_cap,
+                                      soc_h2[t]/dt * stor_h2.eff_out)
+                if soc_batt[t]>0:
+                    power_batt[t] = min(stor_batt.p_cap,
+                                        soc_batt[t]/dt*stor_batt.eff_out)
+
+        else:
+            missing_power = p_min - power_res[t ]
+
+            if soc_h2[t]>0:
+                power_h2[t] = min(stor_h2.p_cap,
+                                  soc_h2[t]/dt*stor_h2.eff_out, missing_power)
+            else:
+                power_h2[t] = 0
+
+            missing_power -= power_h2[t]
+
+
+            if soc_batt[t]>0:
+                power_batt[t] = min(stor_batt.p_cap,
+                                    soc_batt[t]/dt*stor_batt.eff_out,
+                                    missing_power)
+            else:
+                power_batt[t] = 0
+
+
+        if t+1<n:
+
+            if power_batt[t] >= 0:
+                soc_batt[t+1] = soc_batt[t] \
+                                - dt*(power_batt[t])/stor_batt.eff_out
+            else:
+                soc_batt[t+1] = soc_batt[t] \
+                                - dt*(power_batt[t])*stor_batt.eff_in
+
+            if power_h2[t] <= - p_mid / stor_h2.eff_out:
+                ## lower efficiency ## power_res <0 and losses>0
+                soc_h2[t+1] = soc_h2[t] + tmp_cst \
+                            - tmp_slope * dt * (power_h2[t]) * stor_h2.eff_in
+            elif power_h2[t] <= -rate_h2_min:
+                # soc_h2[t+1] = soc_h2[t] - dt * (power_h2[t] - losses_h2[t])
+                ## power_res <0 and losses>0
+                soc_h2[t+1] = soc_h2[t] - dt  *(power_h2[t]) * stor_h2.eff_in
+            elif power_h2[t] >= 0:
+                # soc_h2[t+1] = soc_h2[t] - dt * (power_h2[t] - losses_h2[t])
+                ## power_res>0 ands losses >0
+                soc_h2[t+1] = soc_h2[t] - dt * (power_h2[t]) / stor_h2.eff_out
+            else:
+                soc_h2[t+1] = soc_h2[t]
+
+
+    os_res = OpSchedule(production_list = [prod_wind, prod_pv],
+                        storage_list = [stor_batt, stor_h2],
+                        production_p = [prod_wind.power, prod_pv.power],
+                        storage_p = [TimeSeries(power_batt, dt),
+                                     TimeSeries(power_h2, dt)],
+                        storage_e = [TimeSeries(soc_batt, dt),
+                                     TimeSeries(soc_h2, dt)],
+                        price = price_ts.data[:n])
+
+    os_res.get_npv_irr(discount_rate, n_year)
 
     return os_res

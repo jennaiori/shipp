@@ -167,6 +167,9 @@ class OpSchedule:
         npv = npf.npv(discount_rate, cash_flow) * 1e-6
         irr = npf.irr(cash_flow)
 
+        self.npv = npv
+        self.irr = irr
+
         return npv, irr
 
     def get_power_partition(self) -> list[float]:
@@ -301,8 +304,8 @@ class OpSchedule:
         if xlim is None or len(xlim) != 2:
             xlim = [0, len(self.power_out.data) * dt_all / 24]
 
-        ni = xlim[0]*24 // dt_all
-        ne = xlim[1]*24 // dt_all
+        ni = (int)(xlim[0]*24 / dt_all)
+        ne = (int)(xlim[1]*24 / dt_all)
 
         cnt = 0
         power_acc = np.zeros_like(self.storage_p[0].data)
