@@ -123,11 +123,20 @@ class OpSchedule:
             self.update_revenue(price)
 
         # Calculation of CAPEX based on individual components
+        # self.capex = 0
+        # for item in production_list:
+        #     self.capex += item.get_tot_costs()
+        # for item in storage_list:
+        #     self.capex += item.get_tot_costs()
+        self.update_capex()
+
+    def update_capex(self) -> None:
         self.capex = 0
-        for item in production_list:
+        for item in self.production_list:
             self.capex += item.get_tot_costs()
-        for item in storage_list:
+        for item in self.storage_list:
             self.capex += item.get_tot_costs()
+
 
 
     def update_revenue(self, price: list[float]) -> None:
@@ -222,10 +231,10 @@ class OpSchedule:
         '''
         if label_list is None:
             label_list = []
-            # cnt = 0
-            # for storage_item in self.storage_p:
-            #     label_list.append('Storage P ' + str(cnt))
-            #     cnt+=1
+            cnt = 0
+            for storage_item in self.storage_p:
+                label_list.append('Storage P ' + str(cnt))
+                cnt+=1
             cnt = 0
             for production_item in self.production_p:
                 label_list.append('Production P' + str(cnt))
@@ -237,11 +246,11 @@ class OpSchedule:
 
         cnt = 0
 
-        # for storage_item in self.storage_p:
-        #     if storage_item.data is not None:
-        #         plt.plot(storage_item.time() * 1/24, storage_item.data,
-        #                  label = label_list[cnt])
-        #         cnt+=1
+        for storage_item in self.storage_p:
+            if storage_item.data is not None:
+                plt.plot(storage_item.time() * 1/24, storage_item.data,
+                         color = 'none') #label = label_list[cnt]
+                cnt+=1
 
         for production_item in self.production_p:
             if production_item.data is not None:
