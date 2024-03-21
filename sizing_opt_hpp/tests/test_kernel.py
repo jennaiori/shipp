@@ -182,7 +182,7 @@ def test_build_milp_obj():
 
     vec_obj = build_milp_obj(power, price,  n, eta, alpha)
 
-    n_x = 14*n+5
+    n_x = 14*n+7
 
     assert vec_obj.ndim == 1
     assert vec_obj.shape[0] == n_x
@@ -230,8 +230,8 @@ def test_build_lp_cst_sparse():
                                                               losses_batt,
                                                               losses_h2)
     n_x = 7*n +6
-    n_eq = 4*n+2
-    n_ineq = 8*n+2
+    n_eq = 2*n+2
+    n_ineq = 10*n+2
 
     assert mat_eq.shape[0] == n_eq
     assert mat_eq.shape[1] == n_x
@@ -290,14 +290,12 @@ def test_build_milp_cst_sparse():
     max_soc = 1.0
     max_h2 = 1.0
 
-    mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub, vec_int = build_milp_cst_sparse(power, dt, p_min,
-                                                              p_max, n,
-                                                              losses_batt,
-                                                              losses_h2,
-                                                              losses_fc)
-    n_x = 14*n+5
+    mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub, vec_int = \
+        build_milp_cst_sparse(power, dt, p_min, p_max, n, losses_batt, 
+                              losses_batt, losses_h2, losses_fc)
+    n_x = 14*n+7
     n_eq = 3*n+2
-    n_ineq = 22*n+1
+    n_ineq = 25*n+2
 
     # print(n_eq)
     # print(mat_eq.shape)
@@ -321,12 +319,14 @@ def test_build_milp_cst_sparse():
                                                               p_min_vec,
                                                               p_max, n,
                                                               losses_batt,
+                                                              losses_batt,
                                                               losses_h2,
                                                               losses_fc)
 
     mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub, vec_int = build_milp_cst_sparse(power, dt,
                                                               p_min_vec,
                                                               p_max, n,
+                                                              losses_batt,
                                                               losses_batt,
                                                               losses_h2,
                                                               losses_fc,
@@ -338,7 +338,7 @@ def test_build_milp_cst_sparse():
     try:
         mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub, vec_int = \
             build_milp_cst_sparse(power[:n-1], dt, p_min_vec, p_max, n, losses_batt,
-                                losses_h2, losses_fc)
+                                losses_batt, losses_h2, losses_fc)
     except AssertionError:
         assert True
     else:
@@ -406,8 +406,8 @@ def test_linprog_mosek():
     n_year = 20
 
     n_x = 7*n +6
-    n_eq = 4*n+2
-    n_ineq = 8*n+2
+    n_eq = 2*n+2
+    n_ineq = 10*n+2
 
     mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub = build_lp_cst_sparse(power, dt, p_min,
                                                               p_max, n,
@@ -491,11 +491,12 @@ def test_milp_mosek():
     mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub, vec_int = build_milp_cst_sparse(power, dt, p_min,
                                                               p_max, n,
                                                               losses_batt,
+                                                              losses_batt,
                                                               losses_h2,
                                                               losses_fc)
-    n_x = 14*n+5
+    n_x = 14*n+7
     n_eq = 3*n+2
-    n_ineq = 22*n+1
+    n_ineq = 25*n+2
 
     vec_obj = build_milp_obj(power, price, n, 0.5, 0.5)
 

@@ -723,8 +723,8 @@ def build_lp_cst_sparse(power: np.ndarray, dt: float, p_min: float|np.ndarray,
 
     With n the number of time steps, the problem is made of:
         n_x = 7*n+6 design variables
-        n_eq = 4*n+2 equality constraints
-        n_ineq = 8*n+2 inequality constraints
+        n_eq = 2*n+2 equality constraints
+        n_ineq = 10*n+2 inequality constraints
 
     The design variables for the linear problem are:
         Available power production, shape-(n,)
@@ -740,14 +740,12 @@ def build_lp_cst_sparse(power: np.ndarray, dt: float, p_min: float|np.ndarray,
         Max hydrogen system energy capacity, shape-(1,)
 
     The equality constraints for the problem are:
-        Constraints on the battery state of charge (size n+1)
-        Constraints on the hydrogen storage levels (size n+1)
+        Constraints on the battery state of charge (size n)
+        Constraints on the hydrogen storage levels (size n)
         Constraint to enforce the value of the first state of charge
             is equal to the last (size 1)
         Constraint to enforce the value of the first hydrogen level
             is equal to the last (size 1)
-        Constraints to enforce the value of the battery losses (size n)
-        Constraints to enforce the value of the hydrogen losses (size n)
 
     The inequality constraints for the problem are:
         Constraints on the minimum and maximum combined power from
@@ -758,6 +756,8 @@ def build_lp_cst_sparse(power: np.ndarray, dt: float, p_min: float|np.ndarray,
         Constraints on the maxmimum and minimum power to and from the
             battery (size 2*n)
         Constraints on the maximum hydrogen levels (size n+1)
+        Constraints to enforce the value of the battery losses (size n)
+        Constraints to enforce the value of the hydrogen losses (size n)
 
     Params:
         power (np.ndarray): A shape-(n,) array for the power production
@@ -881,18 +881,18 @@ def build_lp_cst_sparse(power: np.ndarray, dt: float, p_min: float|np.ndarray,
     vec_h2_soc = z_n1
 
     # Constraint on first state of charge
-    mat_c3 = sps.hstack((z_1n, z_1n, z_1n, z_1n, z_1n,
+    mat_first_soc = sps.hstack((z_1n, z_1n, z_1n, z_1n, z_1n,
                             one_11, np.zeros((1, n-1)), -one_11,
                             z_1_np1,
                             z_11, z_11, z_11, z_11))
-    vec_b3 = z_11
+    vec_first_soc = z_11
 
     # Constraint on first h2 level
-    mat_c5 = sps.hstack((z_1n, z_1n, z_1n, z_1n, z_1n,
+    mat_first_soc_h2 = sps.hstack((z_1n, z_1n, z_1n, z_1n, z_1n,
                             z_1_np1,
                             one_11, np.zeros((1, n-1)), -one_11,
                             z_11, z_11, z_11, z_11))
-    vec_b5 = z_11
+    vec_first_soc_h2 = z_11
 
     # INEQ CONSTRAINT
     # Constraint on the maximum state of charge (i.e battery capacity)
@@ -942,8 +942,8 @@ def build_lp_cst_sparse(power: np.ndarray, dt: float, p_min: float|np.ndarray,
     vec_eps_h2 = z_n1
 
     ## Assemble matrices
-    mat_eq = sps.vstack((mat_soc, mat_c3,  mat_c5, mat_h2_soc))
-    vec_eq = sps.vstack((vec_soc, vec_b3,  vec_b5,
+    mat_eq = sps.vstack((mat_soc, mat_first_soc,  mat_first_soc_h2, mat_h2_soc))
+    vec_eq = sps.vstack((vec_soc, vec_first_soc,  vec_first_soc_h2,
                          vec_h2_soc)).toarray().squeeze()
 
     mat_ineq = sps.vstack((-1*mat_power_bound, mat_power_bound,
@@ -1012,7 +1012,7 @@ def build_milp_cst_sparse(power: np.ndarray, dt: float, p_min: float,
     With n the number of time steps, the problem is made of:
         n_x = 14*n+7 design variables
         n_eq = 3*n+2 equality constraints
-        n_ineq = 22*n+1 inequality constraints
+        n_ineq = 25*n+2 inequality constraints
 
     The design variables for the mixed-integer linear problem are:
         Available power production, shape-(n,)
@@ -1048,9 +1048,11 @@ def build_milp_cst_sparse(power: np.ndarray, dt: float, p_min: float,
     The inequality constraints for the problem are:
         Constraints on the minimum and maximum combined power from
             renewables and storage systems (size 2*n)
-        Constraints on the maximum state of charge (size n+1)
+        Constraints on the maximum state of charge (size 2*(n+1))
         Constraints on the maxmimum and minimum power to and from the
             hydrogen storage system (size 2*n)
+        Constraints on the maxmimum and minimum power to and from the
+            battery (size 2*n)
         Constraints on the battery losses (size 4*n)
         Constraint on the fuel cell losses (size 3*n)
         Constraints on the electrolyzer losses (size 3*n)
