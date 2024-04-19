@@ -9,8 +9,8 @@
 import sys
 sys.path.append('../../')
 
-from sizing_opt_hpp.kernel_pyomo import solve_lp_pyomo
-from sizing_opt_hpp.components import Storage, Production, TimeSeries
+from shipp.kernel_pyomo import solve_lp_pyomo
+from shipp.components import Storage, Production, TimeSeries
 
 import numpy as np
 import numpy_financial as npf

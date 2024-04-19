@@ -1,8 +1,8 @@
 '''Module containing unit tests for the package'''
 
-from sizing_opt_hpp.components import Storage, Production, OpSchedule
-from sizing_opt_hpp.timeseries import TimeSeries
-from sizing_opt_hpp.kernel import *
+from shipp.components import Storage, Production, OpSchedule
+from shipp.timeseries import TimeSeries
+from shipp.kernel import *
 
 
 def test_power_calc():

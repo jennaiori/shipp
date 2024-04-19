@@ -1,7 +1,7 @@
 '''Module containing unit tests for the package'''
 
-from sizing_opt_hpp.components import Storage, Production, OpSchedule
-from sizing_opt_hpp.timeseries import TimeSeries
+from shipp.components import Storage, Production, OpSchedule
+from shipp.timeseries import TimeSeries
 
 
 def test_simple():

@@ -1,92 +1,73 @@
-# sizing_opt_hpp
-
-
-
-## Getting started
-
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
-
-```
-cd existing_repo
-git remote add origin https://gitlab.tudelft.nl/J.Iori/sizing_opt_hpp.git
-git branch -M main
-git push -uf origin main
-```
-
-## Integrate with your tools
-
-- [ ] [Set up project integrations](https://gitlab.tudelft.nl/J.Iori/sizing_opt_hpp/-/settings/integrations)
-
-## Collaborate with your team
-
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
-
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thank you to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
+# SHIPP: Sizing optimization for HybrId Power Plants
 
 ## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+SHIPP is used for studying and designing hybrid power plants, i.e. power plants combining one or more renewable energy production with energy storage systems.
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+SHIPP is in development. Its capabilities are currently limited to sizing and operation of storage systems only. 
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
 
 ## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+*Installation instructions will be written once the package is published*
 
 ## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+SHIPP relies on two classes to describe a sizing optimization problem:
+- a `Production` object describe a renewable energy production (e.g. wind or solar PV) through
+    - its power production in time `power`. Note that in the optimization problem, the power can be curtailled.
+    - its cost per power capacity `p_cost`
+- a `Storage` object describe abstract storage systems through: 
+    - its cost per energy and power capacity `e_cost` and `p_cost`
+    - its energy and power capacity `e_cap` and `p_cap`
+    - its efficiency in charge and discharge `eff_in` and `eff_out`. Note that only constant efficiencies are considered here.
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+Finally, the optimization problem requires the time series of electricity prices on the day-ahead market.
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+The optimization problem is formulated and solved using a command of the form:
+```python
+os = solve_lp_pyomo(price, production1, production1, storage1, storage2, discount_rate, n_year, p_min, p_max, n)
+```
+where the discount rate and the number of years `n_year` are used for the calculation of the NPV. The parameters `p_min` and `p_max` are used to describe the constraints for the maximum and minimum power production. The number of time steps is `n`.
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+This results in an `OpSchedule` object describing the operation schedule of the power plant, with the following members:
+- `production_list`: a list of `Production` objects corresponding to the input objects of the optimization problem
+- `storage_list`: a list of `Storage` objects corresponding to the input objects of the optimization problem. However, their power and energy capacity correspond to the optimal design. In addition, we use a round-trip efficiency accounted during discharge, instead of separate charging and discharging efficiency.
+- `production_p`: a list of the power production for the objects in `production_list`. In case of curtailment, the first production unit assumes all the curtailment and the second production unit operates at full power.
+- `storage_p`: list of optimal power operation (charging/discharging) for the storage objects 
+- `storage_e`: list of optimal energy level evolution for the storage objects  
+- `losses`: list of power losses corresponding to the storage objects.
+- `power_out`: total power to the grid for the production and storage units
+- `npv`: NPV for the total system
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+The operation schedule can be visualized using the following commands:
+- `os.plot_powerflow()`: line plot of the power production and the energy level evolution
+- `os.plot_powerout(xlim = [start_time, end_time])`: bar plot of the power send to the grid
+
+An example case is given in `examples/example1.ipynb`.
+
+## Future developments
+- Remove dependency on mosek
+- Expand optimization problem definition to an arbitrary number of production and storage objects.
+- Test implementation with gurobi and cplex.
+- Include the lifetime of storage systems in the `Storage` objects.
+- Remove dependency on class `TimeSeries`
+
+## Dependencies
+The code relies on the following python packages:
+- numpy
+- numpy-financial
+- pandas
+- scipy
+- matplotlib
+- requests
+- ipykernel
+- pyomo 
+
+The file `environment.yml` can be used to create the conda environment to run the code.
+
 
 ## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+This project is developed by Jenna Iori at Delft University of Technology and is part of the Hollandse Kust Noord wind farm innovation program. Funding was provided by CrossWind C.V.
 
 ## License
-For open source projects, say how it is licensed.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+The code is currently closed source.

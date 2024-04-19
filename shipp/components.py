@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import numpy_financial as npf
 
-from sizing_opt_hpp.timeseries import TimeSeries
+from shipp.timeseries import TimeSeries
 
 class Storage:
     '''

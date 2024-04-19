@@ -1,7 +1,7 @@
-"""This module defines kernel functions for sizing_opt_hpp.
+"""This module defines kernel functions for shipp.
 
 The functions defined in this module are used to analyze or compute data
-for the classes defined in sizing_opt_hpp.
+for the classes defined in shipp.
 
 Functions:
     solve_lp_pyomo: Build and solve a LP for NPV maximization.
@@ -13,8 +13,8 @@ import numpy_financial as npf
 
 import pyomo.environ as pyo
 
-from sizing_opt_hpp.components import Storage, OpSchedule, Production
-from sizing_opt_hpp.timeseries import TimeSeries
+from shipp.components import Storage, OpSchedule, Production
+from shipp.timeseries import TimeSeries
 
 def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
                     prod_pv: Production, stor1: Storage, stor2: Storage,

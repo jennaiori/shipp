@@ -1,7 +1,7 @@
 # Ignore pycache files
 .pytest_cache/
 tests/__pycache__/
-sizing_opt_hpp/__pycache__/
+shipp/__pycache__/
 experiments/hyb24_bl_hpp/__pycache__/
 *.pyc
 # Ignore data files and figures

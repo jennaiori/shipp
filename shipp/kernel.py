@@ -1,7 +1,7 @@
-"""This module defines kernel functions for sizing_opt_hpp.
+"""This module defines kernel functions for shipp.
 
 The functions defined in this module are used to analyze or compute data
-for the classes defined in sizing_opt_hpp.
+for the classes defined in shipp.
 
 Functions:
     power_calc: Calculate power production from wind speed.
@@ -35,8 +35,8 @@ import matplotlib.pyplot as plt
 import mosek
 import scipy.sparse as sps
 
-from sizing_opt_hpp.components import Storage, OpSchedule, Production
-from sizing_opt_hpp.timeseries import TimeSeries
+from shipp.components import Storage, OpSchedule, Production
+from shipp.timeseries import TimeSeries
 
 def power_calc(wind: np.ndarray, radius: float, cp: float, v_in:float,
                v_r: float, v_out: float, p_max: float = None) -> np.ndarray:
