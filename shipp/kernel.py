@@ -673,7 +673,7 @@ def build_milp_obj(power: np.ndarray, price: np.ndarray, n: int, eta: float,
                       (1-eta)*alpha*np.ones((1,1)),           # minimize max state of charge
                       (1-eta)*(1-alpha)*0.5*np.ones((1,1)),
                       (1-eta)*(1-alpha)*0.5*np.ones((1,1)),    #  h2 power rate
-                      1e-5*np.ones((1,1)))).squeeze() 
+                      1e-5*np.ones((1,1)))).squeeze()
 
 
     return vec_obj
@@ -1217,8 +1217,8 @@ def build_lp_cst_sparse_sf(power: np.ndarray, dt: float, p_min: float|np.ndarray
     mat_diag_soc = eye_n - sps.diags(np.ones(n-1),1)
 
     # upper bound on power
-    power_ub =(np.array([ max(0, p_max - p) for p in  power[:n]])).reshape(n,1) 
- 
+    power_ub =(np.array([ max(0, p_max - p) for p in  power[:n]])).reshape(n,1)
+
 
 
     # EQUALITY CONSTRAINTS
@@ -1283,7 +1283,7 @@ def build_lp_cst_sparse_sf(power: np.ndarray, dt: float, p_min: float|np.ndarray
                             z_n1, z_n1, z_n1, z_n1))
     vec_soc_sts2 = z_n1
 
-    # Constraint on hydrogen levels: 
+    # Constraint on hydrogen levels:
     #  soc_(n+1) - soc_(n) <= - dt * P_batt
     mat_soc_lts1 = sps.hstack((z_n, dt * eye_n,
                                 z_n_np1, -mat_diag_soc, -mat_last_soc,
@@ -1302,13 +1302,13 @@ def build_lp_cst_sparse_sf(power: np.ndarray, dt: float, p_min: float|np.ndarray
 
     mat_ineq = sps.vstack((-1*mat_power_bound, mat_power_bound,
                                 mat_soc_sts1, mat_soc_sts2,
-                                mat_soc_lts1, mat_soc_lts2, 
+                                mat_soc_lts1, mat_soc_lts2,
                                 mat_max_soc, mat_h2_max_power,
                                 mat_h2_min_power, mat_max_batt,
                                 mat_min_batt, mat_max_h2))
     vec_ineq = sps.vstack((-1*vec_power_min, vec_power_max,
                                 vec_soc_sts1, vec_soc_sts2,
-                                vec_soc_lts1, vec_soc_lts2, 
+                                vec_soc_lts1, vec_soc_lts2,
                                 vec_max_soc, vec_h2_max_power,
                                 vec_h2_min_power, vec_max_batt,
                                 vec_min_batt, vec_max_h2)).toarray().squeeze()
@@ -1336,8 +1336,8 @@ def build_lp_cst_sparse_sf(power: np.ndarray, dt: float, p_min: float|np.ndarray
 
 def build_milp_cst_sparse(power: np.ndarray, dt: float, p_min: float,
                           p_max: float, n: int, losses_batt_in: float,
-                          losses_batt_out: float, losses_h2: float, 
-                          losses_fc: float, rate_batt: float = -1, 
+                          losses_batt_out: float, losses_h2: float,
+                          losses_fc: float, rate_batt: float = -1,
                           rate_h2: float = -1, max_soc: float = -1,
                           max_h2: float = -1) -> tuple[sps.coo_matrix,
                                                          np.ndarray,
@@ -1420,7 +1420,7 @@ def build_milp_cst_sparse(power: np.ndarray, dt: float, p_min: float,
              minimum required power production [MW].
         p_max (float): maximum power production [MW]
         n (int): number of time steps [-].
-        losses_batt_in, losses_batt_out (float): represents the portion 
+        losses_batt_in, losses_batt_out (float): represents the portion
             of power lost during Charge and discharge of the battery [-]
         losses_h2 (float): represents the portion of power lost during
             charge and discharge of the hydrogen storage system [-]. The
@@ -1531,7 +1531,7 @@ def build_milp_cst_sparse(power: np.ndarray, dt: float, p_min: float,
     #   soc_(n) - soc_(n+1) - dt * (P_batt + losses) = 0
     mat_soc_batt = sps.hstack((z_n, -eye_n_dt, z_n, -eye_n_dt, z_n, z_n, z_n,
                                z_n, z_n,  z_n, z_n, z_n, mat_diag_soc,
-                               mat_last_soc,  z_n_np1, 
+                               mat_last_soc,  z_n_np1,
                                z_n1, z_n1, z_n1, z_n1,z_n1,))
     vec_soc_batt = z_n1
 
@@ -1545,8 +1545,8 @@ def build_milp_cst_sparse(power: np.ndarray, dt: float, p_min: float,
 
     # Constraint on the first state of charge of the battery = last one
     mat_1st_soc_batt = sps.hstack((z_1n, z_1n, z_1n, z_1n, z_1n, z_1n, z_1n, z_1n,
-                            z_1n, z_1n, z_1n, z_1n, 
-                            one_11,  sps.coo_array((1,n-1)), -one_11, 
+                            z_1n, z_1n, z_1n, z_1n,
+                            one_11,  sps.coo_array((1,n-1)), -one_11,
                             z_1_np1,
                             z_11, z_11, z_11, z_11, z_11))
     vec_1st_soc_batt = z_11
@@ -1562,7 +1562,7 @@ def build_milp_cst_sparse(power: np.ndarray, dt: float, p_min: float,
     #   z_off + z_sb + z_on + z_plus = 1
     mat_op_states = sps.hstack((z_n, z_n, z_n, z_n, z_n, z_n, z_n,  z_n,
                                    eye_n, eye_n, eye_n, eye_n, z_n_np1,
-                                   z_n_np1, 
+                                   z_n_np1,
                                    z_n1, z_n1, z_n1, z_n1, z_n1))
     vec_op_states = one_n1
 
@@ -1571,47 +1571,47 @@ def build_milp_cst_sparse(power: np.ndarray, dt: float, p_min: float,
     #   p_min <= p_res + p_batt + p_h2 <= p_max
     mat_power_bound = sps.hstack((eye_n, eye_n, eye_n, z_n,z_n, z_n,
                                   z_n, z_n, z_n,  z_n, z_n, z_n,
-                                  z_n_np1, z_n_np1, 
+                                  z_n_np1, z_n_np1,
                                   z_n1, z_n1, z_n1, z_n1, z_n1))
     vec_power_min = p_min_vec
     vec_power_max = one_n1* p_max
 
-    # Constraint on the maximum battery power 
+    # Constraint on the maximum battery power
     mat_batt_max_power = sps.hstack((z_n, eye_n, z_n, z_n,z_n, z_n, z_n,
                                    z_n, z_n, z_n,  z_n, z_n, z_n_np1,
-                                   z_n_np1, 
+                                   z_n_np1,
                                    -one_n1, z_n1, z_n1,  z_n1,  z_n1,))
     vec_batt_max_power = z_n1
     mat_batt_min_power = sps.hstack((z_n, -eye_n, z_n, z_n,z_n, z_n, z_n,
                                    z_n, z_n, z_n, z_n, z_n, z_n_np1,
-                                   z_n_np1, 
+                                   z_n_np1,
                                    -one_n1, z_n1, z_n1,  z_n1, z_n1))
     vec_batt_min_power = z_n1
-    
+
 
     # Constraint on the maximum state of charge = battery capacity
     mat_max_soc = sps.hstack((z_np1_n, z_np1_n, z_np1_n, z_np1_n,
                               z_np1_n, z_np1_n, z_np1_n,z_np1_n,z_np1_n,
-                              z_np1_n, z_np1_n, z_np1_n, eye_np1, z_np1, 
+                              z_np1_n, z_np1_n, z_np1_n, eye_np1, z_np1,
                               z_np1_1, -one_np1_1, z_np1_1, z_np1_1, z_np1_1))
     vec_max_soc = z_np1_1
 
     # Constraint on the maximum power output from electrolyzer / fuel cell
     mat_h2_max_power = sps.hstack((z_n, z_n, eye_n, z_n,z_n, z_n, z_n,
                                    z_n, z_n, z_n,  z_n, z_n, z_n_np1,
-                                   z_n_np1, 
+                                   z_n_np1,
                                    z_n1, z_n1,  -one_n1, z_n1, z_n1,))
     vec_h2_max_power = z_n1
     mat_h2_min_power = sps.hstack((z_n, z_n, -eye_n, z_n,z_n, z_n, z_n,
                                    z_n, z_n, z_n, z_n, z_n, z_n_np1,
-                                   z_n_np1, 
+                                   z_n_np1,
                                    z_n1, z_n1, -one_n1, z_n1, z_n1))
     vec_h2_min_power = z_n1
 
      # Constraint on the maximum state of charge for the hydrogen system
     mat_max_soc_h2 = sps.hstack((z_np1_n, z_np1_n, z_np1_n, z_np1_n,
                               z_np1_n, z_np1_n, z_np1_n,z_np1_n,z_np1_n,
-                              z_np1_n, z_np1_n, z_np1_n, z_np1, eye_np1, 
+                              z_np1_n, z_np1_n, z_np1_n, z_np1, eye_np1,
                               z_np1_1, z_np1_1, z_np1_1, z_np1_1, -one_np1_1))
     vec_max_soc_h2 = z_np1_1
 
@@ -1623,20 +1623,20 @@ def build_milp_cst_sparse(power: np.ndarray, dt: float, p_min: float,
     # (3&4)  -M*(1-z_bat) <= -eps_bat*p_bat + los_bat <= M*(1-z_bat)
     mat_lbatt_charge_max = sps.hstack((z_n, eye_n_losses_batt_in, z_n, eye_n,
                                        z_n, z_n, z_n, -eye_n_big_m, z_n, z_n,
-                                       z_n, z_n, z_n_np1, z_n_np1, 
+                                       z_n, z_n, z_n_np1, z_n_np1,
                                        z_n1, z_n1, z_n1, z_n1, z_n1))
     vec_lbatt_charge_max = z_n1
 
     mat_lbatt_charge_min = sps.hstack((z_n, -eye_n_losses_batt_in, z_n, -eye_n,
                                        z_n, z_n, z_n, -eye_n_big_m, z_n, z_n,
-                                       z_n, z_n, z_n_np1, z_n_np1, 
+                                       z_n, z_n, z_n_np1, z_n_np1,
                                        z_n1, z_n1, z_n1, z_n1, z_n1))
     vec_lbatt_charge_min = z_n1
 
     #discharge
     mat_lbatt_dcharge_max = sps.hstack((z_n, -eye_n_losses_batt_out, z_n,
                                         eye_n, z_n, z_n, z_n, eye_n_big_m, z_n,
-                                        z_n, z_n, z_n, z_n_np1, z_n_np1, 
+                                        z_n, z_n, z_n, z_n_np1, z_n_np1,
                                         z_n1, z_n1, z_n1, z_n1, z_n1))
     vec_lbatt_dcharge_max = one_n1 * big_m
 
@@ -1664,7 +1664,7 @@ def build_milp_cst_sparse(power: np.ndarray, dt: float, p_min: float,
     mat_lfc_max = sps.hstack((z_n, z_n, -eye_n_losses_fc,
                               z_n, eye_n, z_n, z_n,
                               z_n, eye_n_big_m, z_n, z_n,
-                              z_n, z_n_np1, z_n_np1, 
+                              z_n, z_n_np1, z_n_np1,
                               z_n1, z_n1, z_n1, z_n1, z_n1))
     vec_lfc_max = sps.coo_array(big_m * np.ones((n,1)))
 
@@ -1685,21 +1685,21 @@ def build_milp_cst_sparse(power: np.ndarray, dt: float, p_min: float,
     mat_lh2_max_simple = sps.hstack((z_n, z_n, z_n,
                                      z_n, z_n, eye_n, z_n,
                                      z_n, eye_n_big_m, z_n, z_n, z_n,
-                                     z_n_np1, z_n_np1, 
+                                     z_n_np1, z_n_np1,
                                      z_n1, z_n1, z_n1, z_n1, z_n1))
     vec_lh2_max_simple = big_m*one_n1
 
     mat_lh2_max = sps.hstack((z_n, z_n, eye_n_losses_h2,
                               z_n, z_n, eye_n, z_n,
                               z_n, -eye_n_big_m, z_n, z_n, z_n,
-                              z_n_np1, z_n_np1, 
+                              z_n_np1, z_n_np1,
                               z_n1, z_n1, z_n1, z_n1, z_n1))
     vec_lh2_max = z_n1
 
     mat_lh2_min = sps.hstack((z_n, z_n, -eye_n_losses_h2,
                               z_n, z_n, -eye_n, z_n,
                               z_n, -eye_n_big_m, z_n, z_n, z_n,
-                              z_n_np1, z_n_np1, 
+                              z_n_np1, z_n_np1,
                               z_n1, z_n1, z_n1, z_n1, z_n1))
     vec_lh2_min = z_n1
 
@@ -1721,7 +1721,7 @@ def build_milp_cst_sparse(power: np.ndarray, dt: float, p_min: float,
     mat_lh2_plus_max_simple = sps.hstack((z_n, z_n, z_n,
                                           z_n, z_n, z_n, eye_n,
                                           z_n, z_n, z_n, z_n, -eye_n_big_m,
-                                          z_n_np1, z_n_np1, 
+                                          z_n_np1, z_n_np1,
                                           z_n1, z_n1, z_n1, z_n1, z_n1))
     vec_lh2_plus_max_simple = z_n1
 
@@ -1760,7 +1760,7 @@ def build_milp_cst_sparse(power: np.ndarray, dt: float, p_min: float,
     mat_op_state_power_max = sps.hstack((z_n, z_n, -eye_n, z_n, z_n, z_n,
                                          z_n, z_n, z_n, -eye_n_p_sb,
                                          -eye_n_p_mid, -eye_n_rate_h2,
-                                         z_n_np1, z_n_np1, 
+                                         z_n_np1, z_n_np1,
                                          z_n1, z_n1, z_n1, z_n1,z_n1))
     vec_op_state_power_max = z_n1
 
@@ -1779,13 +1779,13 @@ def build_milp_cst_sparse(power: np.ndarray, dt: float, p_min: float,
     mat_op_batt1 = sps.hstack((z_n, eye_n, z_n,
                                z_n, z_n, z_n, z_n,
                                -eye_n_big_m, z_n, z_n, z_n, z_n,
-                               z_n_np1, z_n_np1, 
+                               z_n_np1, z_n_np1,
                                z_n1, z_n1, z_n1, z_n1, z_n1))
     vec_op_batt1 = z_n1
 
     mat_op_batt2 = sps.hstack((z_n, -eye_n, z_n, z_n, z_n, z_n, z_n,
                                eye_n_big_m, z_n, z_n, z_n, z_n, z_n_np1,
-                               z_n_np1, 
+                               z_n_np1,
                                z_n1, z_n1, z_n1, z_n1, z_n1))
     vec_op_batt2 = big_m * one_n1
 
@@ -2706,9 +2706,9 @@ def solve_lp_sparse(price_ts: TimeSeries, prod_wind: Production,
                             eff_out = 1-eps_h2,
                             p_cost = stor_h2.p_cost,
                             e_cost = stor_h2.e_cost)
-    
-    prod_wind_res = Production(power_ts = TimeSeries(np.array(power_res_new) 
-                                                     - np.array(prod_pv.power.data[:n]), dt), 
+
+    prod_wind_res = Production(power_ts = TimeSeries(np.array(power_res_new)
+                                                     - np.array(prod_pv.power.data[:n]), dt),
                                                      p_cost= prod_wind.p_cost)
 
     os_res = OpSchedule(production_list = [prod_wind_res, prod_pv],
@@ -2723,7 +2723,7 @@ def solve_lp_sparse(price_ts: TimeSeries, prod_wind: Production,
 
     os_res.get_npv_irr(discount_rate, n_year)
 
-    os_res.losses = [np.array(power_losses_bat) ,  np.array(power_losses_h2)] 
+    os_res.losses = [np.array(power_losses_bat) ,  np.array(power_losses_h2)]
 
     return os_res
 
@@ -2735,9 +2735,9 @@ def solve_lp_sparse_sf(price_ts: TimeSeries, prod_wind: Production,
     """Build and solve a LP for NPV maximization.
 
     This function builds and solves the hybrid sizing and operation
-    problem as a linear program, in a short formulation (sf). The 
+    problem as a linear program, in a short formulation (sf). The
     objective is to minimize the Net Present Value of the plant. In this
-    function, the input for the power production represented by two 
+    function, the input for the power production represented by two
     Production objects, one for wind and one for solar.
 
     Params:
@@ -2825,7 +2825,7 @@ def solve_lp_sparse_sf(price_ts: TimeSeries, prod_wind: Production,
     power_losses_bat = []
     power_losses_h2 = []
     for i in range(n):
-        power_res_new.append(min(p_max - power_batt[i] - power_h2[i], 
+        power_res_new.append(min(p_max - power_batt[i] - power_h2[i],
                              power_res[i]))
 
         power_losses_bat.append(-(soc[i+1] - soc[i] + dt*power_batt[i])/dt)
@@ -2843,7 +2843,7 @@ def solve_lp_sparse_sf(price_ts: TimeSeries, prod_wind: Production,
                             eff_out = 1-eps_h2,
                             p_cost = stor_h2.p_cost,
                             e_cost = stor_h2.e_cost)
-    
+
     prod_wind_res = Production(power_ts = TimeSeries(np.array(power_res_new) - prod_pv.power.data[:n], dt), p_cost= prod_wind.p_cost)
 
     os_res = OpSchedule(production_list = [prod_wind_res, prod_pv],
@@ -2858,7 +2858,7 @@ def solve_lp_sparse_sf(price_ts: TimeSeries, prod_wind: Production,
 
     os_res.get_npv_irr(discount_rate, n_year)
 
-    os_res.losses = [np.array(power_losses_bat) ,  np.array(power_losses_h2)] 
+    os_res.losses = [np.array(power_losses_bat) ,  np.array(power_losses_h2)]
 
     return os_res
 
@@ -2991,22 +2991,22 @@ def solve_milp_sparse(power_ts: TimeSeries, price_ts: TimeSeries,
                                     #  TimeSeries(losses_batt, dt),
                                     #  TimeSeries(losses_h2, dt),
                                     #  TimeSeries(losses_fc, dt)
-    os_res.losses = [np.array(losses_batt) ,  np.array(losses_h2)+np.array(losses_fc)] 
+    os_res.losses = [np.array(losses_batt) ,  np.array(losses_h2)+np.array(losses_fc)]
 
     return os_res
 
 def solve_milp_sparse_npv(price_ts: TimeSeries, prod_wind: Production,
-                          prod_pv: Production, stor_batt: Storage, 
+                          prod_pv: Production, stor_batt: Storage,
                           stor_h2: Storage, discount_rate: float, n_year: int,
-                          p_min: float | np.ndarray, p_max: float, n: int, 
+                          p_min: float | np.ndarray, p_max: float, n: int,
                           init_point: np.ndarray = None,
                           verbose: bool = False) -> OpSchedule:
     """Build and solve a MILP for NPV maximization.
 
     This function builds and solves the hybrid sizing and operation
     problem as a mixed-integer linear program. The objective is to
-    minimize the Net Present Value of the plant. In this function, the 
-    input for the power production represented by two Production 
+    minimize the Net Present Value of the plant. In this function, the
+    input for the power production represented by two Production
     objects, one for wind and one for solar.
 
     Params:
@@ -3060,12 +3060,12 @@ def solve_milp_sparse_npv(price_ts: TimeSeries, prod_wind: Production,
                                stor_batt.e_cost, stor_h2.p_cost,
                                stor_h2.e_cost, discount_rate, n_year)
 
-    
+
     mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub, integrality = \
         build_milp_cst_sparse(power_res, dt,  p_min, p_max, n, eps_batt_in,
-                              eps_batt_out, eps_h2, eps_fc, 
-                              rate_batt = stor_batt.p_cap, 
-                              rate_h2 = stor_h2.p_cap, 
+                              eps_batt_out, eps_h2, eps_fc,
+                              rate_batt = stor_batt.p_cap,
+                              rate_h2 = stor_h2.p_cap,
                               max_soc = stor_batt.e_cap,
                               max_h2 = stor_h2.e_cap)
 
@@ -3122,8 +3122,8 @@ def solve_milp_sparse_npv(price_ts: TimeSeries, prod_wind: Production,
                             p_cost = stor_h2.p_cost,
                             e_cost = stor_h2.e_cost)
 
-    prod_wind_res = Production(TimeSeries(power_wind 
-                                          - prod_pv.power.data[:n], dt), 
+    prod_wind_res = Production(TimeSeries(power_wind
+                                          - prod_pv.power.data[:n], dt),
                                           p_cost = prod_wind.p_cost)
 
     os_res = OpSchedule(production_list = [prod_wind_res, prod_pv],
@@ -3139,7 +3139,7 @@ def solve_milp_sparse_npv(price_ts: TimeSeries, prod_wind: Production,
                                     #  TimeSeries(losses_batt, dt),
                                     #  TimeSeries(losses_h2, dt),
                                     #  TimeSeries(losses_fc, dt)
-    os_res.losses = [np.array(losses_bat) ,  np.array(losses_fc)+np.array(losses_h2)] 
+    os_res.losses = [np.array(losses_bat) ,  np.array(losses_fc)+np.array(losses_h2)]
     # os_res.losses[0] = losses_bat
     # os_res.losses_h2 = losses_h2
     # os_res.losses_fc = losses_fc
@@ -3272,7 +3272,7 @@ def os_rule_based(price_ts: TimeSeries, prod_wind: Production,
                 power_batt[t] = 0
 
 
-        
+
 
         if power_batt[t] >= 0:
             soc_batt[t+1] = soc_batt[t] \
@@ -3302,12 +3302,12 @@ def os_rule_based(price_ts: TimeSeries, prod_wind: Production,
                             eff_out = stor_batt.eff_out,
                             p_cost = stor_batt.p_cost,
                             e_cost = stor_batt.e_cost)
-    
+
     #find minimum storage from the maximum discharge cycle
     import rainflow
     soc_h2_max = max(soc_h2)
     rng_vec = []
-    for rng, mn, count, i_start, i_end in rainflow.extract_cycles(soc_h2): 
+    for rng, mn, count, i_start, i_end in rainflow.extract_cycles(soc_h2):
         if soc_h2[i_start] - soc_h2[i_end] > 0:
             rng_vec.append(rng)
     if len(rng_vec)>0:

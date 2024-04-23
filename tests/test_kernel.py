@@ -1,11 +1,19 @@
-'''Module containing unit tests for the package'''
+'''Module containing unit tests for the module kernel.py'''
 
-from shipp.components import Storage, Production, OpSchedule
+import numpy as np
+from shipp.components import Storage, Production
 from shipp.timeseries import TimeSeries
-from shipp.kernel import *
+from shipp.kernel import power_calc, build_lp_cst, build_lp_obj_pareto, \
+                        build_lp_obj_npv, build_milp_obj, build_lp_cst_sparse,\
+                        build_milp_cst_sparse, solve_lp, linprog_mosek, \
+                        milp_mosek, solve_lp_sparse_pareto, solve_lp_sparse,\
+                        solve_lp_sparse_old, solve_milp_sparse
+
 
 
 def test_power_calc():
+    ''' Test of function power_calc'''
+
     wind = np.array([1.0, 2.0, 2.0, 3.0])
     radius = 1.0
     cp = 0.4
@@ -29,16 +37,15 @@ def test_power_calc():
 
     try:
         power =  power_calc(wind_nan, radius, cp, v_in, v_r, v_out)
-    except AssertionError as inst:
+    except AssertionError:
         assert True
     else:
         assert False
 
     assert wind.shape == power.shape
 
-
-
 def test_build_lp_cst():
+    ''' Test of function build_lp_cst'''
 
     power = np.array([0,1,2,3])
     n = len(power)
@@ -91,9 +98,8 @@ def test_build_lp_cst():
                                                               max_soc,
                                                               max_h2)
 
-
-
 def test_build_lp_obj_pareto():
+    ''' Test of function build_lp_obj_pareto'''
 
     power = np.array([0,1,2,3])
     n = len(power)
@@ -130,9 +136,8 @@ def test_build_lp_obj_pareto():
     else:
         assert False
 
-
-
 def test_build_lp_obj_npv():
+    ''' Test of function build_lp_obj_npv'''
 
     power = np.array([0,1,2,3])
     n = len(power)
@@ -163,15 +168,15 @@ def test_build_lp_obj_npv():
         assert False
 
     try:
-        vec_obj = build_lp_obj_npv(price[:n-1], n,  1,1,1,1, discount_rate, n_year)
+        vec_obj = build_lp_obj_npv(price[:n-1], n,  1,1,1,1, discount_rate,
+                                   n_year)
     except AssertionError:
         assert True
     else:
         assert False
 
-
-
 def test_build_milp_obj():
+    ''' Test of function build_milp_obj'''
 
     power = np.array([0,1,2,3])
     n = len(power)
@@ -208,9 +213,8 @@ def test_build_milp_obj():
     else:
         assert False
 
-
-
 def test_build_lp_cst_sparse():
+    ''' Test of function build_lp_cst_sparse'''
 
     power = np.array([0,1,2, 0, 3])
     n = len(power)
@@ -225,10 +229,8 @@ def test_build_lp_cst_sparse():
     max_soc = 1.0
     max_h2 = 1.0
 
-    mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub = build_lp_cst_sparse(power, dt, p_min,
-                                                              p_max, n,
-                                                              losses_batt,
-                                                              losses_h2)
+    mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub = \
+        build_lp_cst_sparse(power, dt, p_min, p_max, n, losses_batt, losses_h2)
     n_x = 7*n +6
     n_eq = 2*n+2
     n_ineq = 10*n+2
@@ -246,36 +248,25 @@ def test_build_lp_cst_sparse():
     assert lb.ndim == 1
     assert ub.ndim == 1
 
-    mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub = build_lp_cst_sparse(power, dt,
-                                                              p_min_vec,
-                                                              p_max, n,
-                                                              losses_batt,
-                                                              losses_h2)
+    mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub = \
+        build_lp_cst_sparse(power, dt, p_min_vec, p_max, n, losses_batt,
+                            losses_h2)
 
-    mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub = build_lp_cst_sparse(power, dt,
-                                                              p_min_vec,
-                                                              p_max, n,
-                                                              losses_batt,
-                                                              losses_h2,
-                                                              rate_batt,
-                                                              rate_h2,
-                                                              max_soc,
-                                                              max_h2)
+    mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub = \
+        build_lp_cst_sparse(power, dt, p_min_vec, p_max, n, losses_batt,
+                            losses_h2, rate_batt, rate_h2, max_soc, max_h2)
 
     try:
         mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub = \
-            build_lp_cst_sparse(power[:n-1], dt, p_min_vec, p_max, n, losses_batt,
-                                losses_h2)
+            build_lp_cst_sparse(power[:n-1], dt, p_min_vec, p_max, n,
+                                losses_batt, losses_h2)
     except AssertionError:
         assert True
     else:
         assert False
 
-
-
-
 def test_build_milp_cst_sparse():
-
+    ''' Test of function build_milp_cst_sparse'''
     power = np.array([0,1,2, 0, 3])
     n = len(power)
     dt = 1.0
@@ -291,7 +282,7 @@ def test_build_milp_cst_sparse():
     max_h2 = 1.0
 
     mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub, vec_int = \
-        build_milp_cst_sparse(power, dt, p_min, p_max, n, losses_batt, 
+        build_milp_cst_sparse(power, dt, p_min, p_max, n, losses_batt,
                               losses_batt, losses_h2, losses_fc)
     n_x = 14*n+7
     n_eq = 3*n+2
@@ -315,39 +306,28 @@ def test_build_milp_cst_sparse():
     assert vec_int.shape[0] == n_x
     assert vec_int.ndim == 1
 
-    mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub, vec_int = build_milp_cst_sparse(power, dt,
-                                                              p_min_vec,
-                                                              p_max, n,
-                                                              losses_batt,
-                                                              losses_batt,
-                                                              losses_h2,
-                                                              losses_fc)
+    mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub, vec_int = \
+        build_milp_cst_sparse(power, dt, p_min_vec, p_max, n, losses_batt,
+                               losses_batt, losses_h2, losses_fc)
 
-    mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub, vec_int = build_milp_cst_sparse(power, dt,
-                                                              p_min_vec,
-                                                              p_max, n,
-                                                              losses_batt,
-                                                              losses_batt,
-                                                              losses_h2,
-                                                              losses_fc,
-                                                              rate_batt,
-                                                              rate_h2,
-                                                              max_soc,
-                                                              max_h2)
+    mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub, vec_int = \
+        build_milp_cst_sparse(power, dt, p_min_vec, p_max, n, losses_batt,
+                              losses_batt, losses_h2, losses_fc, rate_batt,
+                              rate_h2, max_soc, max_h2)
 
     try:
         mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub, vec_int = \
-            build_milp_cst_sparse(power[:n-1], dt, p_min_vec, p_max, n, losses_batt,
-                                losses_batt, losses_h2, losses_fc)
+            build_milp_cst_sparse(power[:n-1], dt, p_min_vec, p_max, n,
+                                  losses_batt, losses_batt, losses_h2,
+                                  losses_fc)
     except AssertionError:
         assert True
     else:
         assert False
 
 
-
-
 def test_solve_lp():
+    ''' Test of function solve_lp'''
 
     power = np.array([2,1,2, 2, 3])
     n = len(power)
@@ -364,22 +344,22 @@ def test_solve_lp():
     eta = 0.5
     alpha = 0.5
 
-    os = solve_lp(power_ts, price_ts, stor_batt, stor_h2, eta, alpha, p_min,
+    _ = solve_lp(power_ts, price_ts, stor_batt, stor_h2, eta, alpha, p_min,
                   p_max, n)
 
-    os = solve_lp(power_ts, price_ts, stor_batt, stor_h2, eta, alpha,
+    _ = solve_lp(power_ts, price_ts, stor_batt, stor_h2, eta, alpha,
                   p_min_vec, p_max, n)
 
     try:
-        os = solve_lp(power_ts, TimeSeries(price, 2*dt), stor_batt, stor_h2, eta, alpha,
-                  p_min_vec, p_max, n)
+        _ = solve_lp(power_ts, TimeSeries(price, 2*dt), stor_batt, stor_h2,
+                     eta, alpha, p_min_vec, p_max, n)
     except AssertionError:
         assert True
     else:
         assert False
 
     try:
-        os = solve_lp(power_ts, price_ts, stor_batt, stor_h2, eta, alpha, p_min,
+        _ = solve_lp(power_ts, price_ts, stor_batt, stor_h2, eta, alpha, p_min,
                   0, n)
     except RuntimeError:
         assert True
@@ -389,19 +369,15 @@ def test_solve_lp():
 
 
 def test_linprog_mosek():
+    ''' Test of function linprog_mosek'''
     power = np.array([0,1,2, 0, 3])
     n = len(power)
     dt = 1.0
     p_min = 1.0
-    p_min_vec = np.array([0,0,0,1,0])
     price = np.array([0.1, 0.1, 0.2, 0.1, 0.1])
     p_max = 4.0
     losses_batt = 0.0
     losses_h2 = 0.0
-    rate_batt = 1.0
-    rate_h2 = 1.0
-    max_soc = 1.0
-    max_h2 = 1.0
     discount_rate = 0.03
     n_year = 20
 
@@ -409,10 +385,8 @@ def test_linprog_mosek():
     n_eq = 2*n+2
     n_ineq = 10*n+2
 
-    mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub = build_lp_cst_sparse(power, dt, p_min,
-                                                              p_max, n,
-                                                              losses_batt,
-                                                              losses_h2)
+    mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub = \
+        build_lp_cst_sparse(power, dt, p_min, p_max, n, losses_batt, losses_h2)
     vec_obj = build_lp_obj_npv(price, n, 1,1,1,1, discount_rate, n_year)
 
     x = linprog_mosek(n_x, n_eq, n_ineq, mat_eq, vec_eq, mat_ineq, vec_ineq,
@@ -445,8 +419,8 @@ def test_linprog_mosek():
         assert False
 
     try:
-        x = linprog_mosek(n_x, n_eq, n_ineq, mat_eq.toarray(), vec_eq, mat_ineq,
-                          vec_ineq, vec_obj, lb, ub)
+        x = linprog_mosek(n_x, n_eq, n_ineq, mat_eq.toarray(), vec_eq,
+                          mat_ineq, vec_ineq, vec_obj, lb, ub)
     except AssertionError:
         assert True
     else:
@@ -471,29 +445,21 @@ def test_linprog_mosek():
 
 
 def test_milp_mosek():
+    ''' Test of function milp_mosek'''
+
     power = np.array([1,1,2, 1, 3])
     n = len(power)
     dt = 1.0
     p_min = 0.0
-    p_min_vec = np.array([0,0,0,0,0])
     price = np.array([0.1, 0.1, 0.2, 0.1, 0.1])
     p_max = 4.0
     losses_batt = 0.0
     losses_h2 = 0.0
-    rate_batt = 1.0
-    rate_h2 = 1.0
-    max_soc = 1.0
-    max_h2 = 1.0
     losses_fc = 0
-    discount_rate = 0.03
-    n_year = 20
 
-    mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub, vec_int = build_milp_cst_sparse(power, dt, p_min,
-                                                              p_max, n,
-                                                              losses_batt,
-                                                              losses_batt,
-                                                              losses_h2,
-                                                              losses_fc)
+    mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub, vec_int = \
+        build_milp_cst_sparse(power, dt, p_min, p_max, n, losses_batt,
+                              losses_batt, losses_h2, losses_fc)
     n_x = 14*n+7
     n_eq = 3*n+2
     n_ineq = 25*n+2
@@ -515,8 +481,8 @@ def test_milp_mosek():
         assert False
 
     try:
-        x = milp_mosek(n_x, n_eq-1, n_ineq, mat_eq, vec_eq, mat_ineq, vec_ineq,
-                      vec_obj, lb, ub, vec_int)
+        x = milp_mosek(n_x, n_eq-1, n_ineq, mat_eq, vec_eq, mat_ineq,
+                       vec_ineq, vec_obj, lb, ub, vec_int)
     except AssertionError:
         assert True
     else:
@@ -531,16 +497,16 @@ def test_milp_mosek():
         assert False
 
     try:
-        x = milp_mosek(n_x, n_eq, n_ineq, mat_eq.toarray(), vec_eq, mat_ineq, vec_ineq,
-                      vec_obj, lb, ub, vec_int)
+        x = milp_mosek(n_x, n_eq, n_ineq, mat_eq.toarray(), vec_eq, mat_ineq,
+                       vec_ineq, vec_obj, lb, ub, vec_int)
     except AssertionError:
         assert True
     else:
         assert False
 
     try:
-        x = milp_mosek(n_x, n_eq, n_ineq, mat_eq, vec_eq, mat_ineq.toarray(), vec_ineq,
-                      vec_obj, lb, ub, vec_int)
+        x = milp_mosek(n_x, n_eq, n_ineq, mat_eq, vec_eq, mat_ineq.toarray(),
+                       vec_ineq, vec_obj, lb, ub, vec_int)
     except AssertionError:
         assert True
     else:
@@ -557,6 +523,7 @@ def test_milp_mosek():
 
 
 def test_solve_lp_sparse_pareto():
+    ''' Test of function solve_lp_sparse_pareto'''
 
     power = np.array([2,1,2, 2, 3])
     n = len(power)
@@ -573,22 +540,23 @@ def test_solve_lp_sparse_pareto():
     eta = 0.5
     alpha = 0.5
 
-    os = solve_lp_sparse_pareto(power_ts, price_ts, stor_batt, stor_h2, eta, alpha, p_min,
-                  p_max, n)
+    _ = solve_lp_sparse_pareto(power_ts, price_ts, stor_batt, stor_h2, eta,
+                               alpha, p_min, p_max, n)
 
-    os = solve_lp_sparse_pareto(power_ts, price_ts, stor_batt, stor_h2, eta, alpha,
-                  p_min_vec, p_max, n)
+    _ = solve_lp_sparse_pareto(power_ts, price_ts, stor_batt, stor_h2, eta,
+                               alpha, p_min_vec, p_max, n)
 
     try:
-        os = solve_lp_sparse_pareto(power_ts, TimeSeries(price, 2*dt), stor_batt, stor_h2, eta, alpha,
-                  p_min_vec, p_max, n)
+        _ = solve_lp_sparse_pareto(power_ts, TimeSeries(price, 2*dt),
+                                   stor_batt, stor_h2, eta, alpha,
+                                   p_min_vec, p_max, n)
     except AssertionError:
         assert True
     else:
         assert False
 
     try:
-        os = solve_lp_sparse_pareto(power_ts, price_ts, stor_batt, stor_h2,
+        _ = solve_lp_sparse_pareto(power_ts, price_ts, stor_batt, stor_h2,
                                     eta, alpha, p_min, 0, n)
     except RuntimeError:
         assert True
@@ -598,7 +566,7 @@ def test_solve_lp_sparse_pareto():
 
 
 def test_solve_lp_sparse_old():
-
+    ''' Test of function solve_lp_sparse_old'''
     power = np.array([2,1,2, 2, 3])
     n = len(power)
     dt = 1.0
@@ -614,22 +582,23 @@ def test_solve_lp_sparse_old():
     discount_rate = 0.03
     n_year = 20
 
-    os = solve_lp_sparse_old(power_ts, price_ts, stor_batt, stor_h2, discount_rate, n_year, p_min,
-                  p_max, n)
+    _ = solve_lp_sparse_old(power_ts, price_ts, stor_batt, stor_h2,
+                            discount_rate, n_year, p_min, p_max, n)
 
-    os = solve_lp_sparse_old(power_ts, price_ts, stor_batt, stor_h2, discount_rate, n_year,
-                  p_min_vec, p_max, n)
+    _ = solve_lp_sparse_old(power_ts, price_ts, stor_batt, stor_h2,
+                            discount_rate, n_year, p_min_vec, p_max, n)
 
     try:
-        os = solve_lp_sparse_old(power_ts, TimeSeries(price, 2*dt), stor_batt, stor_h2, discount_rate, n_year,
-                  p_min_vec, p_max, n)
+        _ = solve_lp_sparse_old(power_ts, TimeSeries(price, 2*dt), stor_batt,
+                                stor_h2, discount_rate, n_year, p_min_vec,
+                                p_max, n)
     except AssertionError:
         assert True
     else:
         assert False
 
     try:
-        os = solve_lp_sparse_old(power_ts, price_ts, stor_batt, stor_h2,
+        _ = solve_lp_sparse_old(power_ts, price_ts, stor_batt, stor_h2,
                                     discount_rate, n_year, p_min, 0, n)
     except RuntimeError:
         assert True
@@ -639,7 +608,7 @@ def test_solve_lp_sparse_old():
 
 
 def test_solve_lp_sparse():
-
+    '''Test of function solve_lp_sparse'''
     power = np.array([2,1,2, 2, 3])
     n = len(power)
     dt = 1.0
@@ -658,22 +627,23 @@ def test_solve_lp_sparse():
     prod_wind = Production(power_ts, p_cost = 1)
     prod_pv = Production(power_ts, p_cost = 1)
 
-    os = solve_lp_sparse(price_ts, prod_wind, prod_pv, stor_batt, stor_h2, discount_rate, n_year, p_min,
-                  p_max, n)
+    _ = solve_lp_sparse(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                        discount_rate, n_year, p_min, p_max, n)
 
-    os = solve_lp_sparse(price_ts, prod_wind, prod_pv, stor_batt, stor_h2, discount_rate, n_year,
-                  p_min_vec, p_max, n)
+    _ = solve_lp_sparse(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                        discount_rate, n_year, p_min_vec, p_max, n)
 
     try:
-        os = solve_lp_sparse(TimeSeries(price, 2*dt), prod_wind, prod_pv, stor_batt, stor_h2, discount_rate, n_year,
-                  p_min_vec, p_max, n)
+        _ = solve_lp_sparse(TimeSeries(price, 2*dt), prod_wind, prod_pv,
+                            stor_batt, stor_h2, discount_rate, n_year,
+                            p_min_vec, p_max, n)
     except AssertionError:
         assert True
     else:
         assert False
 
     try:
-        os = solve_lp_sparse(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+        _ = solve_lp_sparse(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
                                     discount_rate, n_year, p_min, 0, n)
     except RuntimeError:
         assert True
@@ -683,7 +653,7 @@ def test_solve_lp_sparse():
 
 
 def test_solve_milp_sparse():
-
+    '''Test of function solve_milp_sparse'''
     power = np.array([2,1,2, 2, 3])
     n = len(power)
     dt = 1.0
@@ -699,14 +669,14 @@ def test_solve_milp_sparse():
     eta = 0.5
     alpha = 0.5
 
-    os = solve_milp_sparse(power_ts, price_ts, stor_batt, stor_h2, eta,
+    _ = solve_milp_sparse(power_ts, price_ts, stor_batt, stor_h2, eta,
                            alpha, p_min, p_max, n)
 
-    os = solve_milp_sparse(power_ts, price_ts, stor_batt, stor_h2, eta, alpha,
+    _ = solve_milp_sparse(power_ts, price_ts, stor_batt, stor_h2, eta, alpha,
                            p_min_vec, p_max, n)
 
     try:
-        os = solve_milp_sparse(power_ts, TimeSeries(price, 2*dt), stor_batt,
+        _ = solve_milp_sparse(power_ts, TimeSeries(price, 2*dt), stor_batt,
                                stor_h2, eta, alpha, p_min_vec, p_max, n)
     except AssertionError:
         assert True
@@ -714,10 +684,9 @@ def test_solve_milp_sparse():
         assert False
 
     try:
-        os = solve_milp_sparse(power_ts, price_ts, stor_batt, stor_h2,
+        _ = solve_milp_sparse(power_ts, price_ts, stor_batt, stor_h2,
                                     eta, alpha, p_min, 0, n)
     except RuntimeError:
         assert True
     else:
         assert False
-

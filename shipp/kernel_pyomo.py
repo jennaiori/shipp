@@ -24,9 +24,9 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
     """Build and solve a LP for NPV maximization with pyomo.
 
     This function builds and solves the hybrid sizing and operation
-    problem as a linear program, in a short formulation (sf). The 
+    problem as a linear program, in a short formulation (sf). The
     objective is to minimize the Net Present Value of the plant. In this
-    function, the input for the power production represented by two 
+    function, the input for the power production represented by two
     Production objects, one for wind and one for solar.
 
     Params:
@@ -65,7 +65,7 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
     assert n <=  len(price_ts.data)
 
 
-    
+
     power_res = prod_wind.power.data[:n] + prod_pv.power.data[:n]
 
     p_cost1 = stor1.p_cost
@@ -114,7 +114,7 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
         model.p_cap2 = pyo.Var(domain = pyo.NonNegativeReals)
     else:
         model.p_cap2 = pyo.Var(bounds = (0, stor2.p_cap))
-    
+
     if stor1.e_cap == -1 or stor1.e_cap is None:
         model.e_cap1 = pyo.Var(domain = pyo.NonNegativeReals)
     else:
@@ -127,9 +127,11 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
 
     #Objective
     factor = npf.npv(discount_rate, np.ones(n_year))-1
-    model.obj = pyo.Objective(expr=  365 * 24/n*factor* sum([p*(model.p_vec1[n] + model.p_vec2[k]) for p, n, k in zip(price_ts.data[:n], model.p_vec1, model.p_vec2)]) 
-                        - p_cost1*model.p_cap1 - e_cost1*model.e_cap1 - p_cost2*model.p_cap2 - e_cost2*model.e_cap2,
-                sense = pyo.maximize)
+    model.obj = pyo.Objective(expr=  365 * 24/n*factor* sum([p*(model.p_vec1[n]
+                 + model.p_vec2[k]) for p, n, k in zip(price_ts.data[:n],
+                model.p_vec1, model.p_vec2)]) - p_cost1*model.p_cap1
+                - e_cost1*model.e_cap1 - p_cost2*model.p_cap2
+                - e_cost2*model.e_cap2, sense = pyo.maximize)
 
     # Rule functions for the constraints
     def rule_e_model_charge1(model, i):
@@ -163,31 +165,35 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
         return model.e_vec2[i] <= model.e_cap2
 
     # def rule_p_tot_min(model, i):
-    #     return model.p_vec1[i] + model.p_vec2[i] >= p_min_vec[i] - power_res[i]
+    #   return model.p_vec1[i] + model.p_vec2[i] >= p_min_vec[i] - power_res[i]
 
     def rule_p_tot_min(model, i):
         return model.p_vec1[i] + model.p_vec2[i] >= p_min_vec[i]- power_res[i]
 
 
-    
+
 
 
     def rule_p_tot_max(model, i):
         return model.p_vec1[i] + model.p_vec2[i] <= max(p_max - power_res[i], 0)
 
     # Constraint for each storage type
-    model.e_start_end1 =  pyo.Constraint(expr = model.e_vec1[0] == model.e_vec1[n])
-    model.e_start_end2 =  pyo.Constraint(expr = model.e_vec2[0] == model.e_vec2[n])
+    model.e_start_end1 =pyo.Constraint(expr = model.e_vec1[0]==model.e_vec1[n])
+    model.e_start_end2 =pyo.Constraint(expr = model.e_vec2[0]==model.e_vec2[n])
 
-    model.e_model_charge1 = pyo.Constraint(model.vec_n, rule=rule_e_model_charge1)
-    model.e_model_discharge1 = pyo.Constraint(model.vec_n, rule=rule_e_model_discharge1)
+    model.e_model_charge1 = pyo.Constraint(model.vec_n,
+                                           rule=rule_e_model_charge1)
+    model.e_model_discharge1 = pyo.Constraint(model.vec_n,
+                                              rule=rule_e_model_discharge1)
 
     model.p_min1 = pyo.Constraint(model.vec_n, rule=rule_p_min1)
     model.p_max1 = pyo.Constraint(model.vec_n, rule=rule_p_max1)
     model.e_max1 = pyo.Constraint(model.vec_n, rule=rule_e_max1)
 
-    model.e_model_charge2 = pyo.Constraint(model.vec_n, rule=rule_e_model_charge2)
-    model.e_model_discharge2 = pyo.Constraint(model.vec_n, rule=rule_e_model_discharge2)
+    model.e_model_charge2 = pyo.Constraint(model.vec_n,
+                                           rule=rule_e_model_charge2)
+    model.e_model_discharge2 = pyo.Constraint(model.vec_n,
+                                              rule=rule_e_model_discharge2)
 
     model.p_min2 = pyo.Constraint(model.vec_n, rule=rule_p_min2)
     model.p_max2 = pyo.Constraint(model.vec_n, rule=rule_p_max2)
@@ -201,7 +207,7 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
     # model.display()
 
     # for v in model.component_data_objects(pyo.Var, active=True):
-    #     print(v, pyo.value(v))  
+    #     print(v, pyo.value(v))
 
     e_vec1 = [pyo.value(model.e_vec1[e]) for e in model.e_vec1]
     p_vec1 = [pyo.value(model.p_vec1[e]) for e in model.p_vec1]
@@ -218,7 +224,7 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
     power_losses_bat = []
     power_losses_h2 = []
     for i in range(n):
-        power_res_new.append(min(p_max - p_vec1[i] - p_vec2[i], 
+        power_res_new.append(min(p_max - p_vec1[i] - p_vec2[i],
                              power_res[i]))
 
         power_losses_bat.append(-(e_vec1[i+1] - e_vec1[i] + dt*p_vec1[i])/dt)
@@ -236,23 +242,22 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
                             eff_out = eta2,
                             p_cost = stor2.p_cost,
                             e_cost = stor2.e_cost)
-    
-    prod_wind_res = Production(power_ts = TimeSeries(np.array(power_res_new) - prod_pv.power.data[:n], dt), p_cost= prod_wind.p_cost)
+
+    prod_wind_res = Production(power_ts = TimeSeries(np.array(power_res_new)
+                    - prod_pv.power.data[:n], dt), p_cost= prod_wind.p_cost)
 
     os_res = OpSchedule(production_list = [prod_wind_res, prod_pv],
-                        storage_list = [stor1_res, stor2_res],
-                        production_p = [TimeSeries(prod_wind_res.power.data[:n], dt),
-                                        TimeSeries(prod_pv.power.data[:n], dt)],
-                        storage_p = [TimeSeries(p_vec1, dt),
-                                     TimeSeries(p_vec2, dt)],
-                        storage_e = [TimeSeries(e_vec1[:n], dt),
-                                     TimeSeries(e_vec2[:n], dt)],
-                        price = price_ts.data[:n])
+                storage_list = [stor1_res, stor2_res],
+                production_p = [TimeSeries(prod_wind_res.power.data[:n], dt),
+                                TimeSeries(prod_pv.power.data[:n], dt)],
+                storage_p = [TimeSeries(p_vec1, dt),
+                             TimeSeries(p_vec2, dt)],
+                storage_e = [TimeSeries(e_vec1[:n], dt),
+                             TimeSeries(e_vec2[:n], dt)],
+                price = price_ts.data[:n])
 
     os_res.get_npv_irr(discount_rate, n_year)
 
-    os_res.losses = [np.array(power_losses_bat) ,  np.array(power_losses_h2)] 
+    os_res.losses = [np.array(power_losses_bat) ,  np.array(power_losses_h2)]
 
     return os_res
-
-

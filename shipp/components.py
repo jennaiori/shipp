@@ -19,15 +19,15 @@ from shipp.timeseries import TimeSeries
 
 class Storage:
     '''
-        class Storage used to represent battery or hydrogen storage systems
+        class Storage used to represent energy storage systems
 
         Class members:
             - e_cap: Energy capacity [MWh]
             - p_cap: Power capacity [MW]
             - eff_in: efficiency to charge the storage [-]
             - eff_out: efficiency to discharge the storage [-]
-            - e_cost: cost per unit of energy capacity [kEur/MWh]
-            - p_cost: cost per unit of power capacity [kEur/MW]
+            - e_cost: cost per unit of energy capacity [Currency/MWh]
+            - p_cost: cost per unit of power capacity [Currency/MW]
     '''
 
     def __init__(self, e_cap: float = 0, p_cap: float = 0,
@@ -54,12 +54,12 @@ class Storage:
 
 class Production:
     '''
-        Class Production represents wind or PV production systems
+        Class Production represents wind or solar PV production systems
 
         Class members:
-            - cp: Power coefficient [-]
+            - power_ts: time series of power production [MW]
             - p_max: Maximum power [MW]
-            - p_cost: cost per unit of power capacity [kEur/MW]
+            - p_cost: cost per unit of power capacity [Currency/MW]
     '''
     def __init__(self, power_ts: TimeSeries, p_cost: float = 0) -> None:
         self.power = power_ts
@@ -77,14 +77,16 @@ class OpSchedule:
         and renewable electric production units
 
         Class members:
-            - storage_list: list of Storage (typically BESS and H2)
-            - production_list: list of Production (Wind and PV)
+            - storage_list: list of energy storage systems
+            - production_list: list of renewable power production
             - production_p: list of TimeSeries for the power output of
             Production units
             - storage_p: list of TimeSeries for the power output of
             Storage units
-            - storage_e: list of TimeSeries for the energy level (SoC)
-            of Storage units
+            - storage_e: list of TimeSeries for the energy level of 
+            Storage objects
+            - power_out: TimeSeries of total power to the grid
+            - revenue: total annual revenue from selling electricty
     '''
 
     def __init__(self,
@@ -122,15 +124,14 @@ class OpSchedule:
         if price is not None:
             self.update_revenue(price)
 
-        # Calculation of CAPEX based on individual components
-        # self.capex = 0
-        # for item in production_list:
-        #     self.capex += item.get_tot_costs()
-        # for item in storage_list:
-        #     self.capex += item.get_tot_costs()
+        # Calculation of CAPEX 
         self.update_capex()
 
     def update_capex(self) -> None:
+        '''
+            Function to calculate the total CAPEX from Storage and 
+            Production objects
+        '''
         self.capex = 0
         for item in self.production_list:
             self.capex += item.get_tot_costs()
@@ -138,12 +139,11 @@ class OpSchedule:
             self.capex += item.get_tot_costs()
 
 
-
     def update_revenue(self, price: list[float]) -> None:
         '''
-            Function to calculate the yearly revenue for the operating schedule
-            The revenue is obtained by selling the electricity to the grid (po
-            wer_out) at the given price
+            Function to calculate the yearly revenue for the operating 
+            schedule. The revenue is obtained by selling the electricity 
+            to the grid (power_out) at the given price
             Input:
                 - price [currency/MWh]: day-ahead market price
         '''
@@ -152,13 +152,20 @@ class OpSchedule:
 
         self.revenue = 365*24/n * dot_product*self.power_out.dt
 
+        self.revenue_storage = 0
+        for power in self.storage_p:
+            dot_product = np.dot(price[:n], power.data[:n])
+            self.revenue_storage += 365*24/n * dot_product * power.dt
+
+
     def get_npv_irr(self, discount_rate: float,
                     n_year: int) -> tuple[float, float]:
         '''
-            Function to calculate the Net Present Value (npv) and internal rate
-            of return (irr) for the OpSchedule object
+            Function to calculate the Net Present Value (npv) and 
+            internal rate of return (irr) for the OpSchedule object
             Input:
-                - discount rate [-]: Usually 3, 7 or 10% for wind energy project
+                - discount rate [-]: Usually 3, 7 or 10% for wind energy
+                 project
                 - n_year [-]: Number of years of operation
             Output:
                 - npv [M.currency] Net Present Value
@@ -180,16 +187,47 @@ class OpSchedule:
         self.irr = irr
 
         return npv, irr
+    
+    def get_added_npv(self, discount_rate: float,
+                    n_year: int) -> tuple[float, float]:
+        '''
+            Function to calculate the difference in Net Present Value 
+            due to the addition of the storage
+            Input:
+                - discount rate [-]: Usually 3, 7 or 10% for wind energy
+                 project
+                - n_year [-]: Number of years of operation
+            Output:
+                - a_npv [M.currency] added Net Present Value
+        '''
+        assert self.revenue is not None
+        assert 0 <= discount_rate <=1
+        assert isinstance(n_year, int)
+
+        capex_storage = 0
+        for item in self.storage_list:
+            capex_storage += item.get_tot_costs()
+
+        cash_flow = [-capex_storage]
+
+        for _ in range(1,n_year):
+            cash_flow.append(self.revenue_storage)
+
+        a_npv = npf.npv(discount_rate, cash_flow) * 1e-6
+
+        self.a_npv = a_npv
+
+        return a_npv
 
     def get_power_partition(self) -> list[float]:
         '''
-            Function to calculate the partition of the total power production
-            for each component, expressed as percentage of the total energy pro
-            duced.
+            Function to calculate the partition of the total power 
+            production for each component, expressed as percentage of 
+            the total energy produced.
             Output:
-                - percent [-] array of percentage corresponding to the objects
-                in self.production_list and then the one in self.storage_list
-
+                - percent [-] array of percentage corresponding to the 
+                objects in self.production_list and then the one in 
+                self.storage_list
         '''
         dt = self.production_p[0].dt
 
@@ -197,21 +235,26 @@ class OpSchedule:
 
         percent = []
 
-        # The portion of energy used to charge (power<0) the storage is calculated
+        # Calculation of the portion of energy used to charge (power<0) 
+        # the storage 
         percent_charge_storage = 0
         for power in self.storage_p:
-            percent_charge_storage += sum(np.minimum(power.data, 0))*dt/ total_energy
+            percent_charge_storage += sum(np.minimum(power.data, 0))*dt \
+                /total_energy
 
-        # The portion of energy produced by the production item is computed
+        # Calculation of the portion of energy produced by the 
+        # production item
         for power in self.production_p:
             percent.append((sum(power.data)*dt) / total_energy)
 
-        # The portion of energy discharged (power>=0) from the storage is calculated
+        # Calculation of the portion of energy discharged (power>=0) 
+        # from the storage 
         for power in self.storage_p:
             percent.append(sum(np.maximum(0,power.data))*dt / total_energy)
 
-        # The energy used for storage charge (<0) is removed from the energy
-        # produced by production units. Here, we use the first production unit
+        # The energy used for storage charge (power<0) is removed from 
+        # the energy produced by production units. Here, we use the 
+        # first production unit
         percent[0] += percent_charge_storage
 
         return percent

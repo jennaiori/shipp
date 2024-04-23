@@ -1,50 +1,75 @@
 '''
+    This module provides auxiliary functions for the study of baseload
+    hybrid power plants
     Functions:
-        power_calc: Calculate power production from wind speed.
-        plot_xcorr: Plot cross-correlation between two signals.
-
+        extract_wind_data: extract data using the renewables.ninja API
+        post_process_price_data: filter price data with a pass-band
+        extract_day_ahead_price: extract and filter price data using the
+            entso-e transparency platform API
+        run_site_comparison: run sizing optimization for a list of sites
+        run_cost_comparions: run sizing optimization for varying costs
+        get_percent: calculate the share of energy provided by each
+            storage type
+        find_extreme_event: analyze power time series for extreme events
+        get_p_min_vec: generate a baseload constraint vector for a given
+            reliability
+        butter_lowpass: generate a low-pass filter object
+        butter_lowpass_filter: apply a low-pass filter to a time series
+        butter_highpass: generate a high-pass filter object
+        butter_highpass_filter: apply a highpass filter to a time series
+        create_site_file: create a file containing the site description
 
 '''
 
 import sys
-sys.path.append('../../')
-
-from shipp.kernel_pyomo import solve_lp_pyomo
-from shipp.components import Storage, Production, TimeSeries
-
-import numpy as np
-import numpy_financial as npf
-import pandas as pd
-from scipy.stats import pearsonr
-from scipy import signal
-import math
-import requests
-import json
 import time
-from entsoe import EntsoePandasClient
-
-
+import math
+import json
 from io import StringIO
 
-def extract_wind_data(filename, token):
+import requests
+import numpy_financial as npf
+import pandas as pd
+from scipy import signal
+from scipy.stats import pearsonr
+import numpy as np
+from entsoe import EntsoePandasClient
+
+sys.path.append('../../')
+from shipp.kernel_pyomo import solve_lp_pyomo
+from shipp.components import Storage, Production, TimeSeries, OpSchedule
+
+
+def extract_wind_data(filename: str, token: str
+                      ) -> tuple[list, list]:
+    '''
+        Extract data using the renewables.ninja API
+
+        Params:
+            filename (str): name of the csv file describing the sites
+            token (str): valid token for the renewables.ninja API
+        Returns:
+            data_wind (list[np.array]): list of time series containing
+                the wind date [m/s] for each site.
+            power_wind (list[np.array]): list of time series containing
+                the power production [MW] for each site.
+    '''
     data_wind  = []
     power_wind = []
-    
+    success = True
+
     api_base = 'https://www.renewables.ninja/api/'
 
-    s = requests.session()
+    session = requests.session()
     # Send token header with each request
-    s.headers = {'Authorization': 'Token ' + token}
-
+    session.headers = {'Authorization': 'Token ' + token}
     url = api_base + 'data/wind'
-
     df = pd.read_csv(filename)
 
     m = len(df)
 
-    success = True
-
     for i in range(m):
+        # Build arguments for the request from the data in the csv file
         args = {
             'lat': df['Lat'][i],
             'lon': df['Long'][i],
@@ -57,20 +82,24 @@ def extract_wind_data(filename, token):
             'raw': 'true'
         }
 
-        r = s.get(url, params=args)
+        # Send request
+        req = session.get(url, params=args)
 
-        
         try:
-            parsed_response = json.loads(r.text)
+            # Retrieve response as in json format
+            parsed_response = json.loads(req.text)
             data = pd.read_json(StringIO(json.dumps(parsed_response['data'])), orient='index')
+            # Extract wind speed and wind power
             data_wind.append(np.array(data['wind_speed']))
-            power_wind.append(np.array(data['electricity'])*1e-3)  
+            power_wind.append(np.array(data['electricity'])*1e-3)
         except:
-            print(r.text)
+            # In case of exception, print the error text from the API
+            print(req.text)
             success = False
             break
-        
-        time.sleep(0.8) 
+
+        # Pause the code in order to avoid the API limit (1 request/s)
+        time.sleep(0.8)
 
     if success:
         print('{} data sets extracted succesfully from renewables.ninja.'.format(m))
@@ -80,50 +109,69 @@ def extract_wind_data(filename, token):
     return data_wind, power_wind
 
 
-def postprocess_price_data(filename):
+def postprocess_price_data(filename: str) -> list[np.ndarray]:
+    '''
+        Apply pass-band filter on price data
+
+        Params:
+            filename (str): name of the csv file containing a list of
+                filenames for the price data (in Eur)
+        Returns:
+            price (list[np.array]): list of time series containing
+                the filtered price data (in USD)
+    '''
     rate_eur2usd = 1.09
-    
+
     df = pd.read_csv(filename)
-    
+
     m = len(df)
 
     price = []
-
     for i in range(m):
         data = pd.read_csv(df['Price file'][i], header = 0)
         price_og = data["Day-ahead Price [EUR/MWh]"].values * rate_eur2usd
-        
+
         # Remove NaN data
         for i in range(0, len(price_og)):
             if math.isnan(price_og[i]):
                 if i<(len(price_og)-1) and not math.isnan(price_og[i+1]):
                     price_og[i] = 0.5*(price_og[i-1] + price_og[i+1])
                 else:
-                    price_og[i] = (price_og[i-1])
-   
+                    price_og[i] = price_og[i-1]
+
         price_og_lowpass = butter_lowpass_filter(price_og, 0.15, 1) #0.15
         price_og_highpass = butter_highpass_filter(price_og_lowpass, 0.006, 1)
-        
+
         price.append(np.maximum(1, (price_og_highpass + np.mean(price_og_lowpass))))
-    
-    
+
     return price
 
 
-def extract_day_ahead_price(filename, token):
-    # Extract data from input file
+def extract_day_ahead_price(filename: str, token: str) -> list[np.ndarray]:
+    '''
+        Extract price data using the entso-e transparency platform API
+        and apply pass-band filter
+
+        Params:
+            filename (str): name of the csv file describing the sites
+            token (str): valid token for the entso-e API
+        Returns:
+            price (list[np.array]): list of time series containing
+                the filtered price data (in USD)
+    '''
+
     df = pd.read_csv(filename)
     arr = df[['Date from', 'Date to', 'Bidding zone']].values
 
     arr_str = arr.astype(str)
 
-    # Retrieve unique values
+    # Retrieve unique values from the description of the sites
     unique_val, unique_ind = np.unique(arr_str, axis = 0, return_inverse=True)
 
     rate_eur2usd = 1.09
     unique_price = []
-    client = EntsoePandasClient(api_key=token)
 
+    client = EntsoePandasClient(api_key=token)
     for i in range(len(unique_val)):
         date_to = unique_val[i][0].replace('-', '')
         date_from = unique_val[i][1].replace('-', '')
@@ -134,34 +182,77 @@ def extract_day_ahead_price(filename, token):
 
         print('Entso-e query:', country_code, date_to, date_from)
 
-        ts = client.query_day_ahead_prices(country_code, start=start, end=end)
-        
-        price_og = ts.to_list()
-        
+        # Send request to API
+        res = client.query_day_ahead_prices(country_code, start=start, end=end)
+
+        #
+        price_og = res.to_list()
+
         # Remove NaN data
         for j in range(0, len(price_og)):
             if math.isnan(price_og[j]):
                 if i<(len(price_og)-1) and not math.isnan(price_og[j+1]):
                     price_og[j] = 0.5*(price_og[j-1] + price_og[j+1])
                 else:
-                    price_og[j] = (price_og[j-1])
+                    price_og[j] = price_og[j-1]
 
+        # Apply a pass-band filter on the data
         price_og_lowpass = butter_lowpass_filter(price_og, 0.15, 1) #0.15
         price_og_highpass = butter_highpass_filter(price_og_lowpass, 0.006, 1)
-        price_filtered = np.maximum(1, (price_og_highpass + np.mean(price_og_lowpass))) *rate_eur2usd
+        price_filtered = np.maximum(1, (price_og_highpass +
+                                    np.mean(price_og_lowpass)))*rate_eur2usd
 
         unique_price.append(price_filtered)
 
+    # Re-create list of prices for all sites based on the unique indices
     unique_price = np.array(unique_price)
-
     price = unique_price[unique_ind]
 
     return price
 
 
-def run_site_comparison(power_wind, price, n, dt, percent_bl, discount_rate,
-                         n_year, bl_vec, stor_sts_a, stor_sts_c, stor_lts, 
-                         pyo_solver, verbose = True):
+def run_site_comparison(power_wind: list[np.ndarray], price: list[np.ndarray],
+                        n: int, delta_t: float, percent_bl: float,
+                        discount_rate: float, n_year: int,
+                        bl_vec: list[float], stor_sts_a: Storage,
+                        stor_sts_c: Storage, stor_lts: Storage,
+                        pyo_solver: str, verbose: bool = True
+                        ) -> list:
+    ''''
+        Run sizing optimization for a list of sites
+
+        This function performs a series of storage sizing optimization
+        for a list of sites described by their power production and the
+        price on the day-ahead market. Two storage combinaitions are
+        considered: stor_sts_a with stor_lts and stor_lts_c with
+        stor_lts. Different baseload levels are considered. The storage
+        is sized to satify a baseload constraint while reducing the cost
+        of baseload/ maximizing the added NPV.
+
+        Params:
+            power_wind (list[np.array]): list of time series describing
+                the wind power production for each site [MW]
+            price (list[np.array]): list of time series describing the
+                electricty price for each site [currency/MW]
+            n (int): number of time steps for the optimization
+            delta_t (float): duration of a time step
+            percent_bl (float, between 0 and 1): reliability of the
+                baseload constraint
+            discount_rate (float, between 0 and 1): discount rate for
+                the project, usually between 3% or 10%.
+            n_year (int): duration of the project in years.
+            bl_vec (list[float]): list of baseload level [MW]
+            stor_sts_a (Storage): first short-term storage type
+            stor_sts_c (Storage): second short-term storage type
+            stor_lts (Storage): long-term storage
+            pyo_solve (str): string describing the solver to use for the
+                optimization
+            verbose (bool): if True, the function prints status messages
+        Returns:
+            data_site_comparison (list): a list containing all the data
+                for the site comparison (NPV, CAPEX, revenues, IRR,
+                increase in revenues, OpSchedule objects, etc)
+    '''
     os_vec = []
     npv_vec = []
     irr_vec = []
@@ -183,41 +274,44 @@ def run_site_comparison(power_wind, price, n, dt, percent_bl, discount_rate,
     m = len(power_wind)
 
     if verbose:
-        print('Site\tBL [MW]\tRevenue [kUSD]\tRev incr.\tP_cap1/E_cap1\tP_cap2/E_cap2\tCost BL [M.USD]')
+        print('Site\tBL [MW]\tRevenue [kUSD]\tRev incr.\tP_cap1/E_cap1\t\
+              P_cap2/E_cap2\tCost BL [M.USD]')
 
     for stor_batt in [stor_sts_a, stor_sts_c]:
         for p_min in bl_vec:
             for i in range(m):
-                power_pv_ts = TimeSeries([0 for _ in range(n)], dt)
-                power_wind_ts = TimeSeries(power_wind[i][:n], dt)
-                price_ts = TimeSeries(price[i][:n], dt)
+                power_pv_ts = TimeSeries([0 for _ in range(n)], delta_t)
+                power_wind_ts = TimeSeries(power_wind[i][:n], delta_t)
+                price_ts = TimeSeries(price[i][:n], delta_t)
                 prod_pv = Production(power_pv_ts, 0)
                 prod_wind = Production(power_wind_ts, 0)
-                
+
                 # p_min = np.quantile(power_wind[i][:n], quantile)
                 # p_min = 0.15*np.mean(power_wind[i][:n])
 
                 power = np.array(power_wind[i][:n])
-                
+
                 p_min_vec = get_p_min_vec(p_min, power, percent_min=percent_bl)
                 p_max = max(power_wind[i][:n])
-                
-                # os =  solve_lp_sparse(price_ts, prod_wind, prod_pv, stor_batt, stor_lts, 
-                #             discount_rate, n_year, p_min_vec, p_max, n)
-                
-                os =  solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, 
-                                     stor_lts, discount_rate, n_year, 
+
+
+                os =  solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt,
+                                     stor_lts, discount_rate, n_year,
                                      p_min_vec, p_max, n, pyo_solver)
-                
-                rev_res_only = 365 * 24 / n * np.dot(price[i][:n], np.minimum(power, p_max))*dt
 
-                
+                rev_res_only = 365 * 24 / n * np.dot(price[i][:n],
+                                              np.minimum(power, p_max))*delta_t
 
 
-                p_st, p_lt = get_percent(os, power[:n], p_min, p_min_vec)
-                storage_capex = os.storage_list[0].get_tot_costs() + os.storage_list[1].get_tot_costs()
-                a_rev = 365 * 24 / n * np.dot(price[i][:n], os.storage_p[0].data[:n] + os.storage_p[1].data[:n])*dt
-                
+
+
+                p_st, _ = get_percent(os, power[:n], p_min, p_min_vec)
+                storage_capex = os.storage_list[0].get_tot_costs() + \
+                                os.storage_list[1].get_tot_costs()
+                a_rev = 365 * 24 / n * np.dot(price[i][:n],
+                                              os.storage_p[0].data[:n]
+                                              + os.storage_p[1].data[:n])*delta_t
+
                 cash_flow = [-storage_capex]
                 for _ in range(1,n_year):
                     cash_flow.append(a_rev)
@@ -225,11 +319,15 @@ def run_site_comparison(power_wind, price, n, dt, percent_bl, discount_rate,
                 a_npv = npf.npv(discount_rate, cash_flow) * 1e-6
 
                 if verbose:
-                    print('{}\t{:.1f}\t{:.1f}\t\t{:.2f}%\t\t{:.2f}/{:.2f}\t{:.2f}/{:.2f}\t{:.2f}'.format(i, p_min, 
-                                                                                        os.revenue*1e-3, 100*(os.revenue/rev_res_only-1), 
-                                                                                        os.storage_list[0].p_cap, 
-                                                                                        os.storage_list[0].e_cap, os.storage_list[1].p_cap, 
-                                                                                        os.storage_list[1].e_cap, -a_npv))
+                    print('{}\t{:.1f}\t{:.1f}\t\t{:.2f}%\t\t{:.2f}/{:.2f}\t\
+                          {:.2f}/{:.2f}\t{:.2f}'.format(i, p_min,
+                                               os.revenue*1e-3,
+                                               100*(os.revenue/rev_res_only-1),
+                                               os.storage_list[0].p_cap,
+                                               os.storage_list[0].e_cap,
+                                               os.storage_list[1].p_cap,
+                                               os.storage_list[1].e_cap,
+                                               -a_npv))
 
                 p_st_vec.append(p_st)
                 npv_vec.append(a_npv)
@@ -238,10 +336,15 @@ def run_site_comparison(power_wind, price, n, dt, percent_bl, discount_rate,
                 irr_vec.append(os.irr)
                 increase_rev_vec.append(100*(os.revenue/rev_res_only-1))
 
-                nrg = 100*sum([p_min_tmp-p if p<= p_min_tmp else 0 for p, p_min_tmp in zip(power_wind[i][:n], p_min_vec)])/sum(power_wind[i])
+                nrg = 100*sum([p_min_tmp-p if p<= p_min_tmp
+                               else 0 for p, p_min_tmp in \
+                                zip(power_wind[i][:n], p_min_vec)]
+                                )/sum(power_wind[i])
                 bl_nrg_vec.append(nrg)
 
-                corr_price = pearsonr(power_wind[i][:n]/np.std(power_wind[i][:n]), price[i][:n]/np.std(price[i][:n])).statistic
+                corr_price = pearsonr(
+                    power_wind[i][:n]/np.std(power_wind[i][:n]),
+                    price[i][:n]/np.std(price[i][:n])).statistic
 
                 os_vec.append(os)
                 p_range_vec.append(p_min)
@@ -259,8 +362,8 @@ def run_site_comparison(power_wind, price, n, dt, percent_bl, discount_rate,
     bl_nrg_vec = np.array(bl_nrg_vec)
     mean_p_vec = np.array(mean_p_vec)
     sts_costs = np.array(sts_costs)
-    
-    
+
+
     data_site_comparison = [p_st_vec,
                     npv_vec,
                     capex_vec,
@@ -284,9 +387,56 @@ def run_site_comparison(power_wind, price, n, dt, percent_bl, discount_rate,
     return data_site_comparison
 
 
-def run_cost_comparison(power_wind, price, n, dt, percent_bl, discount_rate,
-                        n_year, bl_reference, stor_sts, stor_lts, e_cost_range, 
-                        p_cost_range, pyo_solver, verbose = True):
+def run_cost_comparison(power_wind: list[np.ndarray], price: list[np.ndarray],
+                        n: int, delta_t: float, percent_bl: float,
+                        discount_rate: float, n_year: int,
+                        bl_reference: float, stor_sts: Storage,
+                        stor_lts: Storage, e_cost_range: list[float],
+                        p_cost_range: list[float], pyo_solver: str,
+                        verbose = True) -> list:
+    ''''
+        Run sizing optimization for varying storage costs.
+
+        This function performs a series of storage sizing optimization
+        for a list of sites described by their power production and the
+        price on the day-ahead market. The costs assumption for the long
+        term and short-term storage are varied. Only one baseload level
+        is considered. The storage is sized to satify a baseload
+        constraint while reducing the cost of baseload/ maximizing the
+        added NPV.
+
+        Params:
+            power_wind (list[np.array]): list of time series describing
+                the wind power production for each site [MW]
+            price (list[np.array]): list of time series describing the
+                electricty price for each site [currency/MW]
+            n (int): number of time steps for the optimization
+            delta_t (float): duration of a time step
+            percent_bl (float, between 0 and 1): reliability of the
+                baseload constraint
+            discount_rate (float, between 0 and 1): discount rate for
+                the project, usually between 3% or 10%.
+            n_year (int): duration of the project in years.
+            bl_reference (float): baseload level [MW]
+            stor_sts (Storage): short-term storage type
+            stor_lts (Storage): long-term storage
+            e_cost_range (list[float]): list of costs per energy
+                capacity to consider for the short-term storage in the
+                analysis [currency/MWh]
+            p_cost_range (list[float]): list of costs per power capacity
+                to consider for the short-term storage in the analysis
+                [currency/MW]
+            pyo_solve (str): string describing the solver to use for the
+                optimization
+            verbose (bool): if True, the function prints status messages
+        Returns:
+            data_cost_comparison (list): a list containing all the data
+                for the cost comparison (NPV, CAPEX, revenues, IRR,
+                increase in revenues, OpSchedule objects, etc)
+    '''
+
+
+
     a_npv_mat = []
     p_st_mat = []
 
@@ -310,10 +460,10 @@ def run_cost_comparison(power_wind, price, n, dt, percent_bl, discount_rate,
         p_cap_st_mat_tmp = np.zeros((len(p_cost_range), len(e_cost_range)))
         a_rev_mat_tmp = np.zeros((len(p_cost_range), len(e_cost_range)))
 
-        prod_wind = Production(TimeSeries(power_wind[idx][:n], dt), 0)
-        prod_pv = Production(TimeSeries([ 0  for _ in range(n)], dt), 0)
-        
-        price_ts = TimeSeries(price[idx][:n], dt)
+        prod_wind = Production(TimeSeries(power_wind[idx][:n], delta_t), 0)
+        prod_pv = Production(TimeSeries([ 0  for _ in range(n)], delta_t), 0)
+
+        price_ts = TimeSeries(price[idx][:n], delta_t)
 
         p_min = bl_reference
         p_max = max(prod_wind.power.data[:n])
@@ -322,26 +472,29 @@ def run_cost_comparison(power_wind, price, n, dt, percent_bl, discount_rate,
         for i in range(len(p_cost_range)):
             for j in range(len(e_cost_range)):
 
-                stor_st_tmp = Storage(e_cap = None, p_cap = None, eff_in = 1, eff_out = stor_sts.eff_out,
-                                    e_cost= 2*e_cost_range[j], p_cost= stor_sts.p_cost)
-                stor_lt_tmp = Storage(e_cap = None, p_cap = None, eff_in = 1, eff_out = stor_lts.eff_out, 
-                                    e_cost= stor_lts.e_cost, p_cost= p_cost_range[i])
+                stor_st_tmp = Storage(e_cap = None, p_cap = None, eff_in = 1,
+                                      eff_out = stor_sts.eff_out,
+                                      e_cost= 2*e_cost_range[j],
+                                      p_cost= stor_sts.p_cost)
+                stor_lt_tmp = Storage(e_cap = None, p_cap = None, eff_in = 1,
+                                      eff_out = stor_lts.eff_out,
+                                      e_cost= stor_lts.e_cost,
+                                      p_cost= p_cost_range[i])
 
+                os =  solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_st_tmp,
+                                     stor_lt_tmp, discount_rate, n_year,
+                                     p_min_vec, p_max, n, pyo_solver)
 
-                # os =  solve_lp_sparse(price_ts, prod_wind, prod_pv, stor_st_tmp, stor_lt_tmp, 
-                #         discount_rate, n_year, p_min_vec, p_max, n)
+                p_st, _ = get_percent(os, prod_wind.power.data[:n], p_min,
+                                         p_min_vec)
 
-                os =  solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_st_tmp, stor_lt_tmp, 
-                        discount_rate, n_year, p_min_vec, p_max, n, pyo_solver)
+                storage_capex = os.storage_list[0].get_tot_costs() +\
+                                os.storage_list[1].get_tot_costs()
 
-                p_st, p_lt = get_percent(os, prod_wind.power.data[:n], p_min, p_min_vec)
+                a_rev = 365 * 24 / n * np.dot(price_ts.data[:n],
+                                              os.storage_p[0].data[:n] +
+                                                os.storage_p[1].data[:n])*delta_t
 
-                storage_capex = os.storage_list[0].get_tot_costs() + os.storage_list[1].get_tot_costs()
-                res_capex = os.production_list[0].get_tot_costs() + os.production_list[1].get_tot_costs()
-                
-                a_rev = 365 * 24 / n * np.dot(price_ts.data[:n], os.storage_p[0].data[:n] + os.storage_p[1].data[:n])*dt
-
-                rev_res_only = 365 * 24 / n * np.dot(price_ts.data[:n], np.minimum(prod_wind.power.data[:n], p_max))*dt
 
                 cash_flow = [-storage_capex]
                 for _ in range(1,n_year):
@@ -381,9 +534,26 @@ def run_cost_comparison(power_wind, price, n, dt, percent_bl, discount_rate,
 
     return data_cost_comparison
 
-def get_percent(os, power, p_min, p_min_vec):
+def get_percent(os: OpSchedule, power: np.ndarray, p_min: float,
+                p_min_vec: np.ndarray) -> tuple[float, float]:
+    ''''
+        Calculate the share of energy provided by each storage type.
 
-    bl = (p_min_vec[power<p_min] - power[power<p_min])*p_min_vec[power<p_min]/p_min
+        Params:
+            os (OpSchedule): object describing the Operation Schedule to
+                analyze.
+            power (np.array): time series of power [MW].
+            p_min (float): baseload power (MW).
+            p_min_vec (np.array): time series for the baseload power
+                constraint (MW).
+        Returns:
+            percent_st (float): percent of energy provided by the short-
+                term storage.
+            percent_lt (float): percent of energy provided by the long-
+                term storage.
+    '''
+    bl = (p_min_vec[power<p_min] -
+          power[power<p_min])*p_min_vec[power<p_min]/p_min
 
     bl_lt = os.storage_p[1].data[power<p_min]*p_min_vec[power<p_min]/p_min
     bl_st = os.storage_p[0].data[power<p_min]*p_min_vec[power<p_min]/p_min
@@ -393,14 +563,34 @@ def get_percent(os, power, p_min, p_min_vec):
 
     return sum(bl_st)/sum(bl)*100, sum(bl_lt)/sum(bl)*100
 
-def find_extreme_event(power, p_min_vec, n):
+def find_extreme_event(power: np.ndarray, p_min_vec: np.ndarray, n: int,
+                       delta_t: float) -> tuple[float, float]:
+    ''''
+        Analyze power time series for extreme events.
+
+        Considering a time series power, this functions extract the
+        events where the power is below the baseload constraint, and
+        extract the event where the energy or power missing during a
+        single event is the highest.
+
+        Params:
+            power (np.array): power time series to analyze [MW]
+            p_min_vec (np.array): time series of the baseload constraint
+                [MW]
+            n (int): number of time steps.
+            delta_t (float): duration of a time step (hour)
+
+        Returns:
+            max_power (float): maximum power required in a single event
+            max_nrg (float): maximum energy required in a single event
+    '''
     windows_vec = []
     window_tmp = []
 
     for i in range(n):
-        p = power[i]
+        p_tmp = power[i]
         p_min_tmp = p_min_vec[i]
-        if p<p_min_tmp:
+        if p_tmp<p_min_tmp:
             if i==0:
                 window_tmp.append(i)
             else:
@@ -413,29 +603,57 @@ def find_extreme_event(power, p_min_vec, n):
     max_len = 0
     max_nrg = 0
     max_power = 0
-    for i in range(len(windows_vec)):
+    for wdw in windows_vec:
         # plt.plot(windows_vec[i], power[windows_vec[i]], 'k')
         # plt.plot(windows_vec[i], p_min_vec[windows_vec[i]], 'r')
-        max_len = max(max_len, len(windows_vec[i]))
-        max_nrg = max(max_nrg, np.sum(p_min_vec[windows_vec[i]] - power[windows_vec[i]])*dt)
-        if len(windows_vec[i])>0:
-            max_power = max(max_power, max(p_min_vec[windows_vec[i]] - power[windows_vec[i]]))
+        max_len = max(max_len, len(wdw))
+        max_nrg = max(max_nrg, np.sum(p_min_vec[wdw] - power[wdw])*delta_t)
+        if len(wdw)>0:
+            max_power = max(max_power, p_min_vec[wdw] - power[wdw])
 
     return max_nrg, max_power
 
 
-# Find vector P_min_vec so that P>=P_min 99% of the time
+def get_p_min_vec(p_min: float, data: np.ndarray, percent_min: float = 0.99,
+                  return_len: bool = False) -> np.ndarray|int:
+    '''
+        Generate a baseload constraint vector for a given  reliability
 
-def get_p_min_vec(p_min, data, percent_min = 0.99, return_len = False):
+        The vector is constructed through an iterative process, where a
+        variable len_continue_operation is increased progressively until
+        the desired reliability level is reached. This variable refers
+        to the maximum duration where the storage needs to cover the
+        baseload constraint.
+
+        Params:
+            p_min (float): baseload power level [MW]
+            data (np.array): power time series for which the baseload
+                constraint need to be calculated [MW]
+            percent_min (float, between 0 and 1): required reliability
+                level
+            return_len (bool): Boolean describing if the function needs
+                to return the maximum duration during which the storage
+                needs to cover the baseload constraint
+
+        Returns:
+            if return_len == True:
+                len_continue_operation (int): maximum duration where the
+                    storage needs to cover the baseload constraint (in
+                    number of time steps)
+            if return_len == False:
+                p_min_vec (np.array): baseload constraint vector [MW]
+    '''
+
     len_continue_operation = 0
     len_max = 240
 
     vec_99_pc = np.zeros_like(data)
     percent = sum(vec_99_pc)/len(vec_99_pc)
 
+    m = len(data)
     while percent<percent_min and len_continue_operation<len_max:
         vec_99_pc = np.zeros_like(data)
-        for i in range(len(data)):
+        for i in range(m):
             if data[i] > p_min:
                 vec_99_pc[i] = 1
             else:
@@ -444,7 +662,7 @@ def get_p_min_vec(p_min, data, percent_min = 0.99, return_len = False):
                     for j in range(len_continue_operation):
                         if data[i-(j+1)] > p_min:
                             value = 1
-                    vec_99_pc[i] = value 
+                    vec_99_pc[i] = value
         percent = sum(vec_99_pc)/len(vec_99_pc)
         len_continue_operation+=1
 
@@ -455,52 +673,55 @@ def get_p_min_vec(p_min, data, percent_min = 0.99, return_len = False):
 
     if return_len:
         return len_continue_operation-1
-    else:
-        return p_min * vec_99_pc
+
+    return p_min * vec_99_pc
 
 
-def butter_lowpass(cutoff, fs, order=5):
-    nyq = 0.5 * fs
+def butter_lowpass(cutoff, freq, order=5):
+    '''
+        Generate a low-pass filter object
+    '''
+    nyq = 0.5 * freq
     normal_cutoff = cutoff / nyq
-    b, a = signal.butter(order, normal_cutoff, btype='low', analog=False)
-    return b, a
+    param_b, param_a = signal.butter(order, normal_cutoff, btype='low', 
+                                     analog=False)
+    return param_b, param_a
 
-def butter_lowpass_filter(data, cutoff, fs, order=5):
-    b, a = butter_lowpass(cutoff, fs, order=order)
-    y = signal.filtfilt(b, a, data)
-    return y
-
-def butter_highpass(cutoff, fs, order=5):
-    nyq = 0.5 * fs
-    normal_cutoff = cutoff / nyq
-    b, a = signal.butter(order, normal_cutoff, btype='high', analog=False)
-    return b, a
-
-def butter_highpass_filter(data, cutoff, fs, order=5):
-    b, a = butter_highpass(cutoff, fs, order=order)
-    y = signal.filtfilt(b, a, data)
-    return y
-
-def load_csv_data(files, name_data, n_header = 0, mult = 1, n_cut = 0):
-
-    res = np.array([])
-    for filename in files:
-        data = pd.read_csv(filename, header = n_header)
-        res_tmp = data[name_data].values * mult
-        
-        for i in range(0, len(res_tmp)):
-            if math.isnan(res_tmp[i]):
-                if i<(len(res_tmp)-1):
-                    res_tmp[i] = 0.5*(res_tmp[i-1] + res_tmp[i+1])
-                else:
-                    res_tmp[i] = (res_tmp[i-1])
-        res_tmp = res_tmp[:len(res_tmp)-n_cut]
-
-        res = np.append(res,res_tmp)
+def butter_lowpass_filter(data, cutoff, freq, order=5):
+    '''
+        Apply a low-pass filter to a time series
+    '''
+    param_b, param_a = butter_lowpass(cutoff, freq, order=order)
+    res = signal.filtfilt(param_b, param_a, data)
     return res
 
-def create_site_file(filename):
-    # # Some code to write the input file for the data extraction
+def butter_highpass(cutoff, freq, order=5):
+    '''
+        Generate a high-pass filter object
+    '''
+    nyq = 0.5 * freq
+    normal_cutoff = cutoff / nyq
+    param_b, param_a = signal.butter(order, normal_cutoff, btype='high',
+                                     analog=False)
+    return param_b, param_a
+
+def butter_highpass_filter(data, cutoff, freq, order=5):
+    '''
+        Apply a high-pass filter to a time series
+    '''
+    param_b, param_a = butter_highpass(cutoff, freq, order=order)
+    res = signal.filtfilt(param_b, param_a, data)
+    return res
+
+def create_site_file(filename: str):
+    '''
+        Create a file containing the site description.
+
+        Params:
+            filename (str): name of the file to create.
+    '''
+
+    # Latitude and Longitude of the sites
     lat = [52.715111,
             51.70278,
             52.36666694,
@@ -512,36 +733,31 @@ def create_site_file(filename):
             55.06278,
             54.824806]
     long = [4.251000,
-                3.07611,
-                4.11666694,
-                5.963000,
-                7.03000,
-                6.167,
-                7.66917,
-                11.21000,
-                13.00472,
-                13.861694]
+            3.07611,
+            4.11666694,
+            5.963000,
+            7.03000,
+            6.167,
+            7.66917,
+            11.21000,
+            13.00472,
+            13.861694]
 
-    files_price = ["data/Day-ahead Prices_enstoe_2019.csv",
-                "data/Day-ahead Prices_enstoe_2019.csv",
-                "data/Day-ahead Prices_enstoe_2019.csv",
-                "data/Day-ahead Prices_enstoe_2019.csv",
-                "data/Day-ahead Prices_entsoe_2019_DE.csv",
-                "data/Day-ahead Prices_entsoe_2019_DE.csv",
-                "data/Day-ahead Prices_entsoe_2019_DK1.csv",
-                "data/Day-ahead Prices_entsoe_2019_DK1.csv",
-                "data/Day-ahead Prices_entsoe_2019_DK2.csv",
-                "data/Day-ahead Prices_entsoe_2019_DE.csv"]
+    # List of the bidding zones for each site
+    list_zones = ['NL', 'NL', 'NL', 'NL', 'DE_LU', 'DE_LU', 'DK_1',
+                  'DK_1', 'DK_2', 'DE_LU']
 
-    list_zones = ['NL', 'NL', 'NL', 'NL', 'DE_LU', 'DE_LU', 'DK_1', 'DK_1', 'DK_2', 'DE_LU']
-
-    turbine = ['Siemens SWT 4.0 130', 'Vestas V164 8000', 'Enercon E126 6500' ]
+    # Turbine characteristics to use for each site
+    turbine = ['Siemens SWT 4.0 130', 'Vestas V164 8000', 'Enercon E126 6500']
     hub_height = [80, 140, 135]
     rotor_radius = [130/2, 164/2, 126/2]
-    rated_power = [4000, 8000, 6500]
+    rated_power = [4000, 8000, 6500] #in kW
 
+    # Dates for the data extraction
     date_from = '2019-01-01'
     date_to = '2020-01-01'
+
+    # Total wind farm capacity in kW
     wind_farm_cap = 100000.0
 
     lat_vec = []
@@ -554,11 +770,12 @@ def create_site_file(filename):
     date_from_vec = []
     date_to_vec = []
     zones_vec = []
-    price_file_vec = []
 
-    for i in range(len(lat)):
-        ## Wind Power
-        for k in range(len(turbine)):
+    len_lat = len(lat)
+    len_turb = len(turbine)
+
+    for i in range(len_lat):
+        for k in range(len_turb):
             lat_vec.append(lat[i])
             long_vec.append(long[i])
             capacity_vec.append(wind_farm_cap)
@@ -569,18 +786,14 @@ def create_site_file(filename):
             date_from_vec.append(date_from)
             date_to_vec.append(date_to)
             zones_vec.append(list_zones[i])
-            price_file_vec.append(files_price[i])
 
-    df = pd.DataFrame({'Lat': lat_vec,'Long': long_vec,
+    dataframe = pd.DataFrame({'Lat': lat_vec,'Long': long_vec,
                     'Wind Farm Capacity [kW]': capacity_vec,
-                    'Turbine name': turbine_vec, 'Turbine Capacity [kW]': rated_power_vec,
-                    'Hub height [m]': hub_height_vec, 'Rotor radius [m]': rotor_radius_vec,
+                    'Turbine name': turbine_vec,
+                    'Turbine Capacity [kW]': rated_power_vec,
+                    'Hub height [m]': hub_height_vec,
+                    'Rotor radius [m]': rotor_radius_vec,
                     'Date from': date_from_vec, 'Date to': date_to_vec,
-                    'Bidding zone': zones_vec, 'Price file': price_file_vec})
+                    'Bidding zone': zones_vec})
 
-    df.to_csv(filename)
-
-    return    
-
-
-
+    dataframe.to_csv(filename)
