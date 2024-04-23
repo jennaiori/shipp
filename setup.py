@@ -11,5 +11,6 @@ setup(
    extras_require={
         'test': [
             'pytest',
-            'mosek']}
+            'mosek',
+            'pyomo']}
 )
