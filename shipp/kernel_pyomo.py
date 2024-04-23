@@ -206,8 +206,13 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
     results = pyo.SolverFactory(name_solver).solve(model)
     # model.display()
 
-    # for v in model.component_data_objects(pyo.Var, active=True):
-    #     print(v, pyo.value(v))
+    #Check if the problem was solved correclty
+    if (results.solver.status is not pyo.SolverStatus.ok) or \
+        (results.solver.termination_condition is not 
+         pyo.TerminationCondition.optimal):
+        raise RuntimeError
+    # Do something when the solution in optimal and feasible
+    
 
     e_vec1 = [pyo.value(model.e_vec1[e]) for e in model.e_vec1]
     p_vec1 = [pyo.value(model.p_vec1[e]) for e in model.p_vec1]
