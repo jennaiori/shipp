@@ -7,10 +7,15 @@ setup(
    author='Jenna Iori',
    author_email='j.iori@tudelft.nl',
    packages=['shipp'],  #same as name
-   install_requires=['numpy'], #external packages as dependencies
+   install_requires=['numpy',
+                     'numpy-financial',
+                     'pandas',
+                     'scipy',
+                     'matplotlib',
+                     'requests',
+                     'pyomo',
+                     'ipykernel'], #external packages as dependencies
    extras_require={
         'test': [
-            'pytest',
-            'mosek',
-            'pyomo']}
+            'pytest']}
 )

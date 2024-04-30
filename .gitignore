@@ -10,3 +10,4 @@ experiments/hyb24_bl_hpp/figures
 *.pckl
 *.txt
 *.png
+*.log
