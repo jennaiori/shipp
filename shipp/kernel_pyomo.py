@@ -286,7 +286,7 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
         os_res.time = results.solver[0]['Time']
 
     os_res.results = results
-    os_res.model = model
+    
     return os_res
 
 

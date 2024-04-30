@@ -10,13 +10,14 @@ sys.path.append('../')
 
 from shipp.kernel_pyomo import solve_lp_pyomo
 from shipp.components import Storage, Production, TimeSeries
+from shipp.kernel import solve_lp_sparse_sf
 
 import numpy as np
 import numpy_financial as npf
 import matplotlib.pyplot as plt
 
 # Global input data for the numerical experiments
-n = 1 * 24  # number of time steps
+n = 20 * 24  # number of time steps
 dt = 1 # time step duration [hour]
 percent_bl = 0.99 # reliability of the baseload constraint
 discount_rate = 0.03 #discount rate
@@ -29,9 +30,7 @@ p_cost = 150*1e3  # cost per power capacity for STS [USD/MW]
 e_cost = 75 * 1e3 # cost per energy capacity for STS [USD/MWh]
 eta = 0.85 #Round trip efficiency for STS
 
-pyo_solver = 'mosek_direct'
-
-
+pyo_solver = 'none'
 
 frequency_power = 0.5
 frequency_price = 5
@@ -51,8 +50,6 @@ stor = Storage(e_cap = None, p_cap = None, eff_in = 1, eff_out= eta,
 stor_null = Storage(e_cap = 0, p_cap = 0, eff_in =1, eff_out=1, 
                     e_cost = 0, p_cost = 0)
 
-
-
 price_dam = TimeSeries(price, dt)
 
 power_ts = TimeSeries(power, dt)
@@ -60,9 +57,19 @@ prod = Production(power_ts, p_cost_res)
 prod_null = Production(TimeSeries([0 for _ in range(n)], dt), 0)
 
 
-os =  solve_lp_pyomo(price_dam, prod, prod_null, stor, 
+if pyo_solver == 'none':
+    if n>150*24:
+        n = 150*24
+        print('Number of time steps limited to 3600 due to the poor\
+               performance of solver linprog on large problems.')
+    
+    os =  solve_lp_sparse_sf(price_dam, prod, prod_null, stor, 
                         stor_null, discount_rate, n_year, 
-                        p_min, p_max, n, pyo_solver)
+                        p_min, p_max, n)
+else:
+    os =  solve_lp_pyomo(price_dam, prod, prod_null, stor, 
+                            stor_null, discount_rate, n_year, 
+                            p_min, p_max, n, pyo_solver)
 
 revenues_res_only = 365 * 24 / n * np.dot(price, np.minimum(power, p_max))*dt
 
@@ -87,4 +94,4 @@ print('{:.1f}\t\t{:.1f}\t\t{:.2f}%\t\t{:.2f}/{:.2f}\t\t{:.2f}/{:.2f}\
                                  os.storage_list[0].e_cap, 
                                  os.storage_list[1].p_cap, 
                                  os.storage_list[1].e_cap, -a_npv, os.npv))
-
+                                 

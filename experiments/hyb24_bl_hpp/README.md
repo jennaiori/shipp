@@ -19,11 +19,12 @@ The code relies on the following python packages:
 - requests
 - ipykernel
 - pyomo 
+- entsoe-py
 
-In addition, it uses files of the package shipp (within the same repo)
+In addition, it uses files of the package shipp (within the same repository)
 
 ## Usage
-The jupyter notebook main.ipynb is used to run all numerical experiments and generate plots. The notebook relies on an input file describing the site locations (site2.csv with 2 sites or site.csv with 30 sites).
+The jupyter notebook main.ipynb is used to run all numerical experiments and generate plots. The notebook relies on an input file describing the site locations (site_plus2.csv with 2 sites or site_plus.csv with 30 sites).
 
 
 ## Authors and acknowledgment
