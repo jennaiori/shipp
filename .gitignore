@@ -6,7 +6,6 @@ experiments/hyb24_bl_hpp/__pycache__/
 *.pyc
 # Ignore data files and figures
 experiments/hyb24_bl_hpp/figures
-*.csv
 *.pckl
 *.txt
 *.png

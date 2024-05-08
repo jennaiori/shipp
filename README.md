@@ -5,7 +5,7 @@ SHIPP is used for studying and designing hybrid power plants, i.e. power plants 
 
 SHIPP is in development. Its capabilities are currently limited to sizing and operation of storage systems only. 
 
-
+For any question about the code, please contact Jenna Iori at j.iori@tudelft.nl
 ## Installation
 The package can be installed locally using pip after cloning the repository.
 
@@ -39,14 +39,14 @@ The problem can be solved with the built-in solver in scipy, `scipy.optimize.lin
 ```python
 os = solve_lp_sparse_sf(price, production1, production1, storage1, storage2, discount_rate, n_year, p_min, p_max, n)
 ```
-However, this solver uses a dense matrix representation and is not appropriate for large problems ('n'> 3600).
+However, this solver uses a dense matrix representation and is not appropriate for large problems (`n`> 3600).
 
 ### Accessing the results of the optimization
 This results in an `OpSchedule` object describing the operation schedule of the power plant, with the following members:
 - `production_list`: a list of `Production` objects corresponding to the input objects of the optimization problem
-- `storage_list`: a list of `Storage` objects corresponding to the input objects of the optimization problem. However, their power and energy capacity correspond to the optimal design. In addition, we use a round-trip efficiency accounted during discharge, instead of separate charging and discharging efficiency.
+- `storage_list`: a list of `Storage` objects corresponding to the input objects of the optimization problem. However, their power and energy capacity correspond to the optimal design.
 - `production_p`: a list of the power production for the objects in `production_list`. In case of curtailment, the first production unit assumes all the curtailment and the second production unit operates at full power.
-- `storage_p`: list of optimal power operation (charging/discharging) for the storage objects 
+- `storage_p`: list of optimal power operation (charge/discharge) for the storage objects 
 - `storage_e`: list of optimal energy level evolution for the storage objects  
 - `losses`: list of power losses corresponding to the storage objects.
 - `power_out`: total power to the grid for the production and storage units
@@ -82,6 +82,12 @@ Furthermore, a valid access or license to a solver compatible with pyomo (MOSEK,
 ## Authors and acknowledgment
 This project is developed by Jenna Iori at Delft University of Technology and is part of the Hollandse Kust Noord wind farm innovation program. Funding was provided by CrossWind C.V.
 
-## License
+The code is release under the Apache 2.0 License (see License.md).
 
-The code is currently closed source.
+## Copyright notice: 
+
+Technische Universiteit Delft hereby disclaims all copyright interest in the program “SHIPP” (a design optimization software for hybrid power plants) written by the Author(s). 
+
+Henri Werij, Faculty of Aerospace Engineering, Technische Universiteit Delft.
+
+© 2024, Jenna Iori

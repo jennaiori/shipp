@@ -244,17 +244,17 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
         power_losses_h2.append(-(e_vec2[i+1] - e_vec2[i] + dt*p_vec2[i])/dt)
 
     stor1_res = Storage(e_cap = e_cap1,
-                            p_cap = p_cap1,
-                            eff_in = eta1_in,
-                            eff_out = eta1_out,
-                            p_cost = stor1.p_cost,
-                            e_cost = stor1.e_cost)
+                        p_cap = p_cap1,
+                        eff_in = eta1_in,
+                        eff_out = eta1_out,
+                        p_cost = stor1.p_cost,
+                        e_cost = stor1.e_cost)
     stor2_res = Storage(e_cap = e_cap2,
-                            p_cap = p_cap2,
-                            eff_in = eta2_in,
-                            eff_out = eta2_out,
-                            p_cost = stor2.p_cost,
-                            e_cost = stor2.e_cost)
+                        p_cap = p_cap2,
+                        eff_in = eta2_in,
+                        eff_out = eta2_out,
+                        p_cost = stor2.p_cost,
+                        e_cost = stor2.e_cost)
 
     prod_wind_res = Production(power_ts = TimeSeries(np.array(power_res_new)
                     - prod_pv.power.data[:n], dt), p_cost= prod_wind.p_cost)

@@ -76,7 +76,7 @@ revenues_res_only = 365 * 24 / n * np.dot(price, np.minimum(power, p_max))*dt
 
 storage_capex = os.storage_list[0].get_tot_costs() + \
                 os.storage_list[1].get_tot_costs()
-added_revenues = 365 * 24 / n * np.dot(price, os.storage_p[0].data[:n] + 
+added_revenues = 365 * 24 / n * np.dot(price[:n], os.storage_p[0].data[:n] + 
                                        os.storage_p[1].data[:n])*dt
 
 cash_flow = [-storage_capex]
