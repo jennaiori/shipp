@@ -511,7 +511,7 @@ def os_rule_based(price_ts: TimeSeries, prod_wind: Production,
                   prod_pv: Production, stor_batt: Storage, stor_h2: Storage,
                   discount_rate: float, n_year: int, p_min: float | np.ndarray,
                   p_rule: float, price_min: float,
-                  n: int) -> OpSchedule:
+                  n: int, e_start: float = 0) -> OpSchedule:
 
     """Build the operation schedule following a rule-based control.
 
@@ -567,6 +567,7 @@ def os_rule_based(price_ts: TimeSeries, prod_wind: Production,
     power_res = prod_wind.power.data[:n] + prod_pv.power.data[:n]
 
     soc_batt = np.zeros((n+1,))
+    soc_batt[0] = e_start
     soc_h2 = np.zeros((n+1,))
     power_batt = np.zeros((n,))
     power_h2 = np.zeros((n,))
@@ -662,14 +663,14 @@ def os_rule_based(price_ts: TimeSeries, prod_wind: Production,
                             e_cost = stor_batt.e_cost)
 
     #find minimum storage from the maximum discharge cycle
-    import rainflow
     soc_h2_max = max(soc_h2)
-    rng_vec = []
-    for rng, mn, count, i_start, i_end in rainflow.extract_cycles(soc_h2):
-        if soc_h2[i_start] - soc_h2[i_end] > 0:
-            rng_vec.append(rng)
-    if len(rng_vec)>0:
-        soc_h2_max = max(rng_vec)
+    # import rainflow
+    # rng_vec = []
+    # for rng, mn, count, i_start, i_end in rainflow.extract_cycles(soc_h2):
+    #     if soc_h2[i_start] - soc_h2[i_end] > 0:
+    #         rng_vec.append(rng)
+    # if len(rng_vec)>0:
+    #     soc_h2_max = max(rng_vec)
 
     stor_h2_res = Storage(e_cap = soc_h2_max,
                             p_cap = max(power_h2),
