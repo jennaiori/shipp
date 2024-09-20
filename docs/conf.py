@@ -28,6 +28,7 @@ extensions = [
 
 myst_enable_extensions = [
     "linkify",
+    "dollarmath",
 ]
 
 # Napoleon settings
