@@ -1,8 +1,10 @@
 # Ignore pycache files
 .pytest_cache/
 tests/__pycache__/
-shipp/__pycache__/
+src/shipp/__pycache__/
+src/shipp.egg-info/
 experiments/hyb24_bl_hpp/__pycache__/
+docs/_build/
 *.pyc
 # Ignore data files and figures
 experiments/hyb24_bl_hpp/figures
