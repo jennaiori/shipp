@@ -6,7 +6,7 @@
 '''
 
 import sys
-sys.path.append('../')
+sys.path.append('../src/')
 
 from shipp.kernel_pyomo import solve_lp_pyomo
 from shipp.components import Storage, Production, TimeSeries

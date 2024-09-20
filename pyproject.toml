@@ -1,0 +1,96 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+
+name = "shipp"
+
+version = "0.1"
+
+description = "A design optimization software for hybrid power plants"
+
+readme = "README.md"
+
+requires-python = ">=3.8"
+
+license = {file = "LICENSE"}
+
+keywords = ["hybrid power plants", "renewable energy", "sizing optimization", "solar energy", "storage sizing", "wind energy", "wind farm", "wind power"]
+# Keywords that describe your project. These assist users in discovering your project on PyPI searches.
+# These should be a comma-separated list reflecting the nature or domain of the project.
+
+authors = [
+  {name = "Jenna Iori", email = "j.iori@tudelft.nl" }
+]
+# Information about the original authors of the project and their contact details.
+
+maintainers = [
+  {name = "Jenna Iori", email = "j.iori@tudelft.nl" }
+]
+# Information about the current maintainers of the project and their contact details.
+
+# Classifiers help categorize the project on PyPI and aid in discoverability.
+# For a full list of valid classifiers, see https://pypi.org/classifiers/
+classifiers = [
+  # Indicate the development status of your project (maturity). Commonly, this is
+  #   3 - Alpha
+  #   4 - Beta
+  #   5 - Stable
+  #.  6 - Mature
+  "Development Status :: 3 - Alpha",
+
+  # Target audience
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering",
+
+  # License type
+  "License :: OSI Approved :: Apache Software License",
+
+  # Python versions your software supports. This is not checked by pip install, and is different from "requires-python".
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3 :: Only",
+]
+
+# Dependencies needed by your project. These packages will be installed by pip when
+# your project is installed. Ensure these are existing, valid packages.
+
+# For more on how this field compares to pip's requirements files, see:
+# https://packaging.python.org/discussions/install-requires-vs-requirements/
+dependencies = [
+  "numpy>=1.26.0",
+  "numpy-financial",
+  "pandas>=2.2.0",
+  "scipy",
+  "matplotlib",
+  "requests",
+  "pyomo",
+  "ipykernel",
+  "entsoe-py",
+]
+
+# You can define additional groups of dependencies here (e.g., development dependencies).
+# These can be installed using the "extras" feature of pip, like so:
+
+#   $ pip install exampleproject[dev]
+
+# These are often referred to as "extras" and provide optional functionality.
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  ]
+
+[project.urls]
+"Homepage" = "https://github.com/jennaiori/shipp"
+"Source" = "https://github.com/jennaiori/shipp"
+
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

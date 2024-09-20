@@ -615,7 +615,7 @@ def find_extreme_event(power: np.ndarray, p_min_vec: np.ndarray, n: int,
 
 
 def get_p_min_vec(p_min: float, data: np.ndarray, percent_min: float = 0.99,
-                  return_len: bool = False) -> np.ndarray|int:
+                  return_len: bool = False):
     '''
         Generate a baseload constraint vector for a given  reliability
 

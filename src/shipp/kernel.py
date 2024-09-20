@@ -95,7 +95,7 @@ def build_lp_obj_npv_sf(price: np.ndarray, n: int, batt_p_cost: float,
 
     return vec_obj
 
-def build_lp_cst_sparse_sf(power: np.ndarray, dt: float, p_min: float|np.ndarray,
+def build_lp_cst_sparse_sf(power: np.ndarray, dt: float, p_min,
                         p_max: float, n: int, eps_batt: float,
                         eps_h2: float, rate_batt: float = -1.0,
                         rate_h2: float = -1.0, max_soc: float = -1.0,
@@ -372,7 +372,7 @@ def build_lp_cst_sparse_sf(power: np.ndarray, dt: float, p_min: float|np.ndarray
 def solve_lp_sparse_sf(price_ts: TimeSeries, prod_wind: Production,
                     prod_pv: Production, stor_batt: Storage, stor_h2: Storage,
                     discount_rate: float, n_year: int,
-                    p_min: float | np.ndarray, p_max: float,
+                    p_min, p_max: float,
                     n: int) -> OpSchedule:
     """Build and solve a LP for NPV maximization.
 
@@ -509,7 +509,7 @@ def solve_lp_sparse_sf(price_ts: TimeSeries, prod_wind: Production,
 
 def os_rule_based(price_ts: TimeSeries, prod_wind: Production,
                   prod_pv: Production, stor_batt: Storage, stor_h2: Storage,
-                  discount_rate: float, n_year: int, p_min: float | np.ndarray,
+                  discount_rate: float, n_year: int, p_min,
                   p_rule: float, price_min: float,
                   n: int, e_start: float = 0) -> OpSchedule:
 
