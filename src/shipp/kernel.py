@@ -99,12 +99,9 @@ def build_lp_cst_sparse_sf(power: np.ndarray, dt: float, p_min,
                         p_max: float, n: int, eps_batt: float,
                         eps_h2: float, rate_batt: float = -1.0,
                         rate_h2: float = -1.0, max_soc: float = -1.0,
-                        max_h2: float = -1.0) -> tuple[sps.coo_matrix,
-                                                       np.ndarray,
-                                                       sps.coo_matrix,
-                                                       np.ndarray,
-                                                       np.ndarray,
-                                                       np.ndarray]:
+                        max_h2: float = -1.0, fixed_cap = False
+                        ) -> tuple[sps.coo_matrix, np.ndarray, sps.coo_matrix, 
+                                   np.ndarray, np.ndarray, np.ndarray]:
     """Build sparse constraints for a LP.
 
     Function to build the matrices and vectors corresponding to the
@@ -348,14 +345,24 @@ def build_lp_cst_sparse_sf(power: np.ndarray, dt: float, p_min,
                                 vec_h2_min_power, vec_max_batt,
                                 vec_min_batt, vec_max_h2)).toarray().squeeze()
     # BOUNDS ON DESIGN VARIABLES
-    bounds_lower = sps.vstack((-rate_batt * one_n1,
-                                -rate_h2 * one_n1,
-                                z_np1_1,
-                                z_np1_1,
-                                z_11,
-                                z_11,
-                                z_11,
-                                z_11)).toarray().squeeze()
+    if fixed_cap == False:
+        bounds_lower = sps.vstack((-rate_batt * one_n1,
+                                    -rate_h2 * one_n1,
+                                    z_np1_1,
+                                    z_np1_1,
+                                    z_11,
+                                    z_11,
+                                    z_11,
+                                    z_11)).toarray().squeeze()
+    else:
+        bounds_lower = sps.vstack((-rate_batt * one_n1,
+                                    -rate_h2 * one_n1,
+                                    z_np1_1,
+                                    z_np1_1,
+                                    rate_batt*one_11,
+                                    max_soc*one_11,
+                                    rate_h2*one_11,
+                                    max_h2*one_11)).toarray().squeeze()
 
     bounds_upper = sps.vstack(( rate_batt * one_n1,
                                 rate_h2 * one_n1,
@@ -373,7 +380,7 @@ def solve_lp_sparse_sf(price_ts: TimeSeries, prod_wind: Production,
                     prod_pv: Production, stor_batt: Storage, stor_h2: Storage,
                     discount_rate: float, n_year: int,
                     p_min, p_max: float,
-                    n: int) -> OpSchedule:
+                    n: int, fixed_cap: bool = False) -> OpSchedule:
     """Build and solve a LP for NPV maximization.
 
     This function builds and solves the hybrid sizing and operation
@@ -396,6 +403,7 @@ def solve_lp_sparse_sf(price_ts: TimeSeries, prod_wind: Production,
         p_min (float or np.ndarray): Minimum power requirement [MW].
         p_max (float): Maximum power requirement [MW].
         n (int): Number of time steps to consider in the optimization.
+        fixed_cap (bool): If True, the capacity of the storage is fixed.
 
     Returns:
         os_res (OpSchedule): Object describing the optimal operational
@@ -430,7 +438,8 @@ def solve_lp_sparse_sf(price_ts: TimeSeries, prod_wind: Production,
     mat_eq, vec_eq, mat_ineq, vec_ineq, bounds_lower, bounds_upper = \
         build_lp_cst_sparse_sf(power_res, dt, p_min, p_max, n, eps_batt, eps_h2,
                             rate_batt = stor_batt.p_cap, rate_h2 = stor_h2.p_cap,
-                            max_soc = stor_batt.e_cap, max_h2= stor_h2.e_cap)
+                            max_soc = stor_batt.e_cap, max_h2= stor_h2.e_cap, 
+                            fixed_cap = fixed_cap)
 
     n_var = bounds_upper.shape[0]
     n_cstr_eq = vec_eq.shape[0]

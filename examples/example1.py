@@ -5,16 +5,14 @@
     time series.
 '''
 
-import sys
-sys.path.append('../src/')
+import numpy as np
+import numpy_financial as npf
+import matplotlib.pyplot as plt
+
 
 from shipp.kernel_pyomo import solve_lp_pyomo
 from shipp.components import Storage, Production, TimeSeries
 from shipp.kernel import solve_lp_sparse_sf
-
-import numpy as np
-import numpy_financial as npf
-import matplotlib.pyplot as plt
 
 # Global input data for the numerical experiments
 n = 20 * 24  # number of time steps

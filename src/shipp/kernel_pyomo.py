@@ -20,7 +20,8 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
                     prod_pv: Production, stor1: Storage, stor2: Storage,
                     discount_rate: float, n_year: int,
                     p_min, p_max: float,
-                    n: int, name_solver: str = 'mosek') -> OpSchedule:
+                    n: int, name_solver: str = 'mosek', 
+                    fixed_cap: bool = False) -> OpSchedule:
     """Build and solve a LP for NPV maximization with pyomo.
 
     This function builds and solves the hybrid sizing and operation
@@ -43,6 +44,7 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
         p_min (float or np.ndarray): Minimum power requirement [MW].
         p_max (float): Maximum power requirement [MW].
         n (int): Number of time steps to consider in the optimization.
+        fixed_cap (bool): If True, the capacity of the storage is fixed.
 
     Returns:
         os_res (OpSchedule): Object describing the optimal operational
@@ -111,21 +113,29 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
 
     if stor1.p_cap == -1 or stor1.p_cap is None:
         model.p_cap1 = pyo.Var(domain = pyo.NonNegativeReals)
+    elif fixed_cap == True:
+        model.p_cap1 = pyo.Var(bounds = (stor1.p_cap, stor1.p_cap))
     else:
         model.p_cap1 = pyo.Var(bounds = (0, stor1.p_cap))
 
     if stor2.p_cap == -1 or stor2.p_cap is None:
         model.p_cap2 = pyo.Var(domain = pyo.NonNegativeReals)
+    elif fixed_cap == True:
+        model.p_cap2 = pyo.Var(bounds = (stor2.p_cap, stor2.p_cap))
     else:
         model.p_cap2 = pyo.Var(bounds = (0, stor2.p_cap))
 
     if stor1.e_cap == -1 or stor1.e_cap is None:
         model.e_cap1 = pyo.Var(domain = pyo.NonNegativeReals)
+    elif fixed_cap == True:
+        model.e_cap1 = pyo.Var(bounds = (stor1.e_cap, stor1.e_cap))
     else:
         model.e_cap1 = pyo.Var(bounds = (0, stor1.e_cap))
 
     if stor2.e_cap == -1 or stor2.e_cap is None:
         model.e_cap2 = pyo.Var(domain = pyo.NonNegativeReals)
+    elif fixed_cap == True:
+        model.e_cap2 = pyo.Var(bounds = (stor2.e_cap, stor2.e_cap))
     else:
         model.e_cap2 = pyo.Var(bounds = (0, stor2.e_cap))
 

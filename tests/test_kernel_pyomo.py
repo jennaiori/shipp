@@ -6,7 +6,6 @@ from shipp.timeseries import TimeSeries
 from shipp.kernel_pyomo import solve_lp_pyomo
 
 def test_solve_lp_pyomo():
-    '''Test of function solve_lp_sparse'''
     power = np.array([2,1,2, 2, 3])
     n = len(power)
     dt = 1.0
@@ -25,12 +24,15 @@ def test_solve_lp_pyomo():
     prod_wind = Production(power_ts, p_cost = 1)
     prod_pv = Production(power_ts, p_cost = 1)
 
+    # Test the function with p_min as a scalar
     _ = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
                         discount_rate, n_year, p_min, p_max, n)
 
+    # Test the function with p_min as a vector
     _ = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
                         discount_rate, n_year, p_min_vec, p_max, n)
 
+    # Raise an error if the length of p_min_vec is not equal to the number of time steps
     try:
         _ = solve_lp_pyomo(TimeSeries(price, 2*dt), prod_wind, prod_pv,
                             stor_batt, stor_h2, discount_rate, n_year,
@@ -48,3 +50,12 @@ def test_solve_lp_pyomo():
         assert True
     else:
         assert False
+
+    # Test if the capacity changes when the input fixed_cap is True
+    os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                        discount_rate, n_year, p_min, p_max, n, fixed_cap=True)
+    assert os.storage_list[0].p_cap == 1
+    assert os.storage_list[1].p_cap == 1
+    assert os.storage_list[0].e_cap == 1
+    assert os.storage_list[1].e_cap == 1
+
