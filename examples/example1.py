@@ -5,16 +5,14 @@
     time series.
 '''
 
-import sys
-sys.path.append('../src/')
-
-from shipp.kernel_pyomo import solve_lp_pyomo
-from shipp.components import Storage, Production, TimeSeries
-from shipp.kernel import solve_lp_sparse_sf
-
 import numpy as np
 import numpy_financial as npf
 import matplotlib.pyplot as plt
+
+
+from shipp.kernel_pyomo import solve_lp_pyomo
+from shipp.components import Storage, Production, TimeSeries
+from shipp.kernel import solve_lp_sparse
 
 # Global input data for the numerical experiments
 n = 20 * 24  # number of time steps
@@ -63,7 +61,7 @@ if pyo_solver == 'none':
         print('Number of time steps limited to 3600 due to the poor\
                performance of solver linprog on large problems.')
     
-    os =  solve_lp_sparse_sf(price_dam, prod, prod_null, stor, 
+    os =  solve_lp_sparse(price_dam, prod, prod_null, stor, 
                         stor_null, discount_rate, n_year, 
                         p_min, p_max, n)
 else:

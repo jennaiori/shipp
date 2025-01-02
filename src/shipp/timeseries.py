@@ -9,9 +9,9 @@ import numpy as np
 class TimeSeries:
     '''
         class TimeSeries
-        Used to encapsulate data in the time domain associated to the 
-        time step. The class provides functions for the statistical 
-        analysis of time series.
+
+        Used to encapsulate data in the time domain associated to the time step. 
+        The class provides basic functions for the statistical analysis of time series.
     '''
 
     def __init__(self, data=None, dt=0):
