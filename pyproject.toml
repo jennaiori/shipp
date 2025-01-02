@@ -12,7 +12,7 @@ description = "A design optimization software for hybrid power plants"
 
 readme = "README.md"
 
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 
 license = {file = "LICENSE"}
 
@@ -62,14 +62,13 @@ classifiers = [
 # For more on how this field compares to pip's requirements files, see:
 # https://packaging.python.org/discussions/install-requires-vs-requirements/
 dependencies = [
-  "numpy>=1.26.0",
+  "numpy",
   "numpy-financial",
-  "pandas>=2.2.0",
+  "pandas>=2.0",
   "scipy",
   "matplotlib",
   "requests",
   "pyomo",
-  "ipykernel",
   "entsoe-py",
 ]
 

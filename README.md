@@ -7,15 +7,15 @@ SHIPP is in development. Its capabilities are currently limited to sizing and op
 
 
 ## Installation
-The package can be installed locally using pip after cloning the repository.
+The package can be installed with pip.
 
 ```python
-pip install path-to-shipp-folder
+pip install shipp
 ```
 
 ## Usage
 
-An example case is given in the folder `examples/`.
+An example case is given in the repository folder `examples/`.
 
 The folder `experiments/` contains advanced applications of the code used for scientific conferences and publications. 
 
