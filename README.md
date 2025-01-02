@@ -19,6 +19,8 @@ An example case is given in the repository folder `examples/`.
 
 The folder `experiments/` contains advanced applications of the code used for scientific conferences and publications. 
 
+Further documentation is available here: https://jennaiori.github.io/shipp/
+
 ## Future developments
 - Publish package on PyPI
 - Expand optimization problem definition to an arbitrary number of production and storage objects.
