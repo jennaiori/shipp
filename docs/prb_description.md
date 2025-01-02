@@ -27,14 +27,14 @@ The hybrid power plant is characterized by:
 ## Storage system model
 
 The cost $c^s$ of each storage component is calculated directly from its energy and power capacity,
-$$c^s = \lambda_P^s \bar{P}^s  + \lambda_E^s \bar{E}^s. $$
+$c^s = \lambda_P^s \bar{P}^s  + \lambda_E^s \bar{E}^s$.
 
 The operation of the storage systemm is described with the power $\boldsymbol{p}^s$ and energy $\boldsymbol{e}^s$ time series. The following convention is used: the power $p$ is negative during charge (*in*) and positive during discharge (*out*).
 
 
 Considering a time window of $n$ time steps with a discretization $\Delta t$, the power and energy time series satisfy the charge/discharge model of the storage for $i \in [0, n[$
 
-$$ e^s_{i+1} - e^s_{i} =  - \Delta t \eta^s_\text{in}  p^s_i \quad \text{if } p^s_i \leq 0, $$
+$$ e^s_{i+1} - e^s_{i} =  - \Delta t \ \eta^s_\text{in} \  p^s_i \quad \text{if } p^s_i \leq 0, $$
 $$ e^s_{i+1} - e^s_{i} =  - \Delta t \dfrac{1}{\eta^s_\text{out}}  p^s_i \quad \text{else}. $$
 
 Furtermore, the power and energy time series are bounded by the power and energy capacities of the component:

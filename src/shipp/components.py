@@ -1,14 +1,13 @@
 '''
-    Module components
-    Contains classes to describe the components of an hybrid power plant
+Module components
+Contains classes to describe the components of an hybrid power plant
 
-    Class Storage:
-        Represent a battery or hydrogen storage system that can be charg
-        ed or discharged
+Class Storage:
+    Represent storage system that can be charged or discharged
 
-    Class Production:
-        Represent a power plant (wind or pv) production electricity from
-        a given resource
+Class Production:
+    Represent a power plant (wind or pv) production electricity from
+    a given resource
 '''
 
 import matplotlib.pyplot as plt
@@ -19,15 +18,15 @@ from shipp.timeseries import TimeSeries
 
 class Storage:
     '''
-        class Storage used to represent energy storage systems
+    Class Storage used to represent energy storage systems
 
-        Class members:
-            - e_cap: Energy capacity [MWh]
-            - p_cap: Power capacity [MW]
-            - eff_in: efficiency to charge the storage [-]
-            - eff_out: efficiency to discharge the storage [-]
-            - e_cost: cost per unit of energy capacity [Currency/MWh]
-            - p_cost: cost per unit of power capacity [Currency/MW]
+    Attributes:
+        e_cap (float): Energy capacity [MWh]
+        p_cap (float): Power capacity [MW]
+        eff_in (float): Efficiency to charge the storage [-]
+        eff_out (float): Efficiency to discharge the storage [-]
+        e_cost (float): Cost per unit of energy capacity [Currency/MWh]
+        p_cost (float): Cost per unit of power capacity [Currency/MW]
     '''
 
     def __init__(self, e_cap: float = 0, p_cap: float = 0,
@@ -51,15 +50,20 @@ class Storage:
     def get_tot_costs(self) -> float:
         '''Returns total costs for the storage'''
         return self.p_cap * self.p_cost + self.e_cap * self.e_cost
+    
+    def __repr__(self) -> str:
+        return (f"Storage(e_cap={self.e_cap}, p_cap={self.p_cap}, eff_in={self.eff_in}, "
+                f"eff_out={self.eff_out}, e_cost={self.e_cost}, p_cost={self.p_cost})")
+
 
 class Production:
     '''
-        Class Production represents wind or solar PV production systems
+    Class Production represents wind or solar PV production systems
 
-        Class members:
-            - power_ts: time series of power production [MW]
-            - p_max: Maximum power [MW]
-            - p_cost: cost per unit of power capacity [Currency/MW]
+    Attributes:
+        power_ts (TimeSeries): time series of power production [MW]
+        p_max (float): Maximum power [MW]
+        p_cost (float): cost per unit of power capacity [Currency/MW]
     '''
     def __init__(self, power_ts: TimeSeries, p_cost: float = 0) -> None:
         self.power = power_ts
@@ -69,24 +73,29 @@ class Production:
     def get_tot_costs(self) -> float:
         '''Returns total costs for the production'''
         return self.p_max * self.p_cost
+    
+    def __repr__(self) -> str:
+        return (f"Production(p_cost={self.p_cost}, p_max={self.p_max}, "
+                f"power={self.power})")
 
 class OpSchedule:
     '''
-        Class OpSchedule describe a realization of an energy schedule
-        (or Operation Schedule) corresponding to a given list of storage
-        and renewable electric production units
+    Class OpSchedule describes a realization of an energy schedule
+    and renewable electric production units.
 
-        Class members:
-            - storage_list: list of energy storage systems
-            - production_list: list of renewable power production
-            - production_p: list of TimeSeries for the power output of
-            Production units
-            - storage_p: list of TimeSeries for the power output of
-            Storage units
-            - storage_e: list of TimeSeries for the energy level of 
-            Storage objects
-            - power_out: TimeSeries of total power to the grid
-            - revenue: total annual revenue from selling electricty
+    Attributes:
+        storage_list (list[Storage]): List of energy storage units.
+        production_list (list[Production]): List of renewable power production units.
+        production_p (list[TimeSeries]): List of TimeSeries for the power output of production units.
+        storage_p (list[TimeSeries]): List of TimeSeries for the power output of storage units.
+        storage_e (list[TimeSeries]): List of TimeSeries for the energy level of storage objects.
+        power_out (TimeSeries): TimeSeries of total power to the grid.
+        revenue (float): Total annual revenue from selling electricity.
+        capex (float): Total capital expenditure from storage and production objects.
+        revenue_storage (float): Total annual revenue from storage units.
+        npv (float): Net Present Value of the operation schedule.
+        irr (float): Internal Rate of Return of the operation schedule.
+        a_npv (float): Added Net Present Value due to the addition of storage.
     '''
 
     def __init__(self,
@@ -97,7 +106,7 @@ class OpSchedule:
                  storage_e: list[TimeSeries],
                  price: list[float] = None) -> None:
         '''
-            Initialization function for OpSchedule
+        Initialization function for OpSchedule
         '''
         self.production_list = production_list
         self.storage_list = storage_list
@@ -129,8 +138,8 @@ class OpSchedule:
 
     def update_capex(self) -> None:
         '''
-            Function to calculate the total CAPEX from Storage and 
-            Production objects
+        Function to calculate the total CAPEX from Storage and 
+        Production objects
         '''
         self.capex = 0
         for item in self.production_list:
@@ -141,11 +150,12 @@ class OpSchedule:
 
     def update_revenue(self, price: list[float]) -> None:
         '''
-            Function to calculate the yearly revenue for the operating 
-            schedule. The revenue is obtained by selling the electricity 
-            to the grid (power_out) at the given price
-            Input:
-                - price [currency/MWh]: day-ahead market price
+        Function to calculate the yearly revenue for the operating 
+        schedule. The revenue is obtained by selling the electricity 
+        to the grid (power_out) at the given price
+        
+        Params:
+            price [currency/MWh]: day-ahead market price 
         '''
         n = min(len(price), len(self.power_out.data))
         dot_product = np.dot(price[:n], self.power_out.data[:n])
@@ -161,15 +171,15 @@ class OpSchedule:
     def get_npv_irr(self, discount_rate: float,
                     n_year: int) -> tuple[float, float]:
         '''
-            Function to calculate the Net Present Value (npv) and 
-            internal rate of return (irr) for the OpSchedule object
-            Input:
-                - discount rate [-]: Usually 3, 7 or 10% for wind energy
-                 project
-                - n_year [-]: Number of years of operation
-            Output:
-                - npv [M.currency] Net Present Value
-                - irr [-] Internal Rate of return
+        Function to calculate the Net Present Value (npv) and 
+        internal rate of return (irr) for the OpSchedule object
+        Params:
+            discount rate [-]: Usually 3, 7 or 10% for wind energy
+                project
+            n_year [-]: Number of years of operation
+        Returns:
+            npv [M.currency]: Net Present Value
+            irr [-]: Internal Rate of return
         '''
         assert self.revenue is not None
         assert 0 <= discount_rate <=1
@@ -191,16 +201,18 @@ class OpSchedule:
     def get_added_npv(self, discount_rate: float,
                     n_year: int) -> tuple[float, float]:
         '''
-            Function to calculate the difference in Net Present Value 
-            due to the addition of the storage
-            Input:
-                - discount rate [-]: Usually 3, 7 or 10% for wind energy
-                 project
-                - n_year [-]: Number of years of operation
-            Output:
-                - a_npv [M.currency] added Net Present Value
+        Function to calculate the difference in Net Present Value 
+        due to the addition of the storage
+
+        Params:
+            discount rate [-]: Usually 3, 7 or 10% for wind energy
+                project
+            n_year [-]: Number of years of operation
+
+        Returns:
+            a_npv [M.currency] added Net Present Value
         '''
-        assert self.revenue is not None
+        assert self.revenue_storage is not None
         assert 0 <= discount_rate <=1
         assert isinstance(n_year, int)
 
@@ -221,13 +233,14 @@ class OpSchedule:
 
     def get_power_partition(self) -> list[float]:
         '''
-            Function to calculate the partition of the total power 
-            production for each component, expressed as percentage of 
-            the total energy produced.
-            Output:
-                - percent [-] array of percentage corresponding to the 
-                objects in self.production_list and then the one in 
-                self.storage_list
+        Function to calculate the partition of the total power 
+        production for each component, expressed as percentage of 
+        the total energy produced.
+        
+        Returns:
+            percent [-] array of percentage corresponding to the 
+            objects in self.production_list and then the one in 
+            self.storage_list
         '''
         dt = self.production_p[0].dt
 
@@ -260,6 +273,15 @@ class OpSchedule:
         return percent
 
     def check_losses(self, tol: float, verbose: bool = False) -> bool:
+        '''
+        Check the losses in the model and verify if they are within the tolerance.
+        Params:
+            tol: The tolerance level for the losses.
+            verbose: If True, prints the error values. Default is False.
+            
+        Returns:
+            bool: True if the losses are within the tolerance, False otherwise.
+        '''
         verifiedModel = True
 
         if hasattr(self, 'losses'):
@@ -288,13 +310,13 @@ class OpSchedule:
                        ylabel1: str = 'Power [MW]',
                        ylabel2: str = 'Energy [MWh]') -> None:
         '''
-            Function to plot the power flow of the operation schedule
+        Function to plot the power flow of the operation schedule
 
-            Arguments:
-                - label_list: list of labels to appear on the legend
-                - xlabel: label of the x-axis
-                - ylabel1: label of the y-axis (left) for power
-                - ylabel2: label of the y-axis (right) for energy
+        Params:
+            label_list: list of labels to appear on the legend
+            xlabel: label of the x-axis
+            ylabel1: label of the y-axis (left) for power
+            ylabel2: label of the y-axis (right) for energy
         '''
         if label_list is None:
             label_list = []
@@ -354,15 +376,15 @@ class OpSchedule:
                       ylabel: str = 'Power [MW]',
                       xlim: list[float] = None) -> None:
         '''
-            Function to plot the power the operation schedule, focusing
-            on the power sent to the grid (power "out").
+        Function to plot the power the operation schedule, focusing
+        on the power sent to the grid (power "out").
 
-            Arguments:
-                - label_list: list of labels to appear on the legend
-                - xlabel: label of the x-axis
-                - ylabel: label of the y-axis for power
-                - xlim [2,]: x range limits for the plot, allows to
-                reduce computational effort
+        Params:
+            label_list: list of labels to appear on the legend
+            xlabel: label of the x-axis
+            ylabel: label of the y-axis for power
+            xlim [2,]: x range limits for the plot, allows to
+            reduce computational effort
         '''
         if label_list is None:
             cnt = 0

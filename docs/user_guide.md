@@ -21,14 +21,11 @@ os = solve_lp_pyomo(price, production1, production1, storage1, storage2, discoun
 ```
 where the discount rate and the number of years `n_year` are used for the calculation of the NPV. The parameters `p_min` and `p_max` are used to describe the constraints for the maximum and minimum power production. The number of time steps is `n`. The parameter `name_solver` refers to a solver compatible with pyomo, for example 'mosek', 'cplex', 'gurobi'.
 
-The problem can be solved with the built-in solver in scipy, `scipy.optimize.linprog` with the following command:
+Alternatively, the problem can be solved with the built-in solver in scipy, `scipy.optimize.linprog` with the following command:
 
 ```python
-os = solve_lp_sparse_sf(price, production1, production1, storage1, storage2, discount_rate, n_year, p_min, p_max, n)
+os = solve_lp_sparse(price, production1, production1, storage1, storage2, discount_rate, n_year, p_min, p_max, n)
 ```
-
-However, this solver uses a dense matrix representation and is not appropriate for large problems (`n`> 3600).
-
 
 ## Results post-processing 
 
@@ -40,7 +37,11 @@ The optimization results are stored in a `OpSchedule` object describing the oper
 - `storage_e`: list of optimal energy level evolution for the storage objects  
 - `losses`: list of power losses corresponding to the storage objects.
 - `power_out`: total power to the grid for the production and storage units
+- `revenue`: total annual revenues from selling electricity.
+- `revenue_storage`: revenue contribution from the storage units.
 - `npv`: NPV for the total system
+- `a_npv`: Added NPV due to the addition of storage units
+- `irr`: Internal Rate of Return for the power plant.
 
 The operation schedule can be visualized using the following commands:
 - `os.plot_powerflow()`: line plot of the power production and the energy level evolution

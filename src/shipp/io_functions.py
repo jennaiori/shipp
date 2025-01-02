@@ -1,3 +1,17 @@
+'''
+This module provides functions for handling wind power and electricity price data.
+It includes functions to replace NaN values with the mean, make API requests to 
+renewables.ninja and ENTSO-E, and save/load data to/from JSON files.
+
+Functions:
+    replace_nan_with_mean: Replace NaN values in the array with the mean value of the series.
+    api_request_rninja: Makes an API request to renewables.ninja to retrieve wind speed and power data.
+    api_request_entsoe: Fetches day-ahead electricity prices from the ENTSO-E API for a specified country zone and date range.
+    get_power_price_data: Fetches (wind) power and price data for a specified location and time period.
+    save_power_price_to_json: Save power and price data to a JSON file.
+    get_power_price_from_json: Load power and price data from a JSON file.
+'''
+
 import sys
 import time
 import math
@@ -26,7 +40,6 @@ def replace_nan_with_mean(data: np.ndarray) -> np.ndarray:
     
     return data
 
-
 def api_request_rninja(token: str, latitude: float, longitude: float, 
                        date_start: str, date_end: str, 
                        capacity : float = 8000, height: float = 164, 
@@ -44,9 +57,11 @@ def api_request_rninja(token: str, latitude: float, longitude: float,
         height (float): Height of the wind turbine in meters.
         turbine (str): Type of wind turbine.
         token (str): API token for authentication.
+
     Returns:
         data_wind (numpy.ndarray): Array of wind speed data.
         data_power (numpy.ndarray): Array of wind power data in MW.
+
     Raises:
         Exception: If there is an error during the API request
     """
@@ -100,7 +115,7 @@ def api_request_rninja(token: str, latitude: float, longitude: float,
         
         # Extract wind speed and wind power
         data_wind = np.array(data['wind_speed'])
-        data_power = np.array(data['electricity']) * 1e-3
+        data_power = np.array(data['electricity']) * 1e-3 # power expressed in MW
     except Exception as e:
         # In case of exception, print the error text from the API
         print('Request text:', req.text)
@@ -120,7 +135,7 @@ def api_request_entsoe(token: str, date_start: str, date_end: str,
         date_end (str): The end date for the data request in 'YYYY-MM-DD' format.
 
     Returns:
-        np.ndarray: An array of day-ahead electricity prices for the specified country and date range.
+        np.ndarray: An array of day-ahead electricity prices for the specified country and date range [EUR/MWh].
 
     Raises:
         Exception: If there is an error while requesting data from the ENTSO-E API.
@@ -164,6 +179,7 @@ def get_power_price_data(token_rninja: str, token_entsoe: str, date_start: str, 
     
     """
     Fetches (wind) power and price data for a specified location and time period.
+
     Params:
         token (str): Authentication token for API requests.
         date_start (str): Start date for the data retrieval in 'YYYY-MM-DD' format.
@@ -174,9 +190,10 @@ def get_power_price_data(token_rninja: str, token_entsoe: str, date_start: str, 
         height (float, optional): Height of the wind turbine in meters. Default is 164.
         turbine (str, optional): Model of the wind turbine. Default is 'Vestas V164 8000'.
         country_code (str, optional): Country zone for price data. Default is 'NL'.
+
     Returns:
-        data_power: Wind power data (in MW).
-        data_price: Price data (in Eur).
+        data_power (np.ndarray): Wind power data [MW].
+        data_price (np.ndarray): Price data [EUR/MWh].
     """
 
     _, data_power = api_request_rninja(token_rninja, latitude, longitude, date_start, 
@@ -185,14 +202,14 @@ def get_power_price_data(token_rninja: str, token_entsoe: str, date_start: str, 
 
     return data_power, data_price
 
-def save_power_price_to_json(filename: str, data_power: np.array, data_price: np.array):
+def save_power_price_to_json(filename: str, data_power: np.ndarray, data_price: np.ndarray):
     """
     Save power and price data to a JSON file.
 
     Params:
         filename (str): Name of the file to save the data.
-        data_power (np.array): Power data.
-        data_price (np.array): Price data.
+        data_power (np.ndarray): Power data.
+        data_price (np.ndarray): Price data.
     """
 
     if not isinstance(filename, str):
@@ -208,15 +225,15 @@ def save_power_price_to_json(filename: str, data_power: np.array, data_price: np
     with open(filename, 'w') as file:
         json.dump(data, file)
 
-def get_power_price_from_json(filename: str) -> tuple[np.array, np.array]:
+def get_power_price_from_json(filename: str) -> tuple[np.ndarray, np.ndarray]:
     """
     Load power and price data from a JSON file.
 
     Params:
         filename (str): Name of the file to load the data from.
     Returns:
-        data_power (np.array): Power data.
-        data_price (np.array): Price data.
+        data_power (np.ndarray): Power data.
+        data_price (np.ndarray): Price data.
     """
 
     if not isinstance(filename, str):

@@ -1,12 +1,11 @@
 """This module defines kernel functions for shipp.
 
-The functions defined in this module are used to analyze or compute data
-for the classes defined in shipp.
+The functions defined in this module are used to solve the schedule problem with scipy.optimize.linprog or with a rule-based approach.
 
 Functions:
-    build_lp_obj_npv_sf: Build objective vector for NPV maximization.
-    build_lp_cst_sparse_sf: Build sparse constraints for a LP.
-    solve_lp_sparse_sf: Build and solve a LP for NPV maximization.
+    build_lp_obj_npv: Build objective vector for NPV maximization.
+    build_lp_cst_sparse: Build sparse constraints for a LP.
+    solve_lp_sparse: Build and solve a LP for NPV maximization.
     os_rule_based: Build the operation schedule with a rule-based EMS
 """
 
@@ -14,13 +13,12 @@ import traceback
 import numpy as np
 import numpy_financial as npf
 from scipy.optimize import linprog
-import matplotlib.pyplot as plt
 import scipy.sparse as sps
 
 from shipp.components import Storage, OpSchedule, Production
 from shipp.timeseries import TimeSeries
 
-def build_lp_obj_npv_sf(price: np.ndarray, n: int, batt_p_cost: float,
+def build_lp_obj_npv(price: np.ndarray, n: int, batt_p_cost: float,
                      batt_e_cost: float, h2_p_cost: float, h2_e_cost: float,
                      discount_rate: float, n_year: int) -> np.ndarray:
     """Build objective vector for a linear program for NPV maximization.
@@ -95,7 +93,7 @@ def build_lp_obj_npv_sf(price: np.ndarray, n: int, batt_p_cost: float,
 
     return vec_obj
 
-def build_lp_cst_sparse_sf(power: np.ndarray, dt: float, p_min,
+def build_lp_cst_sparse(power: np.ndarray, dt: float, p_min,
                         p_max: float, n: int, eps_batt: float,
                         eps_h2: float, rate_batt: float = -1.0,
                         rate_h2: float = -1.0, max_soc: float = -1.0,
@@ -376,7 +374,7 @@ def build_lp_cst_sparse_sf(power: np.ndarray, dt: float, p_min,
 
     return mat_eq, vec_eq, mat_ineq, vec_ineq, bounds_lower, bounds_upper
 
-def solve_lp_sparse_sf(price_ts: TimeSeries, prod_wind: Production,
+def solve_lp_sparse(price_ts: TimeSeries, prod_wind: Production,
                     prod_pv: Production, stor_batt: Storage, stor_h2: Storage,
                     discount_rate: float, n_year: int,
                     p_min, p_max: float,
@@ -430,13 +428,13 @@ def solve_lp_sparse_sf(price_ts: TimeSeries, prod_wind: Production,
     eps_batt = 1 - stor_batt.eff_in * stor_batt.eff_out
     eps_h2 = 1 - stor_h2.eff_in * stor_h2.eff_out
 
-    vec_obj = build_lp_obj_npv_sf(price_ts.data, n, stor_batt.p_cost,
+    vec_obj = build_lp_obj_npv(price_ts.data, n, stor_batt.p_cost,
                                stor_batt.e_cost, stor_h2.p_cost,
                                stor_h2.e_cost, discount_rate, n_year)
 
 
     mat_eq, vec_eq, mat_ineq, vec_ineq, bounds_lower, bounds_upper = \
-        build_lp_cst_sparse_sf(power_res, dt, p_min, p_max, n, eps_batt, eps_h2,
+        build_lp_cst_sparse(power_res, dt, p_min, p_max, n, eps_batt, eps_h2,
                             rate_batt = stor_batt.p_cap, rate_h2 = stor_h2.p_cap,
                             max_soc = stor_batt.e_cap, max_h2= stor_h2.e_cap, 
                             fixed_cap = fixed_cap)

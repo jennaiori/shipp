@@ -13,7 +13,7 @@ This software implements methods to study and design hybrid power plants, i.e. p
 This documentation describes the optimization problems solved by SHIPP and their implementation.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Contents:
 
    prb_description.md

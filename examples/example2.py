@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 
 from shipp.kernel_pyomo import solve_lp_pyomo
 from shipp.components import Storage, Production, TimeSeries
-from shipp.kernel import solve_lp_sparse_sf
+from shipp.kernel import solve_lp_sparse
 from shipp.io_functions import get_power_price_data
 
 
@@ -74,10 +74,10 @@ if pyo_solver == 'none':
         print('Number of time steps limited to 3600 due to the poor\
                performance of solver linprog on large problems.')
     
-    os =  solve_lp_sparse_sf(price_dam, prod, prod_null, stor, 
+    os =  solve_lp_sparse(price_dam, prod, prod_null, stor, 
                         stor_null, discount_rate, n_year, 
                         p_min, p_max, n)
-    os_fixed =  solve_lp_sparse_sf(price_dam, prod, prod_null, stor, 
+    os_fixed =  solve_lp_sparse(price_dam, prod, prod_null, stor, 
                         stor_null, discount_rate, n_year, 
                         p_min, p_max, n, fixed_cap = True)
 else:

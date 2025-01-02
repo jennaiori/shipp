@@ -3,12 +3,11 @@
 import numpy as np
 from shipp.components import Storage, Production
 from shipp.timeseries import TimeSeries
-from shipp.kernel import build_lp_obj_npv_sf, build_lp_cst_sparse_sf, \
-                            solve_lp_sparse_sf
+from shipp.kernel import build_lp_obj_npv, build_lp_cst_sparse, solve_lp_sparse
 
 
 def test_build_lp_obj_npv():
-    ''' Test of function build_lp_obj_npv_sf'''
+    ''' Test of function build_lp_obj_npv'''
 
     power = np.array([0,1,2,3])
     n = len(power)
@@ -17,7 +16,7 @@ def test_build_lp_obj_npv():
     discount_rate = 0.3
     n_year = 20
 
-    vec_obj = build_lp_obj_npv_sf(price, n, 1,1,1,1, discount_rate, n_year)
+    vec_obj = build_lp_obj_npv(price, n, 1,1,1,1, discount_rate, n_year)
 
     n_x = 4*n+6
 
@@ -25,21 +24,21 @@ def test_build_lp_obj_npv():
     assert vec_obj.shape[0] == n_x
 
     try:
-        vec_obj = build_lp_obj_npv_sf(price,  n, 1,1,1,1, 1.2, n_year)
+        vec_obj = build_lp_obj_npv(price,  n, 1,1,1,1, 1.2, n_year)
     except AssertionError:
         assert True
     else:
         assert False
 
     try:
-        vec_obj = build_lp_obj_npv_sf(price,  n, 1,1,1,1, discount_rate, -1)
+        vec_obj = build_lp_obj_npv(price,  n, 1,1,1,1, discount_rate, -1)
     except AssertionError:
         assert True
     else:
         assert False
 
     try:
-        vec_obj = build_lp_obj_npv_sf(price[:n-1], n,  1,1,1,1, discount_rate,
+        vec_obj = build_lp_obj_npv(price[:n-1], n,  1,1,1,1, discount_rate,
                                    n_year)
     except AssertionError:
         assert True
@@ -48,7 +47,7 @@ def test_build_lp_obj_npv():
 
 
 def test_build_lp_cst_sparse():
-    ''' Test of function build_lp_cst_sparse_sf'''
+    ''' Test of function build_lp_cst_sparse'''
 
     power = np.array([0,1,2, 0, 3])
     n = len(power)
@@ -64,7 +63,7 @@ def test_build_lp_cst_sparse():
     max_h2 = 1.0
 
     mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub = \
-        build_lp_cst_sparse_sf(power, dt, p_min, p_max, n, losses_batt, losses_h2)
+        build_lp_cst_sparse(power, dt, p_min, p_max, n, losses_batt, losses_h2)
     n_x = 4*n+6
     n_eq = 2
     n_ineq = 12*n+2
@@ -83,16 +82,16 @@ def test_build_lp_cst_sparse():
     assert ub.ndim == 1
 
     mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub = \
-        build_lp_cst_sparse_sf(power, dt, p_min_vec, p_max, n, losses_batt,
+        build_lp_cst_sparse(power, dt, p_min_vec, p_max, n, losses_batt,
                             losses_h2)
 
     mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub = \
-        build_lp_cst_sparse_sf(power, dt, p_min_vec, p_max, n, losses_batt,
+        build_lp_cst_sparse(power, dt, p_min_vec, p_max, n, losses_batt,
                             losses_h2, rate_batt, rate_h2, max_soc, max_h2)
 
     try:
         mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub = \
-            build_lp_cst_sparse_sf(power[:n-1], dt, p_min_vec, p_max, n,
+            build_lp_cst_sparse(power[:n-1], dt, p_min_vec, p_max, n,
                                 losses_batt, losses_h2)
     except AssertionError:
         assert True
@@ -103,7 +102,7 @@ def test_build_lp_cst_sparse():
 
 
 def test_solve_lp_sparse():
-    '''Test of function solve_lp_sparse_sf'''
+    '''Test of function solve_lp_sparse'''
     power = np.array([2,1,2, 2, 3])
     n = len(power)
     dt = 1.0
@@ -122,14 +121,14 @@ def test_solve_lp_sparse():
     prod_wind = Production(power_ts, p_cost = 1)
     prod_pv = Production(power_ts, p_cost = 1)
 
-    _ = solve_lp_sparse_sf(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+    _ = solve_lp_sparse(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
                         discount_rate, n_year, p_min, p_max, n)
 
-    _ = solve_lp_sparse_sf(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+    _ = solve_lp_sparse(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
                         discount_rate, n_year, p_min_vec, p_max, n)
 
     try:
-        _ = solve_lp_sparse_sf(TimeSeries(price, 2*dt), prod_wind, prod_pv,
+        _ = solve_lp_sparse(TimeSeries(price, 2*dt), prod_wind, prod_pv,
                             stor_batt, stor_h2, discount_rate, n_year,
                             p_min_vec, p_max, n)
     except AssertionError:
@@ -138,7 +137,7 @@ def test_solve_lp_sparse():
         assert False
 
     try:
-        _ = solve_lp_sparse_sf(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+        _ = solve_lp_sparse(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
                                     discount_rate, n_year, 4.0, 0.0, n)
     except RuntimeError:
         assert True

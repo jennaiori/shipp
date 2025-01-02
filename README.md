@@ -5,7 +5,6 @@ SHIPP is used for studying and designing hybrid power plants, i.e. power plants 
 
 SHIPP is in development. Its capabilities are currently limited to sizing and operation of storage systems only. 
 
-For any question about the code, please contact Jenna Iori at j.iori@tudelft.nl
 
 ## Installation
 The package can be installed locally using pip after cloning the repository.
@@ -16,9 +15,9 @@ pip install path-to-shipp-folder
 
 ## Usage
 
-An example case is given in `examples/example1.py`.
+An example case is given in the folder `examples/`.
 
-The folder `experiments/` contains advanced application of the code used for scientific conferences and publications. 
+The folder `experiments/` contains advanced applications of the code used for scientific conferences and publications. 
 
 ## Future developments
 - Publish package on PyPI
