@@ -1,0 +1,12 @@
+{
+    "h_arma": 0,
+    "h_obs_mix": 0,
+    "n_hist_arma": 0,
+    "sigma_start": 0.15,
+    "sigma_end": 0.2,
+    "sigma_index": 20,
+    "corr_factor_u": 1.029,
+    "corr_offset_u": -0.052,
+    "corr_factor_v": 1.037,
+    "corr_offset_v": -0.054
+}

@@ -1,0 +1,14 @@
+{
+    "hub height": 119,
+    "shear coefficient": 0.09,
+    "wind turbine rated power": 10, 
+    "number of turbines": 10,
+    "rotor radius": 90,
+    "power coefficient": 0.45,
+    "air density": 1.225,
+    "cut in wind speed": 4,
+    "cut out wind speed": 25,
+    "wake loss offset":1.1,
+    "wake loss factor": 0.35,
+    "wake loss period": 60
+}
