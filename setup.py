@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
    name='shipp',
-   version='1.0',
+   version='1.1',
    description='A simple module for sizing hybrid power plants',
    author='Jenna Iori',
    author_email='j.iori@tudelft.nl',

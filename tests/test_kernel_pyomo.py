@@ -3,7 +3,7 @@
 import numpy as np
 from shipp.components import Storage, Production
 from shipp.timeseries import TimeSeries
-from shipp.kernel_pyomo import solve_lp_pyomo
+from shipp.kernel_pyomo import solve_lp_pyomo, run_storage_operation
 
 def test_solve_lp_pyomo():
     power = np.array([2,1,2, 2, 3])
@@ -58,4 +58,105 @@ def test_solve_lp_pyomo():
     assert os.storage_list[1].p_cap == 1
     assert os.storage_list[0].e_cap == 1
     assert os.storage_list[1].e_cap == 1
+
+def test_run_storage_operation():
+    power = [2, 1, 2, 2, 3, 5]
+    price = [0.1, 0.1, 0.2, 0.1, 0.1, 0.3]
+    p_min = 0.5
+    p_max = 4.0
+    e_start = 1.0
+    n = 3
+    nt = len(power) - n
+    dt = 1.0
+    stor = Storage(e_cap=2, p_cap=1, eff_in=0.9, eff_out=0.9, p_cost=1, e_cost=1)
+    rel = 1.0
+
+    # Test with default parameters
+    result = run_storage_operation(
+        run_type="unlimited",
+        power=power,
+        price=price,
+        p_min=p_min,
+        p_max=p_max,
+        stor=stor,
+        e_start=e_start,
+        n=n,
+        nt=nt,
+        dt=dt,
+        rel=rel,
+    )
+    assert isinstance(result, dict)
+    assert "power" in result
+    assert "energy" in result
+    assert "reliability" in result
+    assert "revenues" in result
+    assert "bin" in result
+
+    # Test with forecast provided
+    forecast = [[[2, 2, 2]], [[2, 2, 2]], [[2, 2, 2]]]
+
+    result_with_forecast = run_storage_operation(
+        run_type="forecast",
+        power=power,
+        price=price,
+        p_min=p_min,
+        p_max=p_max,
+        stor=stor,
+        e_start=e_start,
+        n=n,
+        nt=nt,
+        dt=dt,
+        rel=rel,
+        forecast=forecast,
+    )
+    assert isinstance(result_with_forecast, dict)
+    assert "power" in result
+    assert "energy" in result
+    assert "reliability" in result
+    assert "revenues" in result
+    assert "bin" in result
+
+    # Test with invalid parameters (e.g., p_min > p_max)
+    try:
+        run_storage_operation(
+            run_type="invalid_type",
+            power=power,
+            price=price,
+            p_min=p_min,
+            p_max=p_max,
+            stor=stor,
+            e_start=e_start,
+            n=n,
+            nt=nt,
+            dt=dt,
+            rel=rel,
+        )
+    except AssertionError:
+        assert True
+    else:
+        assert False
+
+    # Test with verbose mode enabled
+    result_verbose = run_storage_operation(
+        run_type="unlimited",
+        power=power,
+        price=price,
+        p_min=p_min,
+        p_max=p_max,
+        stor=stor,
+        e_start=e_start,
+        n=n,
+        nt=nt,
+        dt=dt,
+        rel=rel,
+        verbose=True,
+    )
+    assert isinstance(result_verbose, dict)
+    assert "power" in result
+    assert "energy" in result
+    assert "reliability" in result
+    assert "revenues" in result
+    assert "bin" in result
+
+
 

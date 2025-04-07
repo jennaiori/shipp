@@ -8,6 +8,12 @@ docs/_build/
 *.pyc
 # Ignore data files and figures
 experiments/hyb24_bl_hpp/figures
+experiments/we25_robust_dispatch/data/mars_ptf*
+experiments/we25_robust_dispatch/data/data_era5_*
+experiments/we25_robust_dispatch/data/dam_price_*
+experiments/we25_robust_dispatch/dir_*
+experiments/we25_robust_dispatch/results/*.json
+
 *.pckl
 *.txt
 *.png
