@@ -992,7 +992,7 @@ def run_storage_operation(run_type: str, power: list, price: list, p_min: float,
         price_min_vec = np.linspace(np.mean(price[:nt]), max(price[:nt]), n_rb)
 
         max_rev = -max(price)*p_max*nt*dt # Initializing maximum revenue to a very low value.
-        os_tmp = os_rule_based(price_ts, prod_wind, prod_pv, stor, stor_null, 
+        os = os_rule_based(price_ts, prod_wind, prod_pv, stor, stor_null, 
                     0.05, 10, p_min, p_min, 0, nt, e_start)
         for p_rule in p_rule_vec:
             for price_min in price_min_vec:
