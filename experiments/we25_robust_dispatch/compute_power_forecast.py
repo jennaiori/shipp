@@ -17,12 +17,6 @@ Usage:
 
 Output:
     A JSON file containing the power forecast data is saved in the specified output folder.
-
-Parameters:
-    time_delta (int): The forecast is issued every `time_delta` hours.
-    h_arma (int): Forecast length for the ARMA forecast (in hours).
-    n_hist_arma (int): Number of time steps to consider for the ARMA forecast.
-    h_obs_mix (int): Number of hours to mix forecast data with observations.
 '''
 
 
@@ -30,7 +24,6 @@ Parameters:
 import sys
 import os
 
-import matplotlib.pyplot as plt
 import numpy as np
 import json
 from aux_forecast import mix_signals, get_wf_power
