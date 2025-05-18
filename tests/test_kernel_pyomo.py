@@ -13,6 +13,7 @@ def test_solve_lp_pyomo():
     p_min = 0.5
     p_min_vec = np.array([0.5,0.5,0.5,0.5,0.5])
     p_max = 4.0
+    dp_min = -0.5
 
     power_ts = TimeSeries(0.5*power, dt)
     price_ts = TimeSeries(price, dt)
@@ -59,6 +60,19 @@ def test_solve_lp_pyomo():
     assert os.storage_list[0].e_cap == 1
     assert os.storage_list[1].e_cap == 1
 
+    # Test the function with the parameter dp_min
+    _ = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                        discount_rate, n_year, 0, p_max, n, dp_min = dp_min)    
+    # Test the function with a positive value for dp_min
+    try:
+        _ = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                        discount_rate, n_year, 0, p_max, n, dp_min = 0.5)    
+
+    except AssertionError:
+        assert True
+    else:
+        assert False
+
 def test_run_storage_operation():
     power = [2, 1, 2, 2, 3, 5]
     price = [0.1, 0.1, 0.2, 0.1, 0.1, 0.3]
@@ -70,8 +84,10 @@ def test_run_storage_operation():
     dt = 1.0
     stor = Storage(e_cap=2, p_cap=1, eff_in=0.9, eff_out=0.9, p_cost=1, e_cost=1)
     rel = 1.0
+    dp_min = -0.5
 
     # Test with default parameters
+    ## Baseload
     result = run_storage_operation(
         run_type="unlimited",
         power=power,
@@ -92,9 +108,31 @@ def test_run_storage_operation():
     assert "revenues" in result
     assert "bin" in result
 
+    ## Ramp-limitation
+    result = run_storage_operation(
+        run_type="unlimited",
+        power=power,
+        price=price,
+        p_min=0,
+        p_max=p_max,
+        stor=stor,
+        e_start=e_start,
+        n=n,
+        nt=nt,
+        dt=dt,
+        rel=rel,
+        dp_min=dp_min,
+    )
+    assert isinstance(result, dict)
+    assert "power" in result
+    assert "energy" in result
+    assert "reliability" in result
+    assert "revenues" in result
+    assert "bin" in result
+
     # Test with forecast provided
     forecast = [[[2, 2, 2]], [[2, 2, 2]], [[2, 2, 2]]]
-
+    ## Baseload
     result_with_forecast = run_storage_operation(
         run_type="forecast",
         power=power,
@@ -108,6 +146,29 @@ def test_run_storage_operation():
         dt=dt,
         rel=rel,
         forecast=forecast,
+    )
+    assert isinstance(result_with_forecast, dict)
+    assert "power" in result
+    assert "energy" in result
+    assert "reliability" in result
+    assert "revenues" in result
+    assert "bin" in result
+
+    ## Ramp-limitation
+    result_with_forecast = run_storage_operation(
+        run_type="forecast",
+        power=power,
+        price=price,
+        p_min=0,
+        p_max=p_max,
+        stor=stor,
+        e_start=e_start,
+        n=n,
+        nt=nt,
+        dt=dt,
+        rel=rel,
+        forecast=forecast,
+        dp_min = dp_min,
     )
     assert isinstance(result_with_forecast, dict)
     assert "power" in result
@@ -132,6 +193,46 @@ def test_run_storage_operation():
             rel=rel,
         )
     except AssertionError:
+        assert True
+    else:
+        assert False
+
+    try:
+        run_storage_operation(
+            run_type="unlimited",
+            power=power,
+            price=price,
+            p_min=p_min,
+            p_max=p_max,
+            stor=stor,
+            e_start=e_start,
+            n=n,
+            nt=nt,
+            dt=dt,
+            rel=rel,
+            dp_min = 0
+        )
+    except AssertionError:
+        assert True
+    else:
+        assert False
+
+    try:
+        run_storage_operation(
+            run_type="rule-based",
+            power=power,
+            price=price,
+            p_min=0,
+            p_max=p_max,
+            stor=stor,
+            e_start=e_start,
+            n=n,
+            nt=nt,
+            dt=dt,
+            rel=rel,
+            dp_min = dp_min
+        )
+    except RuntimeError:
         assert True
     else:
         assert False
