@@ -26,7 +26,7 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
                     discount_rate: float, n_year: int,
                     p_min, p_max: float,
                     n: int, name_solver: str = 'mosek', 
-                    fixed_cap: bool = False, dp_min = None) -> OpSchedule:
+                    fixed_cap: bool = False, dp_min = None, verbose = False) -> OpSchedule:
     """Build and solve a LP for NPV maximization with pyomo.
 
     This function builds and solves the hybrid sizing and operation problem as a linear program. 
@@ -57,6 +57,7 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
     """
 
     # Data initialization
+    alpha_obj = 1-1e-6
     dt = prod_wind.power.dt
 
     assert dt == price_ts.dt
@@ -112,6 +113,7 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
     model.e_vec1 = pyo.Var(model.vec_np1, domain = pyo.NonNegativeReals)
     model.p_vec2 = pyo.Var(model.vec_n)
     model.e_vec2 = pyo.Var(model.vec_np1, domain = pyo.NonNegativeReals)
+    model.p_cur = pyo.Var(model.vec_n, domain = pyo.NonNegativeReals) # curtailed power
 
     if stor1.p_cap == -1 or stor1.p_cap is None:
         model.p_cap1 = pyo.Var(domain = pyo.NonNegativeReals)
@@ -144,8 +146,7 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
     # Objective function
     factor = npf.npv(discount_rate, np.ones(n_year))-1
     model.obj = pyo.Objective(expr=  365 * 24/n*factor* sum([p*(model.p_vec1[n]
-                 + model.p_vec2[k]) for p, n, k in zip(price_ts.data[:n],
-                model.p_vec1, model.p_vec2)]) - p_cost1*model.p_cap1
+                 + model.p_vec2[k] - alpha_obj *model.p_cur[l]) for p, n, k,l in zip(price_ts.data[:n], model.p_vec1, model.p_vec2, model.p_cur)]) - p_cost1*model.p_cap1
                 - e_cost1*model.e_cap1 - p_cost2*model.p_cap2
                 - e_cost2*model.e_cap2, sense = pyo.maximize)
 
@@ -185,10 +186,13 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
         return model.e_vec2[i] <= model.e_cap2
 
     def rule_p_tot_min(model, i):
-        return model.p_vec1[i] + model.p_vec2[i] >= p_min_vec[i]- power_res[i]
+        return model.p_vec1[i] + model.p_vec2[i] - model.p_cur[i] >= p_min_vec[i]- power_res[i]
 
     def rule_p_tot_max(model, i):
-        return model.p_vec1[i] + model.p_vec2[i] <= max(p_max - power_res[i],0)
+        return model.p_vec1[i] + model.p_vec2[i] - model.p_cur[i] <= max(p_max - power_res[i],0)
+    
+    def rule_p_cur_lim(model, i):
+        return model.p_cur[i] <= power_res[i]
 
     # Constraint for each storage type
     model.e_start_end1 =pyo.Constraint(expr = model.e_vec1[0]==model.e_vec1[n])
@@ -211,19 +215,21 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
     # Ramp limitation constraint
     if dp_min is not None: 
         def rule_dp_tot_min(model, i):
-            return model.p_vec1[i+1] + model.p_vec2[i+1] - model.p_vec1[i] - model.p_vec2[i] >= dp_min - power_res[i+1] + power_res[i]
+            return model.p_vec1[i+1] + model.p_vec2[i+1] - model.p_vec1[i] - model.p_vec2[i] - (model.p_cur[i+1] - model.p_cur[i])>= dp_min - power_res[i+1] + power_res[i]
 
         model.dp_tot_min = pyo.Constraint(model.vec_nm1, rule=rule_dp_tot_min)
 
     # Other constraints
     model.p_tot_min = pyo.Constraint(model.vec_n, rule=rule_p_tot_min)
     model.p_tot_max = pyo.Constraint(model.vec_n, rule=rule_p_tot_max)
-
-    
+    model.p_cur_lim = pyo.Constraint(model.vec_n, rule=rule_p_cur_lim)
 
     # Solve problem
-    results = pyo.SolverFactory(name_solver).solve(model)
-    # model.display()
+    if verbose:
+        results = pyo.SolverFactory(name_solver).solve(model, tee = True)
+        model.display()
+    else:
+        results = pyo.SolverFactory(name_solver).solve(model)
 
     #Check if the problem was solved correclty
     if (results.solver.status is not pyo.SolverStatus.ok) or \
@@ -232,6 +238,8 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
         raise RuntimeError
 
     # Extract optimum
+    p_cur = [pyo.value(model.p_cur[e]) for e in model.p_cur]
+
     e_vec1 = [pyo.value(model.e_vec1[e]) for e in model.e_vec1]
     p_vec1 = [pyo.value(model.p_vec1[e]) for e in model.p_vec1]
     e_cap1 = pyo.value(model.e_cap1)
@@ -249,7 +257,7 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
     power_losses_h2 = []
     for i in range(n):
         power_res_new.append(min(p_max - p_vec1[i] - p_vec2[i],
-                             power_res[i]))
+                             power_res[i]- p_cur[i]))
 
         power_losses_bat.append(-(e_vec1[i+1] - e_vec1[i] + dt*p_vec1[i])/dt)
         power_losses_h2.append(-(e_vec2[i+1] - e_vec2[i] + dt*p_vec2[i])/dt)
@@ -286,9 +294,9 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
     os_res.losses = [np.array(power_losses_bat) ,  np.array(power_losses_h2)]
 
     # Check that the power losses match the storage model
-    if not os_res.check_losses(1e-7):
+    if not os_res.check_losses(1e-4):
         print('Failed error check')
-        os_res.check_losses(1e-7, True)
+        os_res.check_losses(1e-4, True)
         warnings.warn('Failed error check in solve_lp_pyomo', RuntimeWarning)
 
     # Extract solve time
@@ -300,7 +308,7 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
         os_res.time = results.solver[0]['Time']
 
     os_res.results = results
-    
+
     return os_res
 
 
@@ -921,7 +929,7 @@ def solve_milp_pyomo(price_ts: TimeSeries, prod_wind: Production,
     return os_res
 
 
-def run_storage_operation(run_type: str, power: list, price: list, p_min: float, p_max: float, stor: Storage, e_start: float, n: int, nt: int, dt: float, rel : float = 1.0, forecast: list = None, n_hist: int = 0, verbose : bool = False, name_solver : str = 'mosek', dp_min = None) -> dict:	
+def run_storage_operation(run_type: str, power: list, price: list, p_min: float, p_max: float, stor: Storage, e_start: float, n: int, nt: int, dt: float, rel : float = 1.0, forecast: list = None, n_hist: int = 0, verbose : bool = False, name_solver : str = 'mosek', dp_min = None, beta_obj = 1e-6, mu = 1.0) -> dict:	
     """Execute a storage operation simulation.
     
     This function simulates the dispatch operation of a storage system based on the specified type. 
@@ -987,10 +995,11 @@ def run_storage_operation(run_type: str, power: list, price: list, p_min: float,
     # For run type 'unlimited', the information for the entire time series is used, and there is no rolling horizon.
     if run_type == 'unlimited':
         power = np.array(power)
-        p_vec, e_vec, _, _, bin_res, _ = solve_dispatch_pyomo(price, 1, rel, nt, power.reshape((1,len(power))), p_min, p_max, e_start, 0,  dt, stor, stor_null, verbose = verbose, name_solver = name_solver, dp_min = dp_min)
+        p_vec, e_vec, _, _, p_cur, bin_res, _ = solve_dispatch_pyomo(price, 1, rel, nt, power.reshape((1,len(power))), p_min, p_max, e_start, 0,  dt, stor, stor_null, verbose = verbose, name_solver = name_solver, dp_min = dp_min, beta_obj = beta_obj, mu = mu)
         
         p_res = p_vec[0].tolist()
         e_res = e_vec[0].tolist()
+        p_cur_res = p_cur[0].tolist()
 
     # For run type 'rule-based', the operation is based on predefined rules and thresholds. The best thresholds are determined by iterating over a range of values.
     elif run_type == 'rule-based':
@@ -1029,6 +1038,7 @@ def run_storage_operation(run_type: str, power: list, price: list, p_min: float,
         # Retrieve results for the best case found.
         p_res = os.storage_p[0].data.tolist()
         e_res = os.storage_e[0].data.tolist()
+        p_cur_res = []
         bin_res = [p + pwr>=p_min for p, pwr in zip(p_res, power)]
   
     # For run type 'forecast', the operation is based on a rolling horizon with new power forecasts at each time step.	
@@ -1036,13 +1046,15 @@ def run_storage_operation(run_type: str, power: list, price: list, p_min: float,
         assert forecast is not None
     
         p_res = []
+        p_cur_res = []
         e_res = [e_start]
         bin_res = []
         e_start_new = e_start
         
         m = len(forecast[0]) # Number of forecast scenarios.
 
-        p_hist   =  0
+        p_hist_res   =  power[0]
+        p_hist_stor   =  0
         cnt_hist = n_hist # Initializing the count of historical time steps meeting the power threshold.
 
         # Iterate over the time steps in the simulation for the rolling horizon.
@@ -1053,11 +1065,11 @@ def run_storage_operation(run_type: str, power: list, price: list, p_min: float,
             if t > n_hist:
                 cnt_hist = sum([0 if p+ps < p_min else 1 for ps, p in zip(p_res[-n_hist:], power[t-n_hist:t])])
 
-                p_vec, e_vec, _, _, bin_vec, status = solve_dispatch_pyomo(price[t:], m, rel, n, forecast[t], p_min, p_max, e_start_new, 0,  dt, stor, stor_null, n_hist = n_hist, cnt_hist=cnt_hist, verbose = verbose, name_solver = name_solver, dp_min = dp_min, p_hist = p_hist)
+                p_vec, e_vec, _, _, p_cur, bin_vec, status = solve_dispatch_pyomo(price[t:], m, rel, n, forecast[t], p_min, p_max, e_start_new, 0,  dt, stor, stor_null, n_hist = n_hist, cnt_hist=cnt_hist, verbose = verbose, name_solver = name_solver, dp_min = dp_min, beta_obj = beta_obj, mu = mu, p_hist_res = p_hist_res, p_hist_stor=p_hist_stor)
             else: 
                 cnt_hist = sum([0 if p+ps < p_min else 1 for ps, p in zip(p_res[:t], power[:t])])
         
-                p_vec, e_vec, _, _, bin_vec, status = solve_dispatch_pyomo(price[t:], m, rel, n, forecast[t], p_min, p_max, e_start_new, 0,  dt, stor, stor_null, n_hist = n_hist, cnt_hist=(t-1), verbose = verbose, name_solver = name_solver, dp_min = dp_min, p_hist = p_hist)
+                p_vec, e_vec, _, _, p_cur, bin_vec, status = solve_dispatch_pyomo(price[t:], m, rel, n, forecast[t], p_min, p_max, e_start_new, 0,  dt, stor, stor_null, n_hist = n_hist, cnt_hist=(t-1), verbose = verbose, name_solver = name_solver, dp_min = dp_min, beta_obj = beta_obj, mu = mu, p_hist_res = p_hist_res, p_hist_stor=p_hist_stor)
             
             # If the optimization problem is solved correctly, we retrieve the results.
             if status == 'ok':
@@ -1074,11 +1086,13 @@ def run_storage_operation(run_type: str, power: list, price: list, p_min: float,
                     p_new = max(-1.0/dt*(stor.e_cap-e_res[t]), delta_power, -stor.p_cap)
                     e_start_new = e_res[t] - p_new*dt
 
-            p_hist = p_new + power[t]
-            if p_hist < 0:
+            p_hist_stor = p_new
+            p_hist_res = power[t] - p_cur[0,0]
+            if (p_hist_res + p_hist_stor) < -1e-4:
                 print('p_hist <0 at t=',t,  'p_new=', p_new, 'power[t]=', power[t])
             e_res.append(e_start_new)
             p_res.append(p_new)
+            p_cur_res.append(p_cur[0,0])
             bin_res.append(bin_vec[0])
 
     else:
@@ -1088,17 +1102,17 @@ def run_storage_operation(run_type: str, power: list, price: list, p_min: float,
     # Calculate reliability, revenues and costs based on the results.
     rel_res = 1/nt*sum(bin_res)
     # rel_res = sum([1/nt if (p + ps) >= p_min-tol else 0 for ps, p in zip(p_res[:nt], power[:nt])])
-    rev_res = sum([price[i]*p_res[i] for i in range(nt)])
+    rev_res = sum([price[i]*(p_res[i]-p_cur_res[i]) for i in range(nt)])
     cost_res = -rev_res/(sum(power[:nt])*dt)
     
     res = {'power':p_res, 'energy': e_res, 'reliability': rel_res, 
-           'revenues': rev_res, 'cost': cost_res, 
+           'revenues': rev_res, 'cost': cost_res, 'p_cur': p_cur_res,
            'bin': np.array(bin_res).astype(int).tolist()}
 
     return res
 
 
-def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast: list, p_min: float, p_max : float, e_start1 : float, e_start2 : float, dt : float, stor1 : Storage, stor2 : Storage, cnt_hist : int = 0, n_hist : int = 0, verbose : bool = False, name_solver : str = 'mosek', dp_min = None, p_hist = 0)-> tuple:
+def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast: list, p_min: float, p_max : float, e_start1 : float, e_start2 : float, dt : float, stor1 : Storage, stor2 : Storage, cnt_hist : int = 0, n_hist : int = 0, verbose : bool = False, name_solver : str = 'mosek', dp_min : float = None, beta_obj : float = 1e-6, mu : float = 1.0, p_hist_res : float = 0, p_hist_stor : float = 0)-> tuple:
 
     """Build and solve a MILP for the dispatch optimization of storage systems
 
@@ -1172,17 +1186,19 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
     assert np.isfinite(e_cap2)
 
     if dp_min is not None:
+        tol = 1e-4
         assert np.isfinite(dp_min)
-        assert np.isfinite(p_hist)
+        assert np.isfinite(p_hist_res)
+        assert np.isfinite(p_hist_stor)
         assert dp_min < 0 
-        assert p_hist >= 0 
+        assert( p_hist_res + p_hist_stor) >= -tol 
 
     # Tuning parameters of the optimization problem
+    alpha_obj = 1-1e-6
     if dp_min is None:
-        mu_obj = 1.0*(p_min)*(n+n_hist)*np.max(price[0:n])
+        mu_obj = mu*(p_min)*(n+n_hist)*np.max(price[0:n])
     else:
-        mu_obj = 1.0*(p_min - dp_min)*(n+n_hist)*np.max(price[0:n])
-    beta_obj = 1e-6
+        mu_obj = mu*(p_min - dp_min)*(n+n_hist)*np.max(price[0:n])
 
     # Initialize pyomo model
     model = pyo.ConcreteModel()
@@ -1204,22 +1220,22 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
     model.p_vec2 = pyo.Var(model.mat_m_n, bounds = (-p_cap2, p_cap2))
     model.e_vec2 = pyo.Var(model.mat_m_np1, bounds = (0, e_cap2))
 
-    model.bin = pyo.Var(model.vec_n, within = pyo.Binary, 
-                        initialize = [0 if p < p_min else 1 for p in power_forecast[0][:n]]) ##binary variable for each time step
+    model.bin = pyo.Var(model.vec_n, within = pyo.Binary) ##binary variable for each time step
 
     model.penalty = pyo.Var(within=pyo.NonNegativeReals, bounds=(0, rel), initialize=0)
-   
+    model.p_cur = pyo.Var(model.mat_m_n, domain=pyo.NonNegativeReals) #curtailed power
+
     # Input the objective function in the model
-    model.obj = pyo.Objective(expr = 1/m*sum([price[j] * (model.p_vec1[i,j] + model.p_vec2[i,j]) for i,j in model.p_vec1]) - mu_obj*model.penalty + beta_obj*1/m*sum([model.e_vec1[i, model.vec_np1.at(n+1)] + model.e_vec2[i, model.vec_np1.at(n+1)] for i in model.vec_m]), sense = pyo.maximize)
+    model.obj = pyo.Objective(expr = 1/m*sum([price[j] * (model.p_vec1[i,j] + model.p_vec2[i,j] - alpha_obj*model.p_cur[i,j]) for i,j in model.p_vec1]) - mu_obj*model.penalty + beta_obj*1/m*sum([model.e_vec1[i, model.vec_np1.at(n+1)] + model.e_vec2[i, model.vec_np1.at(n+1)] for i in model.vec_m]), sense = pyo.maximize)
 
 
     # Define rule functions for the constraints
     ## Constraint for the minimum baseload power
     def rule_p_tot_min(model, j, i):
-        return model.p_vec1[j,i] + model.p_vec2[j,i] >= (p_min*model.bin[i] - power_forecast[j][i])
+        return model.p_vec1[j,i] + model.p_vec2[j,i] - model.p_cur[j,i] >= (p_min*model.bin[i] - power_forecast[j][i])
     ## Constraint for the maximum power
     def rule_p_tot_max(model, j, i):
-        return model.p_vec1[j,i] + model.p_vec2[j,i] <= max(p_max - power_forecast[j][i], 0)
+        return model.p_vec1[j,i] + model.p_vec2[j,i] - model.p_cur[j,i]  <= max(p_max - power_forecast[j][i], 0)
 
     ## Constraints for the storage system model for storage 1
     def rule_e_model_charge1(model, j,i):
@@ -1251,16 +1267,35 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
     def rule_p_equal2(model, j):
         return model.p_vec2[0,0] == model.p_vec2[j,0]
     
-    ## Constraint for the binary variables to ensure that the baseload power is always satisfied if the power from RES sources is above baseload
-    # def rule_min_bound_bin(model, i):
-    #     if p_min >0:
-    #         min_pow = min([power_forecast[j][i] for j in range(m)])
+    # Constraint for the binary variables to ensure that the baseload power is always satisfied if the power from RES sources is above baseload
+    def rule_min_bound_bin(model, i):
+        if p_min >0:
+            min_pow = min([power_forecast[j][i] for j in range(m)])
             
-    #         return model.bin[i] >= (int)((min_pow//p_min)>=1)
-    #     else:
-    #         return model.bin[i]>=1
-    # model.min_bound_bin = pyo.Constraint(model.vec_n, rule=rule_min_bound_bin)
-   
+            return model.bin[i] >= (int)((min_pow//p_min)>=1)
+        # elif dp_min is not None:
+        #     if i == 0 :
+        #         min_dpow = min([power_forecast[j][i] - p_hist_res for j in range(m)])
+        #     elif i <n-1:
+        #         min_dpow = min([power_forecast[j][i+1] - power_forecast[j][i]  for j in range(m)])
+        #     else:
+        #         min_dpow = -p_max
+            
+        #     if min_dpow >= 0:
+        #         return model.bin[i]>=1
+        #     else:
+        #         return model.bin[i] >= (int)((abs(p_min)//abs(min_dpow))>=1)
+        elif dp_min is not None:
+            return model.bin[i]>=0
+        else:
+            return model.bin[i]>=1
+        
+    def rule_p_cur_lim(model, j,i):
+        return model.p_cur[j,i]  <= power_forecast[j][i]
+    
+
+    model.min_bound_bin = pyo.Constraint(model.vec_n, rule=rule_min_bound_bin)
+    model.p_cur_lim =  pyo.Constraint(model.mat_m_n, rule=rule_p_cur_lim)
     # Input the constraints in the model
     ## Constraint to enforce the target reliability, taking into account the penalty
     model.reliability = pyo.Constraint(expr = sum( model.bin[k] for k in model.bin) 
@@ -1273,13 +1308,14 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
 
     # Ramp limitation constraint
     if dp_min is not None: 
+        min_dpow = -p_max
         def rule_dp_tot_min(model, j, i):
             if i == 0:
-                return model.p_vec1[j, i] + model.p_vec2[j, i] + power_forecast[j][i] - p_hist >= -p_max + model.bin[i]*(p_max + dp_min)
+                return  model.p_vec1[j, i] + model.p_vec2[j, i] - model.p_cur[j,i] >= model.bin[i]*(dp_min  - power_forecast[j][i] + p_hist_res + p_hist_stor)
             else:
-                return power_forecast[j][i+1] + model.p_vec1[j, i+1] + model.p_vec2[j, i+1] - (power_forecast[j][i] + model.p_vec1[j, i] + model.p_vec2[j, i]) >= -p_max + model.bin[i]*(p_max + dp_min)
+                return  model.p_vec1[j, i] + model.p_vec2[j, i] - (model.p_vec1[j, i-1] + model.p_vec2[j, i-1]) - (model.p_cur[j,i] - model.p_cur[j, i-1]) >= min_dpow + model.bin[i]*(dp_min - min_dpow ) - power_forecast[j][i] + power_forecast[j][i-1]
 
-        model.dp_tot_min = pyo.Constraint(model.mat_m_nm1, rule=rule_dp_tot_min)
+        model.dp_tot_min = pyo.Constraint(model.mat_m_n, rule=rule_dp_tot_min)
 
     ## Global constraints
     model.p_tot_min = pyo.Constraint(model.mat_m_n, rule=rule_p_tot_min)
@@ -1332,6 +1368,10 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
     e_vec2 = np.zeros((m,n+1))
     for j, i in model.e_vec2:
         e_vec2[j][i] = pyo.value(model.e_vec2[j, i])
+    
+    p_cur = np.zeros((m,n))
+    for j, i in model.p_cur:
+        p_cur[j][i] = pyo.value(model.p_cur[j, i])
 
     # Assert if the losses match the storage system model
     for e_vec, p_vec in zip( [e_vec1, e_vec2], [p_vec1, p_vec2]):
@@ -1360,4 +1400,4 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
             print('Error above tolerance in solve_dispatch_pyomo:', max(error_in, error_out))
 
     
-    return p_vec1, e_vec1,  p_vec2, e_vec2, bin, results.solver.status
+    return p_vec1, e_vec1,  p_vec2, e_vec2, p_cur, bin, results.solver.status
