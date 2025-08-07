@@ -1017,6 +1017,8 @@ def run_storage_operation(run_type: str, power: list, price: list, p_min: float,
         price_min_vec = np.linspace(np.mean(price[:nt]), max(price[:nt]), n_rb)
 
         max_rev = -max(price)*p_max*nt*dt # Initializing maximum revenue to a very low value.
+        max_rel = 0 # Initializing maximum reliability to zero
+        
         os_tmp = os_rule_based(price_ts, prod_wind, prod_pv, stor, stor_null, 
                     0.05, 10, p_min, p_min, 0, nt, e_start)
         for p_rule in p_rule_vec:
@@ -1028,18 +1030,23 @@ def run_storage_operation(run_type: str, power: list, price: list, p_min: float,
                 rel_res = sum([1/nt if (p + ps) >= p_min-tol else 0 for ps, p in zip(p_res[:nt], power[:nt])]) # calculate reliability
                 rev_res = sum([price[i]*p_res[i] for i in range(nt)]) # calculate revenues
 
-                if rel_res >= rel and max_rev < rev_res:
+                if rel_res >= max_rel and rel_res < rel and max_rev < rev_res:
+                    max_rel = max(rel_res, max_rel)
                     max_rev = max(rev_res, max_rev)
                     os = os_tmp
-                elif max_rev < rev_res:
+                elif rel_res >= rel and max_rev < rev_res:
                     max_rev = max(rev_res, max_rev)
-                    os = os_tmp                          
+
+                    os = os_tmp
+                # elif max_rev < rev_res:
+                #     max_rev = max(rev_res, max_rev)
+                #     os = os_tmp                          
 
         # Retrieve results for the best case found.
         p_res = os.storage_p[0].data.tolist()
         e_res = os.storage_e[0].data.tolist()
-        p_cur_res = []
-        bin_res = [p + pwr>=p_min for p, pwr in zip(p_res, power)]
+        p_cur_res = [0 for _ in range(len(p_res))]
+        bin_res = [1 if (p + ps) >= p_min-tol else 0 for ps, p in zip(p_res[:nt], power[:nt])]
   
     # For run type 'forecast', the operation is based on a rolling horizon with new power forecasts at each time step.	
     elif run_type == 'forecast':
