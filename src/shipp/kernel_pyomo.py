@@ -187,9 +187,12 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
 
     def rule_p_tot_min(model, i):
         return model.p_vec1[i] + model.p_vec2[i] - model.p_cur[i] >= p_min_vec[i]- power_res[i]
+ 
+    def rule_p_tot_max_storage(model, i):
+        return model.p_vec1[i] + model.p_vec2[i] <= max(p_max - power_res[i], 0)
 
-    def rule_p_tot_max(model, i):
-        return model.p_vec1[i] + model.p_vec2[i] - model.p_cur[i] <= max(p_max - power_res[i],0)
+    def rule_p_tot_max_curt(model, i):
+        return model.p_vec1[i] + model.p_vec2[i] - model.p_cur[i]  <= p_max - power_res[i]
     
     def rule_p_cur_lim(model, i):
         return model.p_cur[i] <= power_res[i]
@@ -221,7 +224,8 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
 
     # Other constraints
     model.p_tot_min = pyo.Constraint(model.vec_n, rule=rule_p_tot_min)
-    model.p_tot_max = pyo.Constraint(model.vec_n, rule=rule_p_tot_max)
+    model.p_tot_max_storage = pyo.Constraint(model.vec_n, rule=rule_p_tot_max_storage)
+    model.p_tot_max_curt = pyo.Constraint(model.vec_n, rule=rule_p_tot_max_curt)
     model.p_cur_lim = pyo.Constraint(model.vec_n, rule=rule_p_cur_lim)
 
     # Solve problem
@@ -256,8 +260,9 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
     power_losses_bat = []
     power_losses_h2 = []
     for i in range(n):
-        power_res_new.append(min(p_max - p_vec1[i] - p_vec2[i],
-                             power_res[i]- p_cur[i]))
+        # power_res_new.append(min(p_max - p_vec1[i] - p_vec2[i],
+        #                      power_res[i]- p_cur[i]))
+        power_res_new.append(power_res[i]- p_cur[i])
 
         power_losses_bat.append(-(e_vec1[i+1] - e_vec1[i] + dt*p_vec1[i])/dt)
         power_losses_h2.append(-(e_vec2[i+1] - e_vec2[i] + dt*p_vec2[i])/dt)
@@ -1241,8 +1246,11 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
     def rule_p_tot_min(model, j, i):
         return model.p_vec1[j,i] + model.p_vec2[j,i] - model.p_cur[j,i] >= (p_min*model.bin[i] - power_forecast[j][i])
     ## Constraint for the maximum power
-    def rule_p_tot_max(model, j, i):
-        return model.p_vec1[j,i] + model.p_vec2[j,i] - model.p_cur[j,i]  <= max(p_max - power_forecast[j][i], 0)
+    def rule_p_tot_max_storage(model, j, i):
+        return model.p_vec1[j,i] + model.p_vec2[j,i] <= max(p_max - power_forecast[j][i], 0)
+
+    def rule_p_tot_max_curt(model, j, i):
+        return model.p_vec1[j,i] + model.p_vec2[j,i] - model.p_cur[j,i]  <= p_max - power_forecast[j][i]
 
     ## Constraints for the storage system model for storage 1
     def rule_e_model_charge1(model, j,i):
@@ -1326,7 +1334,8 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
 
     ## Global constraints
     model.p_tot_min = pyo.Constraint(model.mat_m_n, rule=rule_p_tot_min)
-    model.p_tot_max = pyo.Constraint(model.mat_m_n, rule=rule_p_tot_max)
+    model.p_tot_max_storage = pyo.Constraint(model.mat_m_n, rule=rule_p_tot_max_storage)
+    model.p_tot_max_curt = pyo.Constraint(model.mat_m_n, rule=rule_p_tot_max_curt)
 
     ## Link all three together
     model.equal_p1 = pyo.Constraint(model.vec_m, rule=rule_p_equal1)
@@ -1354,6 +1363,12 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
         results = opt.solve(model, tee=True)
     else:
         results = opt.solve(model, tee=False)
+
+    #Check if the problem was solved correclty
+    if (results.solver.status is not pyo.SolverStatus.ok) or \
+        (results.solver.termination_condition is not
+         pyo.TerminationCondition.optimal):
+        raise RuntimeError
 
     # Extract optimum for each design variable
     bin = np.zeros(n)

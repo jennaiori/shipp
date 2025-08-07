@@ -3,7 +3,7 @@
 import numpy as np
 from shipp.components import Storage, Production
 from shipp.timeseries import TimeSeries
-from shipp.kernel_pyomo import solve_lp_pyomo, run_storage_operation
+from shipp.kernel_pyomo import solve_lp_pyomo, run_storage_operation, solve_dispatch_pyomo
 
 def test_solve_lp_pyomo():
     power = np.array([2,1,2, 2, 3])
@@ -72,6 +72,15 @@ def test_solve_lp_pyomo():
         assert True
     else:
         assert False
+
+    # Check that curtailment is correctly implemented
+    p_max_curt = 2
+    os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                        discount_rate, n_year, 0, p_max_curt, n, fixed_cap=True)
+
+    assert( max(os.power_out.data) <= p_max_curt)
+
+
 
 def test_run_storage_operation():
     power = [2, 1, 2, 2, 3, 5]
@@ -259,5 +268,121 @@ def test_run_storage_operation():
     assert "revenues" in result
     assert "bin" in result
 
+    # Check that curtailment is correctly implemented:
+
+    res = run_storage_operation(
+        'unlimited',
+         [100 for _ in range(24)],
+         [1 for _ in range(24)],
+         p_min = 0,
+         p_max = 90,
+         stor = stor,
+         e_start = 0,
+         n = 24,
+         nt= 24,
+         dt = 1)
+
+    power_out = np.array([100 for _ in range(24)]) + np.array(res['power']) - np.array(res['p_cur'])
+
+    assert( max(power_out) <= 90)
 
 
+
+def test_solve_dispatch_pyomo():
+    power =[ [2,1,2, 2, 3]]
+    dt = 1.0
+    price = [0.1, 0.1, 0.2, 0.1, 0.1]
+    p_min = 0.5
+    p_max = 4.0
+    dp_min = -0.5
+
+    stor_batt = Storage(1,1,1,1,1,1)
+    stor_null = Storage(0,0)
+
+    m = 1
+    n = len(power[0])
+    rel = 1.0
+    e_start = 0
+
+    # Test the output of the function
+    p_vec1, e_vec1,  p_vec2, e_vec2, p_cur, bin, status = solve_dispatch_pyomo(price, m, rel, n, power, p_min, p_max, e_start, 0, dt,  stor_batt, stor_null)
+
+    assert (len(p_vec1) == m)
+    assert (len(p_vec2) == m)
+    assert (len(e_vec1) == m)
+    assert (len(e_vec2) == m)
+    assert (len(p_cur) == m)
+    assert (len(p_vec1_tmp) == n for p_vec1_tmp in p_vec1)
+    assert (len(p_vec2_tmp) == n for p_vec2_tmp in p_vec2)
+    assert (len(e_vec1_tmp) == n+1 for e_vec1_tmp in e_vec1)
+    assert (len(e_vec2_tmp) == n+1 for e_vec2_tmp in e_vec2)
+    assert (len(p_cur_tmp) == n for p_cur_tmp in p_cur)
+    assert (len(bin) == n)
+
+    assert(max(p_vec1_tmp) <= stor_batt.p_cap for p_vec1_tmp in p_vec1)
+    assert(max(p_vec2_tmp) <= stor_null.p_cap for p_vec2_tmp in p_vec2)
+    assert(max(e_vec1_tmp) <= stor_batt.e_cap for e_vec1_tmp in e_vec1)
+    assert(max(e_vec2_tmp) <= stor_null.e_cap for e_vec2_tmp in e_vec2)
+    
+    assert(min(p_vec1_tmp) >= -stor_batt.p_cap for p_vec1_tmp in p_vec2)
+    assert(min(p_vec2_tmp) >= -stor_null.p_cap for p_vec2_tmp in p_vec2)
+    assert(min(e_vec1_tmp) >= 0 for e_vec1_tmp in e_vec1)
+    assert(min(e_vec2_tmp) >= 0 for e_vec2_tmp in e_vec2)
+
+    assert(e_vec1_tmp[0] == e_start for e_vec1_tmp in e_vec1)
+
+    # Check that the function raises an error if the input is incorrect
+    ## Incorrect format for the power forecast
+    try:
+        _ = solve_dispatch_pyomo(price, m, rel, n, power[0], p_min, p_max, e_start, 0, dt,  stor_batt, stor_null)
+    except TypeError:
+        assert True
+    else:
+        assert False
+
+    ## Incorrect value for the reliability
+    try:
+        _ = solve_dispatch_pyomo(price, m, rel+2.0, n, power, p_min, p_max, e_start, 0, dt,  stor_batt, stor_null)
+    except AssertionError:
+        assert True
+    else:
+        assert False
+
+    # Incorrect length for the price
+    try:
+        _ = solve_dispatch_pyomo(price[:n-2], m, rel+2.0, n, power, p_min, p_max, e_start, 0, dt,  stor_batt, stor_null)
+    except AssertionError:
+        assert True
+    else:
+        assert False
+
+    # Negative price value
+    price_neg = [0.1, 0.1, 0.2, -0.2, 0.1]
+    try:
+        _ = solve_dispatch_pyomo(price_neg, m, rel, n, power, p_min, p_max, e_start, 0, dt,  stor_batt, stor_null)
+    except AssertionError:
+        assert True
+    else:
+        assert False
+
+    # Raise an error if the problem is ill-posed / not converged
+    try:
+        _ = solve_dispatch_pyomo(price, m, rel, n, power, p_min, -p_max, e_start, 0, dt,  stor_batt, stor_null)
+    except RuntimeError:
+        assert True
+    else:
+        assert False
+
+    # Test the function with the parameter dp_min
+    p_vec1, e_vec1,  p_vec2, e_vec2, p_cur, bin, status = solve_dispatch_pyomo(price, m, rel, n, power, p_min, p_max, e_start, 0, dt,  stor_batt, stor_null, dp_min = dp_min)  
+    # Test the function with a positive value for dp_min
+    try:
+        _ = solve_dispatch_pyomo(price, m, rel, n, power, p_min, p_max, e_start, 0, dt,  stor_batt, stor_null, dp_min = -dp_min)  
+
+    except AssertionError:
+        assert True
+    else:
+        assert False
+
+
+    
