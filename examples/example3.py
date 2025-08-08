@@ -26,7 +26,7 @@ discount_rate = 0.03 #discount rate
 n_year = 20  # Project duration [years]
 p_min = 0
 p_cost_res = 3000  # USD/MW
-dp_min = -6 
+dp_lim = 6 
 
 # Input data for the storage characteristics
 p_cost = 150*1e3/eur_to_usd  # cost per power capacity for STS [USD/MW]
@@ -55,17 +55,6 @@ with open(filename_token_entsoe, 'r') as file:
 
 data_power, data_price = get_power_price_data(token_rninja, token_entsoe, date_start, date_end, latitude, longitude, capacity = 100*1e3)
 
-# import pandas as pd
-# file_data = "C:/Users/jiori/Codes/2 - HPP operation/data/input_files/simple_data_hkn.csv"
-# data = pd.read_csv(file_data)
-# data_price = data['price [EUR/MWh]'].values
-# data_power = data['Power [MW]'].values
-
-# # i_start = 16*24
-# i_start = 0
-# data_price = data_price[i_start:]
-# data_power = data_power[i_start:]
-
 k = 1 # parameter describing how the power ramp is calculated
 dpower = data_power[k:] - data_power[:-k]
 
@@ -83,11 +72,12 @@ prod_null = Production(TimeSeries([0 for _ in range(n)], dt), 0)
 
 #calculate yearly revenues and reliability for renewable power only
 revenues_res_only = np.dot(data_price[:n], np.minimum(data_power[:n], p_max))*dt
-rel_ramp_res_only = sum([1/(n-1) if dp>=dp_min else 0 for dp in dpower[:n-1] ])
-kmax =  np.argmin(dpower[:n-k]) # Index of minimum ramp
+rel_ramp_res_only = sum([1/(n-1) if( dp_lim >= dp>=-dp_lim )else 0 for dp in dpower[:n-1] ])
+kmin =  np.argmin(dpower[:n-k]) # Index of minimum ramp
+kmax =  np.argmax(dpower[:n-k]) # Index of maximum ramp
 
 # Solve the sizing optimization problem
-os =  solve_lp_pyomo(price_dam, prod, prod_null, stor, stor_null, discount_rate, n_year, 0, p_max, n, pyo_solver, fixed_cap = False, dp_min = dp_min, verbose = False)
+os =  solve_lp_pyomo(price_dam, prod, prod_null, stor, stor_null, discount_rate, n_year, 0, p_max, n, pyo_solver, fixed_cap = False, dp_lim = dp_lim, verbose = False)
 
 power_piu = np.array(os.power_out.data)
 dpower_piu = power_piu[1:] - power_piu[:-1]
@@ -96,9 +86,9 @@ revenues_piu = np.dot(data_price[:n], np.minimum(power_piu[:n], p_max))*dt
 
 print('Optimal storage size (MW/MWh):\t{:.2f}\t{:.2f}'.format(os.storage_list[0].p_cap, os.storage_list[0].e_cap))
 
-print('\tdp_min [MW]\tRevenue [kUSD]\tRev. increase\tReliability\tMin. ramp [MW]')
-print('RES\t{:.1f}\t\t{:.1f}\t\t{:.2f}%\t\t{:.1f}%\t\t{:.2f}'.format(0, revenues_res_only*1e-3, 0, rel_ramp_res_only*100, dpower[kmax]))
-print('PI-U\t{:.1f}\t\t{:.1f}\t\t{:.2f}%\t\t{:.1f}%\t\t{:.2f}\t\t{:.2f}'.format(dp_min, revenues_piu*1e-3, 100*(revenues_piu/revenues_res_only-1), 100, dpower_piu[kmax], min(dpower_piu)))
+print('\tdp_lim [MW]\tRevenue [kUSD]\tReliability\tMin. ramp [MW/h]\t Max. ramp [MW/h]')
+print('RES\t{:.1f}\t\t{:.1f} ({:.1f}%)\t{:.1f}%\t\t{:.1f}\t\t\t{:.1f}'.format(0, revenues_res_only*1e-3, 0, rel_ramp_res_only*100, dpower[kmin], dpower[kmax]))
+print('PI-U\t{:.1f}\t\t{:.1f} ({:.1f}%)\t{:.1f}%\t\t{:.1f}\t{:.1f}\t\t{:.1f}\t{:.1f}'.format(dp_lim, revenues_piu*1e-3, 100*(revenues_piu/revenues_res_only-1), 100, dpower_piu[kmin], min(dpower_piu), dpower_piu[kmax], max(dpower_piu)))
 
 # Evaluate performance for limited forecast information
 n_for = 12
@@ -109,14 +99,14 @@ e_start = os.storage_e[0].data[0]
 mu = 1e4
 beta_obj = 1e-6
 
-res = run_storage_operation('forecast', data_power, data_price, 0, p_max, os.storage_list[0], e_start, n_for, n, dt, rel_th,  forecast_perfect, name_solver = 'mosek', dp_min = dp_min, verbose = False, mu = mu, beta_obj = beta_obj)
+res = run_storage_operation('forecast', data_power, data_price, 0, p_max, os.storage_list[0], e_start, n_for, n, dt, rel_th,  forecast_perfect, name_solver = 'mosek', dp_lim = dp_lim, verbose = False, mu = mu, beta_obj = beta_obj)
 
 power_pi = np.array([data_power[i] + res['power'][i] - res['p_cur'][i] for i in range(len(res['power']))])
 dpower_pi = power_pi[k:] - power_pi[:-k]
 revenues_pi = np.dot(data_price[:n], np.minimum(power_pi[:n], p_max))*dt
 
 
-print('PI\t{:.1f}\t\t{:.1f}\t\t{:.2f}%\t\t{:.2f}%\t\t{:.2f}\t\t{:.2f}'.format(dp_min, revenues_pi*1e-3, 100*(revenues_pi/revenues_res_only-1), res['reliability']*100, dpower_pi[kmax], min(dpower_pi)))
+print('PI\t{:.1f}\t\t{:.1f} ({:.1f}%)\t{:.1f}%\t\t{:.1f}\t{:.1f}\t\t{:.1f}\t{:.1f}'.format(dp_lim, revenues_pi*1e-3, 100*(revenues_pi/revenues_res_only-1), res['reliability']*100, dpower_pi[kmin], min(dpower_pi), dpower_pi[kmax], max(dpower_pi)))
 
 fig, ax = plt.subplots(1, 4, figsize = (15, 5))
 fig.subplots_adjust(wspace = 0.3)
@@ -140,18 +130,20 @@ ax[2].set_ylim([0, os.storage_list[0].e_cap+1])
 ax[2].set_xlabel('Time step [-]')
 ax[2].set_ylabel('Storage SoC [MWh]')
 
-ax[3].hist(dpower[:n], bins = 20, color = 'k')
-ax[3].hist(dpower_piu, bins = 20, color = 'tab:blue')
-ax[3].hist(dpower_pi, bins = 20, color = 'tab:orange', alpha = 0.5)
+bin_hist = np.linspace( dpower[kmin],  dpower[kmax], 20)
+
+ax[3].hist(dpower[:n], bins = bin_hist, color = 'k')
+ax[3].hist(dpower_piu, bins = bin_hist, color = 'tab:blue')
+ax[3].hist(dpower_pi, bins = bin_hist, color = 'tab:orange', alpha = 0.5)
 ax[3].set_xlabel('Power ramp [MW]')
 ax[3].set_ylabel('Count [-]')
 
-ax[1].set_xlim([kmax-20, kmax+20])
-ax[2].set_xlim([kmax-20, kmax+20])
-ax[0].set_xlim([kmax-20, kmax+20])
-ax[0].plot([kmax, kmax], [-15, 15], 'k:')
-ax[1].plot([kmax, kmax], [0, p_max], 'k:')
-ax[1].plot([kmax, kmax], [0, os.storage_list[0].e_cap+1], 'k:')
+ax[1].set_xlim([kmin-20, kmin+20])
+ax[2].set_xlim([kmin-20, kmin+20])
+ax[0].set_xlim([kmin-20, kmin+20])
+ax[0].plot([kmin, kmin], [-15, 15], 'k:')
+ax[1].plot([kmin, kmin], [0, p_max], 'k:')
+ax[1].plot([kmin, kmin], [0, os.storage_list[0].e_cap+1], 'k:')
 
 # Analyse the first 3 time steps of the dispatch optimization
 verbose = False
@@ -183,11 +175,11 @@ for t in range(nt):
     if t > n_hist:
         cnt_hist = sum([0 if p+ps < p_min else 1 for ps, p in zip(p_res[-n_hist:], data_power[t-n_hist:t])])
 
-        p_vec, e_vec, p_vec2, _, p_cur, bin_vec, status = solve_dispatch_pyomo(data_price[t:], m, rel_th, n_for, forecast_perfect[t], p_min, p_max, e_start_new, 0,  dt, stor, stor_null, n_hist = n_hist, cnt_hist=cnt_hist, verbose = verbose, name_solver = name_solver, dp_min = dp_min, beta_obj = beta_obj, mu = mu, p_hist_res = p_hist_res, p_hist_stor=p_hist_stor)
+        p_vec, e_vec, p_vec2, _, p_cur, bin_vec, status = solve_dispatch_pyomo(data_price[t:], m, rel_th, n_for, forecast_perfect[t], p_min, p_max, e_start_new, 0,  dt, stor, stor_null, n_hist = n_hist, cnt_hist=cnt_hist, verbose = verbose, name_solver = name_solver, dp_lim = dp_lim, beta_obj = beta_obj, mu = mu, p_hist_res = p_hist_res, p_hist_stor=p_hist_stor)
     else: 
         cnt_hist = sum([0 if p+ps < p_min else 1 for ps, p in zip(p_res[:t], data_power[:t])])
 
-        p_vec, e_vec, p_vec2, _, p_cur, bin_vec, status = solve_dispatch_pyomo(data_price[t:], m, rel_th, n_for, forecast_perfect[t], p_min, p_max, e_start_new, 0,  dt, stor, stor_null, n_hist = n_hist, cnt_hist=(t-1), verbose = verbose, name_solver = name_solver, dp_min = dp_min, beta_obj = beta_obj, mu = mu, p_hist_res = p_hist_res, p_hist_stor=p_hist_stor)
+        p_vec, e_vec, p_vec2, _, p_cur, bin_vec, status = solve_dispatch_pyomo(data_price[t:], m, rel_th, n_for, forecast_perfect[t], p_min, p_max, e_start_new, 0,  dt, stor, stor_null, n_hist = n_hist, cnt_hist=(t-1), verbose = verbose, name_solver = name_solver, dp_lim = dp_lim, beta_obj = beta_obj, mu = mu, p_hist_res = p_hist_res, p_hist_stor=p_hist_stor)
     
     # If the optimization problem is solved correctly, we retrieve the results.
     if status == 'ok':

@@ -13,7 +13,7 @@ def test_solve_lp_pyomo():
     p_min = 0.5
     p_min_vec = np.array([0.5,0.5,0.5,0.5,0.5])
     p_max = 4.0
-    dp_min = -0.5
+    dp_lim = 0.5
 
     power_ts = TimeSeries(0.5*power, dt)
     price_ts = TimeSeries(price, dt)
@@ -60,13 +60,13 @@ def test_solve_lp_pyomo():
     assert os.storage_list[0].e_cap == 1
     assert os.storage_list[1].e_cap == 1
 
-    # Test the function with the parameter dp_min
+    # Test the function with the parameter dp_lim
     _ = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
-                        discount_rate, n_year, 0, p_max, n, dp_min = dp_min)    
-    # Test the function with a positive value for dp_min
+                        discount_rate, n_year, 0, p_max, n, dp_lim = dp_lim)    
+    # Test the function with an incorrect value for dp_lim
     try:
         _ = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
-                        discount_rate, n_year, 0, p_max, n, dp_min = 0.5)    
+                        discount_rate, n_year, 0, p_max, n, dp_lim = -0.5)    
 
     except AssertionError:
         assert True
@@ -93,7 +93,7 @@ def test_run_storage_operation():
     dt = 1.0
     stor = Storage(e_cap=2, p_cap=1, eff_in=0.9, eff_out=0.9, p_cost=1, e_cost=1)
     rel = 1.0
-    dp_min = -0.5
+    dp_lim = 0.5
 
     # Test with default parameters
     ## Baseload
@@ -130,7 +130,7 @@ def test_run_storage_operation():
         nt=nt,
         dt=dt,
         rel=rel,
-        dp_min=dp_min,
+        dp_lim=dp_lim,
     )
     assert isinstance(result, dict)
     assert "power" in result
@@ -177,7 +177,7 @@ def test_run_storage_operation():
         dt=dt,
         rel=rel,
         forecast=forecast,
-        dp_min = dp_min,
+        dp_lim = dp_lim,
     )
     assert isinstance(result_with_forecast, dict)
     assert "power" in result
@@ -219,7 +219,7 @@ def test_run_storage_operation():
             nt=nt,
             dt=dt,
             rel=rel,
-            dp_min = 0
+            dp_lim = -0.5
         )
     except AssertionError:
         assert True
@@ -239,7 +239,7 @@ def test_run_storage_operation():
             nt=nt,
             dt=dt,
             rel=rel,
-            dp_min = dp_min
+            dp_lim = dp_lim
         )
     except RuntimeError:
         assert True
@@ -294,7 +294,7 @@ def test_solve_dispatch_pyomo():
     price = [0.1, 0.1, 0.2, 0.1, 0.1]
     p_min = 0.5
     p_max = 4.0
-    dp_min = -0.5
+    dp_lim = 0.5
 
     stor_batt = Storage(1,1,1,1,1,1)
     stor_null = Storage(0,0)
@@ -373,11 +373,11 @@ def test_solve_dispatch_pyomo():
     else:
         assert False
 
-    # Test the function with the parameter dp_min
-    p_vec1, e_vec1,  p_vec2, e_vec2, p_cur, bin, status = solve_dispatch_pyomo(price, m, rel, n, power, p_min, p_max, e_start, 0, dt,  stor_batt, stor_null, dp_min = dp_min)  
-    # Test the function with a positive value for dp_min
+    # Test the function with the parameter dp_lim
+    p_vec1, e_vec1,  p_vec2, e_vec2, p_cur, bin, status = solve_dispatch_pyomo(price, m, rel, n, power, p_min, p_max, e_start, 0, dt,  stor_batt, stor_null, dp_lim = dp_lim)  
+    # Test the function with a positive value for dp_lim
     try:
-        _ = solve_dispatch_pyomo(price, m, rel, n, power, p_min, p_max, e_start, 0, dt,  stor_batt, stor_null, dp_min = -dp_min)  
+        _ = solve_dispatch_pyomo(price, m, rel, n, power, p_min, p_max, e_start, 0, dt,  stor_batt, stor_null, dp_lim = -dp_lim)  
 
     except AssertionError:
         assert True
