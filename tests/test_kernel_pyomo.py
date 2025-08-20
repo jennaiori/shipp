@@ -77,9 +77,23 @@ def test_solve_lp_pyomo():
     p_max_curt = 2
     os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
                         discount_rate, n_year, 0, p_max_curt, n, fixed_cap=True)
-
     assert( max(os.power_out.data) <= p_max_curt)
 
+    # Check that the depth of discharge is correctly implemented
+
+    tol = 1e-5
+    stor_batt_dod = Storage(1,1,1,1,1,1, dod = 0.9)
+    stor_null = Storage(e_cap = 0, p_cap = 0)
+
+    os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt_dod, stor_null,
+                        discount_rate, n_year, p_min, p_max, n)
+    assert min(os.storage_e[0].data) >= stor_batt_dod.e_cap*stor_batt_dod.dod-tol
+    assert os.storage_list[0].dod ==0.9
+
+    os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_null, stor_batt_dod, 
+                        discount_rate, n_year, p_min, p_max, n)
+    assert min(os.storage_e[1].data) >= stor_batt_dod.e_cap*stor_batt_dod.dod-tol
+    assert os.storage_list[1].dod == 0.9
 
 
 def test_run_storage_operation():
@@ -286,6 +300,59 @@ def test_run_storage_operation():
 
     assert( max(power_out) <= 90)
 
+    # Check that the depth of discharge is correctly implemented
+    tol = 1e-4
+    stor_dod = Storage(e_cap=2, p_cap=1, eff_in=0.9, eff_out=0.9, p_cost=1, e_cost=1, dod = 0.9)
+    e_start_dod = stor_dod.e_cap
+    result = run_storage_operation(
+        run_type="unlimited",
+        power=power,
+        price=price,
+        p_min=p_min,
+        p_max=p_max,
+        stor=stor_dod,
+        e_start=e_start_dod,
+        n=n,
+        nt=nt,
+        dt=dt,
+        rel=rel,
+    )
+
+    assert min(result['energy']) >= stor_dod.e_cap*stor_dod.dod - tol
+
+    result = run_storage_operation(
+        run_type="rule-based",
+        power=power,
+        price=price,
+        p_min=p_min,
+        p_max=p_max,
+        stor=stor_dod,
+        e_start=e_start_dod,
+        n=n,
+        nt=nt,
+        dt=dt,
+        rel=rel,
+    )
+
+    assert min(result['energy']) >= stor_dod.e_cap*stor_dod.dod - tol
+
+    result = run_storage_operation(
+        run_type="forecast",
+        power=power,
+        price=price,
+        p_min=p_min,
+        p_max=p_max,
+        stor=stor_dod,
+        e_start=e_start_dod,
+        forecast=forecast,
+        n=n,
+        nt=nt,
+        dt=dt,
+        rel=rel,
+    )
+
+    assert min(result['energy']) >= stor_dod.e_cap*stor_dod.dod - tol
+
 
 
 def test_solve_dispatch_pyomo():
@@ -384,5 +451,17 @@ def test_solve_dispatch_pyomo():
     else:
         assert False
 
+
+    # Check that the depth of discharge is correctly 
+
+    stor_batt_dod = Storage(1,1,1,1,1,1, dod = 0.9)
+    e_start_dod = 0.9
+    p_vec1, e_vec1,  p_vec2, e_vec2, p_cur, bin, status = solve_dispatch_pyomo(price, m, rel, n, power, p_min, p_max, e_start_dod, 0, dt,  stor_batt_dod, stor_null)
+
+    assert min(e_vec1[0]) >= stor_batt_dod.e_cap*stor_batt_dod.dod
+    
+    p_vec1, e_vec1,  p_vec2, e_vec2, p_cur, bin, status = solve_dispatch_pyomo(price, m, rel, n, power, p_min, p_max,  0, e_start_dod, dt,   stor_null, stor_batt_dod)
+
+    assert min(e_vec2[0]) >= stor_batt_dod.e_cap*stor_batt_dod.dod
 
     

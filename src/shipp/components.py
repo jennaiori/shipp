@@ -27,17 +27,27 @@ class Storage:
         eff_out (float): Efficiency to discharge the storage [-]
         e_cost (float): Cost per unit of energy capacity [Currency/MWh]
         p_cost (float): Cost per unit of power capacity [Currency/MW]
+        dod (float): Depth of discharge of the storage system, expressed as a fraction of the energy capacity (between 0 and 1) [-] 
     '''
 
     def __init__(self, e_cap: float = 0, p_cap: float = 0,
                  eff_in: float = 1, eff_out: float = 1, e_cost: float = 0,
-                 p_cost: float = 0) -> None:
-        self.e_cap = e_cap
+                 p_cost: float = 0, dod: float = 0) -> None:
+        if e_cap is not None:
+            assert e_cap >=0
+        if p_cap is not None:
+            assert p_cap >=0
+        assert 1 >= dod >= 0
+        assert 1 >= eff_in >= 0
+        assert 1 >= eff_out >= 0
+        
+        self.e_cap = e_cap 
         self.p_cap = p_cap
         self.eff_in = eff_in
         self.eff_out = eff_out
         self.e_cost = e_cost
         self.p_cost = p_cost
+        self.dod = dod
 
     def get_av_eff(self) -> float:
         '''Returns the average efficiency'''
@@ -53,7 +63,7 @@ class Storage:
     
     def __repr__(self) -> str:
         return (f"Storage(e_cap={self.e_cap}, p_cap={self.p_cap}, eff_in={self.eff_in}, "
-                f"eff_out={self.eff_out}, e_cost={self.e_cost}, p_cost={self.p_cost})")
+                f"eff_out={self.eff_out}, e_cost={self.e_cost}, p_cost={self.p_cost}, dod={self.dod})")
 
 
 class Production:
@@ -115,7 +125,7 @@ class OpSchedule:
         self.storage_e = storage_e
 
         # Calculation of the power to the grid (power_out)
-        power_out_data = np.zeros_like(production_p[0].data)
+        power_out_data = np.zeros_like(production_p[0].data, dtype=float)
         power_out_dt = self.production_p[0].dt
 
         for item in self.production_p:

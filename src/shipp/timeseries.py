@@ -18,7 +18,7 @@ class TimeSeries:
         if data is None:
             self.data = None
         else:
-            self.data = np.array(data)
+            self.data = np.array(data,  dtype=float)
 
         self.dt = dt
 

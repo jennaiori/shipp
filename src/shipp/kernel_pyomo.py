@@ -167,6 +167,9 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
 
     def rule_e_max1(model, i):
         return model.e_vec1[i] <= model.e_cap1
+    
+    def rule_e_min1(model, i):
+        return model.e_vec1[i] >= model.e_cap1 * stor1.dod
 
     def rule_e_model_charge2(model, i):
         return model.e_vec2[i+1]-model.e_vec2[i] \
@@ -184,6 +187,9 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
 
     def rule_e_max2(model, i):
         return model.e_vec2[i] <= model.e_cap2
+    
+    def rule_e_min2(model, i):
+        return model.e_vec2[i] >= model.e_cap2*stor2.dod
 
     def rule_p_tot_min(model, i):
         return model.p_vec1[i] + model.p_vec2[i] - model.p_cur[i] >= p_min_vec[i]- power_res[i]
@@ -207,6 +213,7 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
     model.p_min1 = pyo.Constraint(model.vec_n, rule=rule_p_min1)
     model.p_max1 = pyo.Constraint(model.vec_n, rule=rule_p_max1)
     model.e_max1 = pyo.Constraint(model.vec_n, rule=rule_e_max1)
+    model.e_min1 = pyo.Constraint(model.vec_n, rule=rule_e_min1)
 
     model.e_model_charge2 = pyo.Constraint(model.vec_n, rule=rule_e_model_charge2)
     model.e_model_discharge2 = pyo.Constraint(model.vec_n, rule=rule_e_model_discharge2)
@@ -214,6 +221,7 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
     model.p_min2 = pyo.Constraint(model.vec_n, rule=rule_p_min2)
     model.p_max2 = pyo.Constraint(model.vec_n, rule=rule_p_max2)
     model.e_max2 = pyo.Constraint(model.vec_n, rule=rule_e_max2)
+    model.e_min2 = pyo.Constraint(model.vec_n, rule=rule_e_min2)
 
     # Ramp limitation constraint
     if dp_lim is not None: 
@@ -277,13 +285,15 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
                         eff_in = eta1_in,
                         eff_out = eta1_out,
                         p_cost = stor1.p_cost,
-                        e_cost = stor1.e_cost)
+                        e_cost = stor1.e_cost,
+                        dod = stor1.dod)
     stor2_res = Storage(e_cap = e_cap2,
                         p_cap = p_cap2,
                         eff_in = eta2_in,
                         eff_out = eta2_out,
                         p_cost = stor2.p_cost,
-                        e_cost = stor2.e_cost)
+                        e_cost = stor2.e_cost,
+                        dod = stor2.dod)
 
     prod_wind_res = Production(power_ts = TimeSeries(np.array(power_res_new)
                     - prod_pv.power.data[:n], dt), p_cost= prod_wind.p_cost)
@@ -474,6 +484,9 @@ def solve_lp_alt_pyomo(price_ts: TimeSeries, prod_wind: Production,
 
     def rule_e_max1(model, i):
         return model.e_vec1[i] <= model.e_cap1
+    
+    def rule_e_min1(model, i):
+        return model.e_vec1[i] >= model.e_cap1*stor1.dod
 
     def rule_e_model2(model, i):
         return model.e_vec2[i+1]-model.e_vec2[i] \
@@ -488,6 +501,9 @@ def solve_lp_alt_pyomo(price_ts: TimeSeries, prod_wind: Production,
 
     def rule_e_max2(model, i):
         return model.e_vec2[i] <= model.e_cap2
+    
+    def rule_e_min2(model, i):
+        return model.e_vec2[i] >= model.e_cap2*stor2.dod
 
     # def rule_p_tot_min(model, i):
     #   return model.p_vec1[i] + model.p_vec2[i] >= p_min_vec[i] - power_res[i]
@@ -516,6 +532,7 @@ def solve_lp_alt_pyomo(price_ts: TimeSeries, prod_wind: Production,
     model.p_min1 = pyo.Constraint(model.vec_n, rule=rule_p_min1)
     model.p_max1 = pyo.Constraint(model.vec_n, rule=rule_p_max1)
     model.e_max1 = pyo.Constraint(model.vec_n, rule=rule_e_max1)
+    model.e_min1 = pyo.Constraint(model.vec_n, rule=rule_e_min1)
 
     model.e_model2 = pyo.Constraint(model.vec_n,
                                            rule=rule_e_model2)
@@ -523,6 +540,7 @@ def solve_lp_alt_pyomo(price_ts: TimeSeries, prod_wind: Production,
     model.p_min2 = pyo.Constraint(model.vec_n, rule=rule_p_min2)
     model.p_max2 = pyo.Constraint(model.vec_n, rule=rule_p_max2)
     model.e_max2 = pyo.Constraint(model.vec_n, rule=rule_e_max2)
+    model.e_min2 = pyo.Constraint(model.vec_n, rule=rule_e_min2)
 
     # Global constraints
     model.p_tot_min = pyo.Constraint(model.vec_n, rule=rule_p_tot_min)
@@ -569,13 +587,15 @@ def solve_lp_alt_pyomo(price_ts: TimeSeries, prod_wind: Production,
                             eff_in = eta1_in,
                             eff_out = eta1_out,
                             p_cost = stor1.p_cost,
-                            e_cost = stor1.e_cost)
+                            e_cost = stor1.e_cost,
+                            dod = stor1.dod)
     stor2_res = Storage(e_cap = e_cap2,
                             p_cap = p_cap2,
                             eff_in = eta2_in,
                             eff_out = eta2_out,
                             p_cost = stor2.p_cost,
-                            e_cost = stor2.e_cost)
+                            e_cost = stor2.e_cost,
+                            dod = stor2.dod)
 
     prod_wind_res = Production(power_ts = TimeSeries(np.array(power_res_new)
                     - prod_pv.power.data[:n], dt), p_cost= prod_wind.p_cost)
@@ -770,6 +790,9 @@ def solve_milp_pyomo(price_ts: TimeSeries, prod_wind: Production,
     def rule_e_max1(model, i):
         return model.e_vec1[i] <= model.e_cap1
 
+    def rule_e_min1(model, i):
+        return model.e_vec1[i] >= model.e_cap1*stor1.dod
+
     def rule_p_bin1_lb(model, i):
         return  -bigM *(1 - model.bin1[i]) <= model.p_vec1[i]
 
@@ -802,6 +825,9 @@ def solve_milp_pyomo(price_ts: TimeSeries, prod_wind: Production,
 
     def rule_e_max2(model, i):
         return model.e_vec2[i] <= model.e_cap2
+
+    def rule_e_min2(model, i):
+        return model.e_vec2[i] >= model.e_cap2 * stor2.dod
 
     def rule_p_bin2_lb(model, i):
         return  -bigM *(1 - model.bin2[i]) <= model.p_vec2[i]
@@ -840,6 +866,7 @@ def solve_milp_pyomo(price_ts: TimeSeries, prod_wind: Production,
     model.p_min1 = pyo.Constraint(model.vec_n, rule=rule_p_min1)
     model.p_max1 = pyo.Constraint(model.vec_n, rule=rule_p_max1)
     model.e_max1 = pyo.Constraint(model.vec_n, rule=rule_e_max1)
+    model.e_min1 = pyo.Constraint(model.vec_n, rule=rule_e_min1)
 
     model.e_model_charge2_ub = pyo.Constraint(model.vec_n,
                                             rule=rule_e_model_charge2_ub)
@@ -857,6 +884,7 @@ def solve_milp_pyomo(price_ts: TimeSeries, prod_wind: Production,
     model.p_min2 = pyo.Constraint(model.vec_n, rule=rule_p_min2)
     model.p_max2 = pyo.Constraint(model.vec_n, rule=rule_p_max2)
     model.e_max2 = pyo.Constraint(model.vec_n, rule=rule_e_max2)
+    model.e_min2 = pyo.Constraint(model.vec_n, rule=rule_e_min2)
 
     # General constraints
     model.p_tot_min = pyo.Constraint(model.vec_n, rule=rule_p_tot_min)
@@ -900,13 +928,15 @@ def solve_milp_pyomo(price_ts: TimeSeries, prod_wind: Production,
                             eff_in = eta1_in,
                             eff_out = eta1_out,
                             p_cost = stor1.p_cost,
-                            e_cost = stor1.e_cost)
+                            e_cost = stor1.e_cost,
+                            dod = stor1.dod)
     stor2_res = Storage(e_cap = e_cap2,
                             p_cap = p_cap2,
                             eff_in = eta2_in,
                             eff_out = eta2_out,
                             p_cost = stor2.p_cost,
-                            e_cost = stor2.e_cost)
+                            e_cost = stor2.e_cost,
+                            dod = stor2.dod)
 
     prod_wind_res = Production(power_ts = TimeSeries(np.array(power_res_new)
                     - prod_pv.power.data[:n], dt), p_cost= prod_wind.p_cost)
@@ -984,7 +1014,7 @@ def run_storage_operation(run_type: str, power: list, price: list, p_min: float,
     assert isinstance(p_min, (int, float)) and p_min >= 0, "p_min must be a non-negative number."
     assert isinstance(p_max, (int, float)) and p_max > p_min, "p_max must be greater than p_min."
     assert isinstance(stor, Storage), "stor must be an instance of the Storage class."
-    assert isinstance(e_start, (int, float)) and 0 <= e_start <= stor.e_cap, "e_start must be within the storage capacity."
+    assert isinstance(e_start, (int, float)) and stor.e_cap*stor.dod <= e_start <= stor.e_cap, "e_start must be within the storage capacity."
     assert isinstance(n, int) and n > 0, "n must be a positive integer."
     assert isinstance(nt, int) and nt > 0, "nt must be a positive integer."
     assert isinstance(dt, (int, float)) and dt > 0, "dt must be a positive number."
@@ -1080,7 +1110,6 @@ def run_storage_operation(run_type: str, power: list, price: list, p_min: float,
                 print('Time step ', t)
             if t > n_hist:
                 cnt_hist = sum([0 if p+ps < p_min else 1 for ps, p in zip(p_res[-n_hist:], power[t-n_hist:t])])
-
                 p_vec, e_vec, _, _, p_cur, bin_vec, status = solve_dispatch_pyomo(price[t:], m, rel, n, forecast[t], p_min, p_max, e_start_new, 0,  dt, stor, stor_null, n_hist = n_hist, cnt_hist=cnt_hist, verbose = verbose, name_solver = name_solver, dp_lim = dp_lim, beta_obj = beta_obj, mu = mu, p_hist_res = p_hist_res, p_hist_stor=p_hist_stor)
             else: 
                 cnt_hist = sum([0 if p+ps < p_min else 1 for ps, p in zip(p_res[:t], power[:t])])
@@ -1202,13 +1231,19 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
     assert np.isfinite(e_cap1)
     assert np.isfinite(e_cap2)
 
+    tol = 1e-4
     if dp_lim is not None:
-        tol = 1e-4
         assert np.isfinite(dp_lim)
         assert np.isfinite(p_hist_res)
         assert np.isfinite(p_hist_stor)
         assert dp_lim >= 0 
         assert( p_hist_res + p_hist_stor) >= -tol 
+
+    # Check that the starting state of charge is within the bounds, considering a tolerance corresponding to the optimization tolerance.
+    assert stor1.e_cap >= e_start1 - tol
+    assert e_start1 + tol >= stor1.e_cap*stor1.dod
+    assert stor2.e_cap >= e_start2 -tol
+    assert e_start2 +tol >= stor2.e_cap*stor2.dod
 
     # Tuning parameters of the optimization problem
     alpha_obj = 1-1e-6
@@ -1232,10 +1267,10 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
 
     # Initialize Design Variables
     model.p_vec1 = pyo.Var(model.mat_m_n, bounds = (-p_cap1, p_cap1))
-    model.e_vec1 = pyo.Var(model.mat_m_np1, bounds = (0, e_cap1))
+    model.e_vec1 = pyo.Var(model.mat_m_np1, bounds = (e_cap1*stor1.dod, e_cap1))
 
     model.p_vec2 = pyo.Var(model.mat_m_n, bounds = (-p_cap2, p_cap2))
-    model.e_vec2 = pyo.Var(model.mat_m_np1, bounds = (0, e_cap2))
+    model.e_vec2 = pyo.Var(model.mat_m_np1, bounds = (e_cap2*stor2.dod, e_cap2))
 
     model.bin = pyo.Var(model.vec_n, within = pyo.Binary) ##binary variable for each time step
 

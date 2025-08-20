@@ -423,6 +423,8 @@ def solve_lp_sparse(price_ts: TimeSeries, prod_wind: Production,
     assert n <=  len(prod_pv.power.data)
     assert n <=  len(price_ts.data)
 
+    assert (stor_batt.dod == 0) and (stor_h2.dod == 0), "solve_lp_sparse is not implemented for non-zero storage depth of charge"
+
     power_res = prod_wind.power.data[:n] + prod_pv.power.data[:n]
 
     eps_batt = 1 - stor_batt.eff_in * stor_batt.eff_out
@@ -488,13 +490,15 @@ def solve_lp_sparse(price_ts: TimeSeries, prod_wind: Production,
                             eff_in = 1,
                             eff_out = 1-eps_batt,
                             p_cost = stor_batt.p_cost,
-                            e_cost = stor_batt.e_cost)
+                            e_cost = stor_batt.e_cost,
+                            dod = stor_batt.dod)
     stor_h2_res = Storage(e_cap = h2_e_cap,
                             p_cap = h2_p_cap,
                             eff_in = 1,
                             eff_out = 1-eps_h2,
                             p_cost = stor_h2.p_cost,
-                            e_cost = stor_h2.e_cost)
+                            e_cost = stor_h2.e_cost,
+                            dod = stor_h2.dod)
 
     prod_wind_res = Production(power_ts = TimeSeries(np.array(power_res_new) - prod_pv.power.data[:n], dt), p_cost= prod_wind.p_cost)
 
@@ -590,56 +594,56 @@ def os_rule_based(price_ts: TimeSeries, prod_wind: Production,
 
         avail_power = power_res[t] - p_rule
 
-        if avail_power>=0:
-
+        if avail_power>=0:  
+            # Charge the battery first
             power_batt[t] = max(-stor_batt.p_cap,
                             -(stor_batt.e_cap-soc_batt[t])/dt/stor_batt.eff_in,
                             -avail_power )
 
-            avail_power += power_batt[t]  # power_res is <0
+            avail_power += power_batt[t]  # this operation "reduces" the available power since power_batt is <0
 
+            # Charge the hydrogen system next
             power_h2[t] = max(-stor_h2.p_cap,
                               -(stor_h2.e_cap - soc_h2[t])/dt/stor_h2.eff_in,
                               -avail_power )
 
             avail_power += power_h2[t]
 
-
-
         elif power_res[t]  >= p_min:
             power_batt[t] = 0
             power_h2[t] = 0
-            #if the price is high enough, sell as much as posible
-            if price_ts.data[t]>price_min:
-                if soc_h2[t]>0:
+            #if the price is high enough, discharge the battery to sell as much as posible
+            if price_ts.data[t] > price_min:
+                if soc_h2[t] > stor_h2.e_cap*stor_h2.dod:
                     power_h2[t] = min(stor_h2.p_cap,
-                                      soc_h2[t]/dt * stor_h2.eff_out)
-                if soc_batt[t]>0:
+                                      (soc_h2[t] - stor_h2.e_cap*stor_h2.dod)/dt * stor_h2.eff_out)
+                if soc_batt[t] > stor_batt.e_cap*stor_batt.dod:
                     power_batt[t] = min(stor_batt.p_cap,
-                                        soc_batt[t]/dt*stor_batt.eff_out)
+                                        (soc_batt[t] - stor_batt.e_cap*stor_batt.dod)/dt*stor_batt.eff_out)
 
         else:
+            # If the power produced is below the required baseload, discharge the storage systems
             missing_power = p_min - power_res[t ]
 
-            if soc_h2[t]>0:
+            if soc_h2[t]>  stor_h2.e_cap*stor_h2.dod:
                 power_h2[t] = min(stor_h2.p_cap,
-                                  soc_h2[t]/dt*stor_h2.eff_out, missing_power)
+                                  (soc_h2[t] -  stor_h2.e_cap*stor_h2.dod)/dt*stor_h2.eff_out, missing_power)
             else:
                 power_h2[t] = 0
 
             missing_power -= power_h2[t]
 
 
-            if soc_batt[t]>0:
+            if soc_batt[t]> stor_batt.e_cap*stor_batt.dod:
                 power_batt[t] = min(stor_batt.p_cap,
-                                    soc_batt[t]/dt*stor_batt.eff_out,
+                                    (soc_batt[t] - stor_batt.e_cap*stor_batt.dod)/dt*stor_batt.eff_out,
                                     missing_power)
             else:
                 power_batt[t] = 0
 
 
 
-
+        # Calculate the state of the storage systems for the next time steps
         if power_batt[t] >= 0:
             soc_batt[t+1] = soc_batt[t] \
                             - dt*(power_batt[t])/stor_batt.eff_out
@@ -667,7 +671,8 @@ def os_rule_based(price_ts: TimeSeries, prod_wind: Production,
                             eff_in = stor_batt.eff_in,
                             eff_out = stor_batt.eff_out,
                             p_cost = stor_batt.p_cost,
-                            e_cost = stor_batt.e_cost)
+                            e_cost = stor_batt.e_cost,
+                            dod = stor_batt.dod)
 
     #find minimum storage from the maximum discharge cycle
     soc_h2_max = max(soc_h2)
@@ -684,8 +689,8 @@ def os_rule_based(price_ts: TimeSeries, prod_wind: Production,
                             eff_in = stor_h2.eff_in,
                             eff_out = stor_h2.eff_out,
                             p_cost = stor_h2.p_cost,
-                            e_cost = stor_h2.e_cost)
-
+                            e_cost = stor_h2.e_cost,
+                            dod = stor_h2.dod)
 
     os_res = OpSchedule(production_list = [prod_wind, prod_pv],
                         storage_list = [stor_batt_res, stor_h2_res],
