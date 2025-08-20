@@ -32,12 +32,12 @@ class Storage:
 
     def __init__(self, e_cap: float = 0, p_cap: float = 0,
                  eff_in: float = 1, eff_out: float = 1, e_cost: float = 0,
-                 p_cost: float = 0, dod: float = 0) -> None:
+                 p_cost: float = 0, dod: float = 1) -> None:
         if e_cap is not None:
             assert e_cap >=0
         if p_cap is not None:
             assert p_cap >=0
-        assert 1 >= dod >= 0
+        assert 1 >= dod > 0
         assert 1 >= eff_in >= 0
         assert 1 >= eff_out >= 0
         

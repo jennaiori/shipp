@@ -423,7 +423,7 @@ def solve_lp_sparse(price_ts: TimeSeries, prod_wind: Production,
     assert n <=  len(prod_pv.power.data)
     assert n <=  len(price_ts.data)
 
-    assert (stor_batt.dod == 0) and (stor_h2.dod == 0), "solve_lp_sparse is not implemented for non-zero storage depth of charge"
+    assert (stor_batt.dod == 1) and (stor_h2.dod == 1), "solve_lp_sparse is not implemented for storage depth of charge below 100%"
 
     power_res = prod_wind.power.data[:n] + prod_pv.power.data[:n]
 
@@ -614,29 +614,29 @@ def os_rule_based(price_ts: TimeSeries, prod_wind: Production,
             power_h2[t] = 0
             #if the price is high enough, discharge the battery to sell as much as posible
             if price_ts.data[t] > price_min:
-                if soc_h2[t] > stor_h2.e_cap*stor_h2.dod:
+                if soc_h2[t] > stor_h2.e_cap*(1 - stor_h2.dod):
                     power_h2[t] = min(stor_h2.p_cap,
-                                      (soc_h2[t] - stor_h2.e_cap*stor_h2.dod)/dt * stor_h2.eff_out)
-                if soc_batt[t] > stor_batt.e_cap*stor_batt.dod:
+                                      (soc_h2[t] - stor_h2.e_cap*(1 - stor_h2.dod))/dt * stor_h2.eff_out)
+                if soc_batt[t] > stor_batt.e_cap*(1 - stor_batt.dod):
                     power_batt[t] = min(stor_batt.p_cap,
-                                        (soc_batt[t] - stor_batt.e_cap*stor_batt.dod)/dt*stor_batt.eff_out)
+                                        (soc_batt[t] - stor_batt.e_cap*(1 - stor_batt.dod))/dt*stor_batt.eff_out)
 
         else:
             # If the power produced is below the required baseload, discharge the storage systems
             missing_power = p_min - power_res[t ]
 
-            if soc_h2[t]>  stor_h2.e_cap*stor_h2.dod:
+            if soc_h2[t]>  stor_h2.e_cap*(1 - stor_h2.dod):
                 power_h2[t] = min(stor_h2.p_cap,
-                                  (soc_h2[t] -  stor_h2.e_cap*stor_h2.dod)/dt*stor_h2.eff_out, missing_power)
+                                  (soc_h2[t] -  stor_h2.e_cap*(1 - stor_h2.dod))/dt*stor_h2.eff_out, missing_power)
             else:
                 power_h2[t] = 0
 
             missing_power -= power_h2[t]
 
 
-            if soc_batt[t]> stor_batt.e_cap*stor_batt.dod:
+            if soc_batt[t]> stor_batt.e_cap*(1 - stor_batt.dod):
                 power_batt[t] = min(stor_batt.p_cap,
-                                    (soc_batt[t] - stor_batt.e_cap*stor_batt.dod)/dt*stor_batt.eff_out,
+                                    (soc_batt[t] - stor_batt.e_cap*(1 - stor_batt.dod))/dt*stor_batt.eff_out,
                                     missing_power)
             else:
                 power_batt[t] = 0

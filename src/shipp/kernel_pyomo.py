@@ -169,7 +169,7 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
         return model.e_vec1[i] <= model.e_cap1
     
     def rule_e_min1(model, i):
-        return model.e_vec1[i] >= model.e_cap1 * stor1.dod
+        return model.e_vec1[i] >= model.e_cap1 * (1 - stor1.dod)
 
     def rule_e_model_charge2(model, i):
         return model.e_vec2[i+1]-model.e_vec2[i] \
@@ -189,7 +189,7 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod_wind: Production,
         return model.e_vec2[i] <= model.e_cap2
     
     def rule_e_min2(model, i):
-        return model.e_vec2[i] >= model.e_cap2*stor2.dod
+        return model.e_vec2[i] >= model.e_cap2*(1 - stor2.dod)
 
     def rule_p_tot_min(model, i):
         return model.p_vec1[i] + model.p_vec2[i] - model.p_cur[i] >= p_min_vec[i]- power_res[i]
@@ -486,7 +486,7 @@ def solve_lp_alt_pyomo(price_ts: TimeSeries, prod_wind: Production,
         return model.e_vec1[i] <= model.e_cap1
     
     def rule_e_min1(model, i):
-        return model.e_vec1[i] >= model.e_cap1*stor1.dod
+        return model.e_vec1[i] >= model.e_cap1*(1 - stor1.dod)
 
     def rule_e_model2(model, i):
         return model.e_vec2[i+1]-model.e_vec2[i] \
@@ -503,7 +503,7 @@ def solve_lp_alt_pyomo(price_ts: TimeSeries, prod_wind: Production,
         return model.e_vec2[i] <= model.e_cap2
     
     def rule_e_min2(model, i):
-        return model.e_vec2[i] >= model.e_cap2*stor2.dod
+        return model.e_vec2[i] >= model.e_cap2*(1 - stor2.dod)
 
     # def rule_p_tot_min(model, i):
     #   return model.p_vec1[i] + model.p_vec2[i] >= p_min_vec[i] - power_res[i]
@@ -791,7 +791,7 @@ def solve_milp_pyomo(price_ts: TimeSeries, prod_wind: Production,
         return model.e_vec1[i] <= model.e_cap1
 
     def rule_e_min1(model, i):
-        return model.e_vec1[i] >= model.e_cap1*stor1.dod
+        return model.e_vec1[i] >= model.e_cap1*(1 - stor1.dod)
 
     def rule_p_bin1_lb(model, i):
         return  -bigM *(1 - model.bin1[i]) <= model.p_vec1[i]
@@ -827,7 +827,7 @@ def solve_milp_pyomo(price_ts: TimeSeries, prod_wind: Production,
         return model.e_vec2[i] <= model.e_cap2
 
     def rule_e_min2(model, i):
-        return model.e_vec2[i] >= model.e_cap2 * stor2.dod
+        return model.e_vec2[i] >= model.e_cap2 * (1 - stor2.dod)
 
     def rule_p_bin2_lb(model, i):
         return  -bigM *(1 - model.bin2[i]) <= model.p_vec2[i]
@@ -1014,7 +1014,7 @@ def run_storage_operation(run_type: str, power: list, price: list, p_min: float,
     assert isinstance(p_min, (int, float)) and p_min >= 0, "p_min must be a non-negative number."
     assert isinstance(p_max, (int, float)) and p_max > p_min, "p_max must be greater than p_min."
     assert isinstance(stor, Storage), "stor must be an instance of the Storage class."
-    assert isinstance(e_start, (int, float)) and stor.e_cap*stor.dod <= e_start <= stor.e_cap, "e_start must be within the storage capacity."
+    assert isinstance(e_start, (int, float)) and stor.e_cap*(1 - stor.dod) <= e_start <= stor.e_cap, "e_start must be within the storage capacity."
     assert isinstance(n, int) and n > 0, "n must be a positive integer."
     assert isinstance(nt, int) and nt > 0, "nt must be a positive integer."
     assert isinstance(dt, (int, float)) and dt > 0, "dt must be a positive number."
@@ -1241,9 +1241,9 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
 
     # Check that the starting state of charge is within the bounds, considering a tolerance corresponding to the optimization tolerance.
     assert stor1.e_cap >= e_start1 - tol
-    assert e_start1 + tol >= stor1.e_cap*stor1.dod
+    assert e_start1 + tol >= stor1.e_cap*(1- stor1.dod)
     assert stor2.e_cap >= e_start2 -tol
-    assert e_start2 +tol >= stor2.e_cap*stor2.dod
+    assert e_start2 +tol >= stor2.e_cap*(1 - stor2.dod)
 
     # Tuning parameters of the optimization problem
     alpha_obj = 1-1e-6
@@ -1267,10 +1267,10 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
 
     # Initialize Design Variables
     model.p_vec1 = pyo.Var(model.mat_m_n, bounds = (-p_cap1, p_cap1))
-    model.e_vec1 = pyo.Var(model.mat_m_np1, bounds = (e_cap1*stor1.dod, e_cap1))
+    model.e_vec1 = pyo.Var(model.mat_m_np1, bounds = (e_cap1*(1 - stor1.dod), e_cap1))
 
     model.p_vec2 = pyo.Var(model.mat_m_n, bounds = (-p_cap2, p_cap2))
-    model.e_vec2 = pyo.Var(model.mat_m_np1, bounds = (e_cap2*stor2.dod, e_cap2))
+    model.e_vec2 = pyo.Var(model.mat_m_np1, bounds = (e_cap2*(1 - stor2.dod), e_cap2))
 
     model.bin = pyo.Var(model.vec_n, within = pyo.Binary) ##binary variable for each time step
 
