@@ -1406,7 +1406,8 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
     if (results.solver.status is not pyo.SolverStatus.ok) or \
         (results.solver.termination_condition is not
          pyo.TerminationCondition.optimal):
-        raise RuntimeError
+        # raise RuntimeError
+        print('Warning - solve_dispatch_pyomo problem not solved to convergence - status: {}, termination condition {}'.format(results.solver.status,results.solver.termination_condition ), flush = True)
 
     # Extract optimum for each design variable
     bin = np.zeros(n)
