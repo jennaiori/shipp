@@ -609,7 +609,7 @@ def find_extreme_event(power: np.ndarray, p_min_vec: np.ndarray, n: int,
         max_len = max(max_len, len(wdw))
         max_nrg = max(max_nrg, np.sum(p_min_vec[wdw] - power[wdw])*delta_t)
         if len(wdw)>0:
-            max_power = max(max_power, p_min_vec[wdw] - power[wdw])
+            max_power = max(max_power, max(p_min_vec[wdw] - power[wdw]))
 
     return max_nrg, max_power
 
