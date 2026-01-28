@@ -106,10 +106,13 @@ def test_solve_lp_sparse():
     power = np.array([2,1,2, 2, 3])
     n = len(power)
     dt = 1.0
-    price = np.array([0.1, 0.1, 0.2, 0.1, 0.1])
+    price = [0.1, 0.1, 0.2, 0.1, 0.1]
     p_min = 0.5
     p_min_vec = np.array([0.5,0.5,0.5,0.5,0.5])
     p_max = 4.0
+
+    assert isinstance(price, list)
+    assert all(isinstance(p, (int, float)) for p in price)
 
     power_ts = TimeSeries(0.5*power, dt)
     price_ts = TimeSeries(price, dt)

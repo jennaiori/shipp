@@ -59,8 +59,28 @@ class Storage:
 
     def get_tot_costs(self) -> float:
         '''Returns total costs for the storage'''
+        if self.p_cap is None or self.e_cap is None:
+            raise ValueError("Both p_cap and e_cap must be set to valid values to calculate costs.")
         return self.p_cap * self.p_cost + self.e_cap * self.e_cost
     
+    def get_min_e(self) -> float:
+        '''Returns minimum allowed energy level'''
+        if self.e_cap is None:
+            raise ValueError("Energy capacity e_cap must be set to a valid value to calculate minimum energy level")
+        return self.e_cap * (1 - self.dod)
+
+    def copy(self) -> "Storage":
+        '''Create a deep copy of the Storage object'''
+        return Storage(
+            e_cap=self.e_cap,
+            p_cap=self.p_cap,
+            eff_in=self.eff_in,
+            eff_out=self.eff_out,
+            e_cost=self.e_cost,
+            p_cost=self.p_cost,
+            dod=self.dod
+        )
+
     def __repr__(self) -> str:
         return (f"Storage(e_cap={self.e_cap}, p_cap={self.p_cap}, eff_in={self.eff_in}, "
                 f"eff_out={self.eff_out}, e_cost={self.e_cost}, p_cost={self.p_cost}, dod={self.dod})")
@@ -100,12 +120,15 @@ class OpSchedule:
         storage_p (list[TimeSeries]): List of TimeSeries for the power output of storage units.
         storage_e (list[TimeSeries]): List of TimeSeries for the energy level of storage objects.
         power_out (TimeSeries): TimeSeries of total power to the grid.
-        revenue (float): Total annual revenue from selling electricity.
+        revenue (float): Total revenue from selling electricity.
+        annual_revenue (float): Estimated annual revenue from selling electricity.
         capex (float): Total capital expenditure from storage and production objects.
-        revenue_storage (float): Total annual revenue from storage units.
+        revenue_storage (float): Total revenue from storage units.
+        annual_revenue_storage (float): Estimated annual revenue from storage units.
         npv (float): Net Present Value of the operation schedule.
         irr (float): Internal Rate of Return of the operation schedule.
         a_npv (float): Added Net Present Value due to the addition of storage.
+        losses (list): List of storage power losses. Set when solving the dispatch optimization.
     '''
 
     def __init__(self,
@@ -114,10 +137,30 @@ class OpSchedule:
                  production_p: list[TimeSeries],
                  storage_p: list[TimeSeries],
                  storage_e: list[TimeSeries],
-                 price: list[float] = None) -> None:
+                 price: np.ndarray = None) -> None:
         '''
         Initialization function for OpSchedule
         '''
+        # Input validity checks
+        assert isinstance(production_list, list) and all(isinstance(p, Production) for p in production_list), \
+            "production_list must be a list of Production objects."
+        assert isinstance(storage_list, list) and all(isinstance(s, Storage) for s in storage_list), \
+            "storage_list must be a list of Storage objects."
+        assert isinstance(production_p, list) and all(isinstance(ts, TimeSeries) for ts in production_p), \
+            "production_p must be a list of TimeSeries objects."
+        assert isinstance(storage_p, list) and all(isinstance(ts, TimeSeries) for ts in storage_p), \
+            "storage_p must be a list of TimeSeries objects."
+        assert isinstance(storage_e, list) and all(isinstance(ts, TimeSeries) for ts in storage_e), \
+            "storage_e must be a list of TimeSeries objects."
+        if price is not None:
+            assert isinstance(price, np.ndarray) and all(isinstance(p, (int, float)) for p in price), \
+            "price must be a list of numeric values."
+        assert len(production_list) == len(production_p), \
+             "the number of Production objects must match the number of power production time series."
+        assert len(storage_list) == len(storage_p) and len(storage_list) == len(storage_e), \
+             "the number of Storage objects must match the number of time series for the storage power and energy."
+        
+
         self.production_list = production_list
         self.storage_list = storage_list
         self.production_p = production_p
@@ -140,6 +183,13 @@ class OpSchedule:
 
         # Calculation of the revenue is the price is provided
         self.revenue = None
+        self.annual_revenue = None
+        self.revenue_storage = None
+        self.annual_revenue_storage = None
+        self.npv = None
+        self.a_npv = None
+        self.irr = None
+
         if price is not None:
             self.update_revenue(price)
 
@@ -148,8 +198,7 @@ class OpSchedule:
 
     def update_capex(self) -> None:
         '''
-        Function to calculate the total CAPEX from Storage and 
-        Production objects
+        Function to calculate the total CAPEX from Storage and Production objects.
         '''
         self.capex = 0
         for item in self.production_list:
@@ -158,7 +207,7 @@ class OpSchedule:
             self.capex += item.get_tot_costs()
 
 
-    def update_revenue(self, price: list[float]) -> None:
+    def update_revenue(self, price: np.ndarray) -> None:
         '''
         Function to calculate the yearly revenue for the operating 
         schedule. The revenue is obtained by selling the electricity 
@@ -167,15 +216,20 @@ class OpSchedule:
         Params:
             price [currency/MWh]: day-ahead market price 
         '''
+        assert price is not None
+
         n = min(len(price), len(self.power_out.data))
         dot_product = np.dot(price[:n], self.power_out.data[:n])
 
-        self.revenue = 365*24/n * dot_product*self.power_out.dt
+        self.revenue = dot_product*self.power_out.dt
+        self.annual_revenue = 365*24/n * dot_product
 
         self.revenue_storage = 0
+        self.annual_revenue_storage = 0
         for power in self.storage_p:
             dot_product = np.dot(price[:n], power.data[:n])
-            self.revenue_storage += 365*24/n * dot_product * power.dt
+            self.revenue_storage += dot_product * power.dt
+            self.annual_revenue_storage += 365*24/n * dot_product 
 
 
     def get_npv_irr(self, discount_rate: float,
@@ -191,14 +245,14 @@ class OpSchedule:
             npv [M.currency]: Net Present Value
             irr [-]: Internal Rate of return
         '''
-        assert self.revenue is not None
+        assert self.annual_revenue is not None
         assert 0 <= discount_rate <=1
         assert isinstance(n_year, int)
 
         cash_flow = [-self.capex]
 
         for _ in range(1,n_year):
-            cash_flow.append(self.revenue)
+            cash_flow.append(self.annual_revenue)
 
         npv = npf.npv(discount_rate, cash_flow) * 1e-6
         irr = npf.irr(cash_flow)
@@ -222,7 +276,7 @@ class OpSchedule:
         Returns:
             a_npv [M.currency] added Net Present Value
         '''
-        assert self.revenue_storage is not None
+        assert self.annual_revenue_storage is not None
         assert 0 <= discount_rate <=1
         assert isinstance(n_year, int)
 
@@ -233,7 +287,7 @@ class OpSchedule:
         cash_flow = [-capex_storage]
 
         for _ in range(1,n_year):
-            cash_flow.append(self.revenue_storage)
+            cash_flow.append(self.annual_revenue_storage)
 
         a_npv = npf.npv(discount_rate, cash_flow) * 1e-6
 
@@ -255,7 +309,7 @@ class OpSchedule:
         dt = self.production_p[0].dt
 
         total_energy = dt * sum(self.power_out.data)
-
+        assert total_energy !=0
         percent = []
 
         # Calculation of the portion of energy used to charge (power<0) 

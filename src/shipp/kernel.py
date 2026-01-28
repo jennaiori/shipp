@@ -1,6 +1,6 @@
 """This module defines kernel functions for shipp.
 
-The functions defined in this module are used to solve the schedule problem with scipy.optimize.linprog or with a rule-based approach.
+The functions defined in this module are used to solve the schedule problem with scipy.optimize.linprog or with a rule-based approach. They build the matrices describing the linear optimization from scratch. For complex problems, the use of the functions in kernel_pyomo is prefered.
 
 Functions:
     build_lp_obj_npv: Build objective vector for NPV maximization.

@@ -5,11 +5,16 @@ The functions defined in this module are used to analyze or compute data
 for the classes defined in shipp.
 
 Functions:
-    solve_lp_pyomo: Build and solve a LP for NPV maximization with pyomo.
+    solve_lp_pyomo: Build and solve a linear program (LP) for NPV maximization with pyomo.
     solve_lp_alt_pyomo: Build and solve an alternative LP for NPV maximization with pyomo.
     solve_milp_pyomo: Build and solve a MILP for NPV maximization with pyomo.
-
+    run_storage_operation: Run a series of online dispatch optimization problems.
+    solve_dispatch_pyomo: Build and solve a MILP for the dispatch optimization of storage systems considering reliability.
 """
+
+TIME_LIMIT_SHORT = 2  # 2 seconds - time limit for solving the problem.
+TIME_LIMIT_LONG = 180   # 3 minutes
+DEFAULT_ALPHA_OBJ = 1-1e-6
 
 import numpy as np
 import numpy_financial as npf
@@ -1157,12 +1162,12 @@ def run_storage_operation(run_type: str, power: list, price: list, p_min: float,
     return res
 
 
-def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast: list, p_min: float, p_max : float, e_start1 : float, e_start2 : float, dt : float, stor1 : Storage, stor2 : Storage, cnt_hist : int = 0, n_hist : int = 0, verbose : bool = False, name_solver : str = 'mosek', dp_lim : float = None, beta_obj : float = 1e-6, mu : float = 1.0, p_hist_res : float = 0, p_hist_stor : float = 0)-> tuple:
+def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast: list, p_min: float, p_max : float, e_start1 : float, e_start2 : float, dt : float, stor1 : Storage, stor2 : Storage, cnt_hist : int = 0, n_hist : int = 0, verbose : bool = False, name_solver : str = 'mosek', dp_lim : float = None, beta_obj : float = 1e-6, alpha_obj : float = DEFAULT_ALPHA_OBJ, mu : float = 1.0, tol : float = 1e-4, p_hist_res : float = 0, p_hist_stor : float = 0)-> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, pyo.SolverStatus]:
 
-    """Build and solve a MILP for the dispatch optimization of storage systems
+    """Build and solve a MILP for the dispatch optimization of storage systems considering reliability.
 
-    This function builds and solves the dispatch optimization problem for two storage systems operating a minimum baseload power as a mixed integer linear program. 
-    The objective is to maximize the income of the storage system (i.e. revenues on the spot market). 
+    This function builds and solves the dispatch optimization problem for two storage systems operating with dispatch constraints (baseload or ramp limitation) as a mixed integer linear program. 
+    The objective is to maximize the income of the storage system (i.e. revenues on the spot market). Constraints are set to respect the dispatch constraints and ensure reliability.
 
     Params:
         price (list): Price of electricity on the day-ahead market [currency/MWh].
@@ -1182,6 +1187,12 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
         verbose (bool, optional): If True, enables verbose output during the optimization. Default is False.
         name_solver (str, optional): Name of the optimization solver to be used with Pyomo. Default is 'mosek'.
         dp_lim (float): Limit for the ramp limitation [MW/h] (up and down)
+        beta_obj (float): penalty term in the objective function for the energy level at the last time step.
+        alpha_obj (float): factor in the objective function to adjust the relative weight of curtailement and storage power.
+        mu (float): penalty term in the objective function for the reliability penalties.
+        tol (float): tolerance for checking the input validity and storage losses.
+        p_hist_res (float): value of the power produced at the previous time step.
+        p_hist_stor (float): value of the storage power at the previous time step.
 
     Returns:
         tuple: A tuple containing the following elements:
@@ -1189,6 +1200,7 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
             - e_vec1 (np.ndarray): Energy levels of the first storage system over the time horizon.
             - p_vec2 (np.ndarray): Power output of the second storage system over the time horizon.
             - e_vec2 (np.ndarray): Energy levels of the second storage system over the time horizon.
+            - p_cur (np.ndarray): Curtailed power over the time horizon.
             - bin (np.ndarray): Binary indicators for whether the power threshold was met at each time step.
             - results.solver.status: Solver status indicating the outcome of the optimization.
 
@@ -1231,7 +1243,6 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
     assert np.isfinite(e_cap1)
     assert np.isfinite(e_cap2)
 
-    tol = 1e-4
     if dp_lim is not None:
         assert np.isfinite(dp_lim)
         assert np.isfinite(p_hist_res)
@@ -1246,7 +1257,6 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
     assert e_start2 +tol >= stor2.e_cap*(1 - stor2.dod)
 
     # Tuning parameters of the optimization problem
-    alpha_obj = 1-1e-6
     if dp_lim is None:
         mu_obj = mu*(p_min)*(n+n_hist)*np.max(price[0:n])
     else:
@@ -1362,7 +1372,6 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
         dp_feasible = p_max # Upper bound for the feasible ramp rate
         def rule_dp_tot_min(model, j, i):
             if i == 0: # The ramp rate for the first time step is calculated with "historical variables": p_hist_res and p_hist_stor
-                # return  model.p_vec1[j, i] + model.p_vec2[j, i] - model.p_cur[j,i] >= model.bin[i]*(-dp_lim  - power_forecast[j][i] + p_hist_res + p_hist_stor)
                 return  model.p_vec1[j, i] + model.p_vec2[j, i] - model.p_cur[j,i] >= -dp_lim  - power_forecast[j][i] + p_hist_res + p_hist_stor - model.penalty_power*dp_feasible
             else:
                 return  model.p_vec1[j, i] + model.p_vec2[j, i] - (model.p_vec1[j, i-1] + model.p_vec2[j, i-1]) - (model.p_cur[j,i] - model.p_cur[j, i-1]) >= -dp_feasible + model.bin[i]*(-dp_lim - -dp_feasible ) - power_forecast[j][i] + power_forecast[j][i-1]
@@ -1392,9 +1401,9 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
 
     # Enfore limits on the solve time
     if n < 7*24:
-        time_limit = 2
+        time_limit = TIME_LIMIT_SHORT
     else:
-        time_limit = 3*60 # 3 minutes
+        time_limit = TIME_LIMIT_LONG
     if 'cplex' in name_solver:
         opt.options['timelimit'] = time_limit
     elif 'gurobi' in name_solver:           
@@ -1410,6 +1419,9 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
 
     warning_opt = False
     #Check if the problem was solved correclty
+    if (results.solver.termination_condition == pyo.TerminationCondition.infeasible):
+        raise RuntimeError('Optimization problem infeasible: {}'.format(results.solver.termination_condition))
+
     if (results.solver.status is not pyo.SolverStatus.ok) or \
         (results.solver.termination_condition is not
          pyo.TerminationCondition.optimal):
@@ -1443,22 +1455,21 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
         p_cur[j][i] = pyo.value(model.p_cur[j, i])
 
     # Assert if the losses match the storage system model
-    for e_vec, p_vec in zip( [e_vec1, e_vec2], [p_vec1, p_vec2]):
+    for idx, (e_vec, p_vec, stor) in enumerate(zip( [e_vec1, e_vec2], [p_vec1, p_vec2], [stor1, stor2])):
         # Calculate the losses from the solution of the optimization problem
         losses = np.zeros((m,n))
         for j in range(m):
             for i in range(n):
                 losses[j][i] = -(e_vec[j][i+1] - e_vec[j][i] + dt*p_vec[j][i])/dt
         # Check that the losses match their expected values
-        tol = 1e-4 # same tolerance as for the optimization algorithm
         verifiedModel = True
         for j in range(m):
             for los, pow in zip(losses, p_vec):
                     wdw_in = np.where(pow < 0)
                     wdw_out = np.where(pow >=0)
 
-                    diff_in = los[wdw_in] + (1-eta1_in)* pow[wdw_in]
-                    diff_out = los[wdw_out] - (1-eta1_out)/eta1_out* \
+                    diff_in = los[wdw_in] + (1-stor.eff_in)* pow[wdw_in]
+                    diff_out = los[wdw_out] - (1-stor.eff_out)/stor.eff_out* \
                                                 pow[wdw_out]
 
                     error_in = sum( eps**2 for eps in diff_in)
@@ -1471,277 +1482,3 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
     
     return p_vec1, e_vec1,  p_vec2, e_vec2, p_cur, bin, results.solver.status
 
-
-
-
-# def solve_dispatch_pyomo_windonly(price: list, m: int, rel: float, n: int, power_forecast: list, p_min: float, p_max : float, e_start1 : float, e_start2 : float, dt : float, stor1 : Storage, stor2 : Storage, cnt_hist : int = 0, n_hist : int = 0, verbose : bool = False, name_solver : str = 'mosek', dp_lim : float = None, beta_obj : float = 1e-6, mu : float = 1.0, p_hist_res : float = 0, p_hist_stor : float = 0)-> tuple:
-
-#     """Missing docstring
-#     """
-
-
-#     # Check validity of input data
-
-#     assert m <= len(power_forecast)
-#     assert n <= len(power_forecast[0])
-#     assert n <= len(price)
-#     assert min(price) >=0
-#     assert rel >=0 and rel <= 1.0
-
-#     assert np.all(np.isfinite(power_forecast))
-#     assert np.all(np.isfinite(price))
-#     assert np.isfinite(p_min)
-#     assert np.isfinite(p_max)
-#     assert np.isfinite(dt)
-    
-#     #Load storage system parameters from storage objects
-#     p_cap1 = stor1.p_cap
-#     e_cap1 = stor1.e_cap
-#     eta1_in = stor1.eff_in
-#     eta1_out = stor1.eff_out
-
-#     p_cap2 = stor2.p_cap
-#     e_cap2 = stor2.e_cap
-#     eta2_in = stor2.eff_in
-#     eta2_out = stor2.eff_out
-
-#     assert np.isfinite(eta1_in)
-#     assert np.isfinite(eta2_in)
-#     assert np.isfinite(eta1_out)
-#     assert np.isfinite(eta2_out)
-#     assert np.isfinite(p_cap1)
-#     assert np.isfinite(p_cap2)
-#     assert np.isfinite(e_cap1)
-#     assert np.isfinite(e_cap2)
-
-#     tol = 1e-4
-#     if dp_lim is not None:
-#         assert np.isfinite(dp_lim)
-#         assert np.isfinite(p_hist_res)
-#         assert np.isfinite(p_hist_stor)
-#         assert dp_lim >= 0 
-#         assert( p_hist_res + p_hist_stor) >= -tol 
-
-#     # Check that the starting state of charge is within the bounds, considering a tolerance corresponding to the optimization tolerance.
-#     assert stor1.e_cap >= e_start1 - tol
-#     assert e_start1 + tol >= stor1.e_cap*(1- stor1.dod)
-#     assert stor2.e_cap >= e_start2 -tol
-#     assert e_start2 +tol >= stor2.e_cap*(1 - stor2.dod)
-
-#     # Tuning parameters of the optimization problem
-#     alpha_obj = 1-1e-6
-#     if dp_lim is None:
-#         mu_obj = mu*(p_min)*(n+n_hist)*np.max(price[0:n])
-#     else:
-#         mu_obj = mu*(p_min + dp_lim)*(n+n_hist)*np.max(price[0:n])
-
-#     # Initialize pyomo model
-#     model = pyo.ConcreteModel()
-
-#     # Initialize Sets for Design Variables
-#     model.vec_n = pyo.Set(initialize=list(range(n)))
-#     model.vec_m = pyo.Set(initialize=list(range(m)))
-#     model.vec_np1 = pyo.Set(initialize=list(range(n+1)))
-#     model.vec_nm1 = pyo.Set(initialize=list(range(n-1)))
-
-#     model.mat_m_n = pyo.Set(initialize=model.vec_m*model.vec_n)
-#     model.mat_m_np1 = pyo.Set(initialize=model.vec_m*model.vec_np1)
-#     model.mat_m_nm1 = pyo.Set(initialize=model.vec_m*model.vec_nm1)
-
-#     # Initialize Design Variables
-#     model.p_vec1 = pyo.Var(model.mat_m_n, bounds = (-p_cap1, p_cap1))
-#     model.e_vec1 = pyo.Var(model.mat_m_np1, bounds = (e_cap1*(1 - stor1.dod), e_cap1))
-
-#     model.p_vec2 = pyo.Var(model.mat_m_n, bounds = (-p_cap2, p_cap2))
-#     model.e_vec2 = pyo.Var(model.mat_m_np1, bounds = (e_cap2*(1 - stor2.dod), e_cap2))
-
-#     model.bin = pyo.Var(model.vec_n, within = pyo.Binary) ##binary variable for each time step
-
-#     model.penalty = pyo.Var(within=pyo.NonNegativeReals, bounds=(0, rel), initialize=0)
-#     model.p_cur = pyo.Var(model.mat_m_n, domain=pyo.NonNegativeReals) #curtailed power
-
-#     # Input the objective function in the model
-#     model.obj = pyo.Objective(expr = 1/m*sum([price[j] * (model.p_vec1[i,j] + model.p_vec2[i,j] - alpha_obj*model.p_cur[i,j]) for i,j in model.p_vec1]) - mu_obj*model.penalty + beta_obj*1/m*sum([model.e_vec1[i, model.vec_np1.at(n+1)] + model.e_vec2[i, model.vec_np1.at(n+1)] for i in model.vec_m]), sense = pyo.maximize)
-
-
-#     # Define rule functions for the constraints
-#     ## Constraint for the minimum baseload power
-#     def rule_p_tot_min(model, j, i):
-#         return model.p_vec1[j,i] + model.p_vec2[j,i] - model.p_cur[j,i] >= (p_min*model.bin[i] - power_forecast[j][i])
-#     ## Constraint for the maximum power
-#     def rule_p_tot_max_storage(model, j, i):
-#         return model.p_vec1[j,i] + model.p_vec2[j,i] <= max(p_max - power_forecast[j][i], 0)
-
-#     def rule_p_tot_max_curt(model, j, i):
-#         return model.p_vec1[j,i] + model.p_vec2[j,i] - model.p_cur[j,i]  <= p_max - power_forecast[j][i]
-
-#     ## Constraints for the storage system model for storage 1
-#     def rule_e_model_charge1(model, j,i):
-#         return model.e_vec1[j,i+1]-model.e_vec1[j,i] <= - dt * eta1_in * model.p_vec1[j, i]
-#     def rule_e_model_discharge1(model, j,i):
-#         return model.e_vec1[j,i+1]-model.e_vec1[j,i] <= - dt/eta1_out * model.p_vec1[j, i]
-
-#     ## Constraint for the initial energy level of storage 1
-#     def rule_e_equal1(model, j):
-#         # return model.e_vec1[0,0] == model.e_vec1[j,0]
-#         return model.e_vec1[j,0] == e_start1
-
-#     ## Constraint to ensure the first time step is equal for all scenarios, in terms of power output of storage 1
-#     def rule_p_equal1(model, j):
-#         return model.p_vec1[0,0] == model.p_vec1[j,0]
-    
-#      ## Constraints for the storage system model for storage 2
-#     def rule_e_model_charge2(model, j,i):
-#         return model.e_vec2[j,i+1]-model.e_vec2[j,i] <= - dt * eta2_in * model.p_vec2[j, i]
-#     def rule_e_model_discharge2(model, j,i):
-#         return model.e_vec2[j,i+1]-model.e_vec2[j,i] <= - dt/eta2_out * model.p_vec2[j, i]
-
-#     ## Constraint for the initial energy level of storage 1
-#     def rule_e_equal2(model, j):
-#         # return model.e_vec2[0,0] == model.e_vec2[j,0]
-#         return model.e_vec2[j,0] == e_start2
-
-#     ## Constraint to ensure the first time step is equal for all scenarios, in terms of power output of storage 2
-#     def rule_p_equal2(model, j):
-#         return model.p_vec2[0,0] == model.p_vec2[j,0]
-    
-#     # Constraint for the binary variables to help with the convergence of the algorithm
-#     ## If the baseload constraint is already satisfied without storage, the binary variable is set to 1
-#     def rule_min_bound_bin(model, i):
-#         if p_min >0:
-#             min_pow = min([power_forecast[j][i] for j in range(m)])
-            
-#             return model.bin[i] >= (int)((min_pow//p_min)>=1)
-
-#         elif dp_lim is not None:
-#             return model.bin[i]>=0
-#         else:
-#             return model.bin[i]>=1
-        
-#     def rule_p_cur_lim(model, j,i):
-#         return model.p_cur[j,i]  <= power_forecast[j][i]
-    
-
-#     model.min_bound_bin = pyo.Constraint(model.vec_n, rule=rule_min_bound_bin)
-#     model.p_cur_lim =  pyo.Constraint(model.mat_m_n, rule=rule_p_cur_lim)
-#     # Input the constraints in the model
-#     ## Constraint to enforce the target reliability, taking into account the penalty
-#     model.reliability = pyo.Constraint(expr = sum( model.bin[k] for k in model.bin) 
-#                                        >= (rel - model.penalty)* (n+n_hist) - cnt_hist)
-#     ## Constraint for each storage type
-#     model.e_model_charge1 = pyo.Constraint(model.mat_m_n, rule=rule_e_model_charge1)
-#     model.e_model_discharge1 = pyo.Constraint(model.mat_m_n, rule=rule_e_model_discharge1)
-#     model.e_model_charge2 = pyo.Constraint(model.mat_m_n, rule=rule_e_model_charge2)
-#     model.e_model_discharge2 = pyo.Constraint(model.mat_m_n, rule=rule_e_model_discharge2)
-
-#     # Ramp limitation constraint
-
-#     if dp_lim is not None: 
-#         dp_feasible = p_max # Upper bound for the feasible ramp rate
-#         def rule_dp_tot_min(model, j, i):
-#             if i == 0: # The ramp rate for the first time step is calculated with "historical variables": p_hist_res and p_hist_stor
-#                 return  model.p_vec1[j, i] + model.p_vec2[j, i] - model.p_cur[j,i] >= model.bin[i]*(-dp_lim  - power_forecast[j][i] + p_hist_res + p_hist_stor)
-#             else:
-#                 return  model.p_vec1[j, i] + model.p_vec2[j, i] - (model.p_vec1[j, i-1] + model.p_vec2[j, i-1]) - (model.p_cur[j,i] - model.p_cur[j, i-1]) >= -dp_feasible + model.bin[i]*(-dp_lim - -dp_feasible ) - power_forecast[j][i] + power_forecast[j][i-1]
-            
-#         def rule_dp_tot_max(model, j, i):
-#             if i == 0:
-#                 return  model.p_vec1[j, i] + model.p_vec2[j, i] - model.p_cur[j,i] <= model.bin[i]*(dp_lim  - power_forecast[j][i] + p_hist_res + p_hist_stor)
-#             else:
-#                 return  model.p_vec1[j, i] + model.p_vec2[j, i] - (model.p_vec1[j, i-1] + model.p_vec2[j, i-1]) - (model.p_cur[j,i] - model.p_cur[j, i-1]) <= dp_feasible + model.bin[i]*(dp_lim - dp_feasible ) - power_forecast[j][i] + power_forecast[j][i-1]
-
-#         model.dp_tot_min = pyo.Constraint(model.mat_m_n, rule=rule_dp_tot_min)
-#         model.dp_tot_max = pyo.Constraint(model.mat_m_n, rule=rule_dp_tot_max)
-
-#     ## Global constraints
-#     model.p_tot_min = pyo.Constraint(model.mat_m_n, rule=rule_p_tot_min)
-#     model.p_tot_max_storage = pyo.Constraint(model.mat_m_n, rule=rule_p_tot_max_storage)
-#     model.p_tot_max_curt = pyo.Constraint(model.mat_m_n, rule=rule_p_tot_max_curt)
-
-#     ## Link all three together
-#     model.equal_p1 = pyo.Constraint(model.vec_m, rule=rule_p_equal1)
-#     model.equal_e1 = pyo.Constraint(model.vec_m, rule=rule_e_equal1)
-#     model.equal_p2 = pyo.Constraint(model.vec_m, rule=rule_p_equal2)
-#     model.equal_e2 = pyo.Constraint(model.vec_m, rule=rule_e_equal2)
-    
-#     # Define solver object
-#     opt = pyo.SolverFactory(name_solver)
-
-#     # Enfore limits on the solve time
-#     if n < 7*24:
-#         time_limit = 2
-#     else:
-#         time_limit = 3*60 # 3 minutes
-#     if 'cplex' in name_solver:
-#         opt.options['timelimit'] = time_limit
-#     elif 'gurobi' in name_solver:           
-#         opt.options['TimeLimit'] = time_limit
-#     elif 'mosek' in name_solver:
-#         opt.options['dparam.optimizer_max_time'] = time_limit 
-
-#     # Solve optimization problem
-#     if verbose:
-#         results = opt.solve(model, tee=True)
-#     else:
-#         results = opt.solve(model, tee=False)
-
-#     #Check if the problem was solved correclty
-#     if (results.solver.status is not pyo.SolverStatus.ok) or \
-#         (results.solver.termination_condition is not
-#          pyo.TerminationCondition.optimal):
-#         # raise RuntimeError
-#         print('Warning - solve_dispatch_pyomo problem not solved to convergence - status: {}, termination condition {}'.format(results.solver.status,results.solver.termination_condition ), flush = True)
-
-#     # Extract optimum for each design variable
-#     bin = np.zeros(n)
-#     for i in model.bin:
-#         bin[i] = pyo.value(model.bin[i])
-
-#     p_vec1 = np.zeros((m,n))
-#     for j, i in model.p_vec1:
-#         p_vec1[j][i] = pyo.value(model.p_vec1[j, i])
-
-#     e_vec1 = np.zeros((m,n+1))
-#     for j, i in model.e_vec1:
-#         e_vec1[j][i] = pyo.value(model.e_vec1[j, i])
-
-#     p_vec2 = np.zeros((m,n))
-#     for j, i in model.p_vec2:
-#         p_vec2[j][i] = pyo.value(model.p_vec2[j, i])
-
-#     e_vec2 = np.zeros((m,n+1))
-#     for j, i in model.e_vec2:
-#         e_vec2[j][i] = pyo.value(model.e_vec2[j, i])
-    
-#     p_cur = np.zeros((m,n))
-#     for j, i in model.p_cur:
-#         p_cur[j][i] = pyo.value(model.p_cur[j, i])
-
-#     # Assert if the losses match the storage system model
-#     for e_vec, p_vec in zip( [e_vec1, e_vec2], [p_vec1, p_vec2]):
-#         # Calculate the losses from the solution of the optimization problem
-#         losses = np.zeros((m,n))
-#         for j in range(m):
-#             for i in range(n):
-#                 losses[j][i] = -(e_vec[j][i+1] - e_vec[j][i] + dt*p_vec[j][i])/dt
-#         # Check that the losses match their expected values
-#         tol = 1e-4 # same tolerance as for the optimization algorithm
-#         verifiedModel = True
-#         for j in range(m):
-#             for los, pow in zip(losses, p_vec):
-#                     wdw_in = np.where(pow < 0)
-#                     wdw_out = np.where(pow >=0)
-
-#                     diff_in = los[wdw_in] + (1-eta1_in)* pow[wdw_in]
-#                     diff_out = los[wdw_out] - (1-eta1_out)/eta1_out* \
-#                                                 pow[wdw_out]
-
-#                     error_in = sum( eps**2 for eps in diff_in)
-#                     error_out = sum( eps**2 for eps in diff_out)
-#                     if error_in > tol or error_out > tol:
-#                         verifiedModel = False
-#         if not verifiedModel:
-#             print('Error above tolerance in solve_dispatch_pyomo:', max(error_in, error_out))
-
-    
-#     return p_vec1, e_vec1,  p_vec2, e_vec2, p_cur, bin, results.solver.status
