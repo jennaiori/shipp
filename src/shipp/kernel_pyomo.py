@@ -12,8 +12,8 @@ Functions:
     solve_dispatch_pyomo: Build and solve a MILP for the dispatch optimization of storage systems considering reliability.
 """
 
-TIME_LIMIT_SHORT = 2  # 2 seconds - time limit for solving the problem.
-TIME_LIMIT_LONG = 180   # 3 minutes
+TIME_LIMIT_SHORT = 2  # 2 seconds - time limit for solving small problems
+TIME_LIMIT_LONG = 180   # 3 minutes - time limit for solving larger problems
 DEFAULT_ALPHA_OBJ = 1-1e-6
 
 import numpy as np
@@ -973,7 +973,7 @@ def solve_milp_pyomo(price_ts: TimeSeries, prod_wind: Production,
     return os_res
 
 
-def run_storage_operation(run_type: str, power: list, price: list, p_min: float, p_max: float, stor: Storage, e_start: float, n: int, nt: int, dt: float, rel : float = 1.0, forecast: list = None, n_hist: int = 0, verbose : bool = False, name_solver : str = 'mosek', dp_lim = None, beta_obj = 1e-6, mu = 1.0) -> dict:	
+def run_storage_operation(run_type: str, power: list, price: list, p_min: float, p_max: float, stor: Storage, e_start: float, n: int, nt: int, dt: float, rel : float = 1.0, forecast: list = None, n_hist: int = 0, verbose : bool = False, name_solver : str = 'mosek', dp_lim = None, beta_obj = 1e-6, mu = 1.0, alpha_obj = DEFAULT_ALPHA_OBJ) -> dict:	
     """Execute a storage operation simulation.
     
     This function simulates the dispatch operation of a storage system based on the specified type. 
@@ -1115,11 +1115,11 @@ def run_storage_operation(run_type: str, power: list, price: list, p_min: float,
                 print('Time step ', t)
             if t > n_hist:
                 cnt_hist = sum([0 if p+ps < p_min else 1 for ps, p in zip(p_res[-n_hist:], power[t-n_hist:t])])
-                p_vec, e_vec, _, _, p_cur, bin_vec, status = solve_dispatch_pyomo(price[t:], m, rel, n, forecast[t], p_min, p_max, e_start_new, 0,  dt, stor, stor_null, n_hist = n_hist, cnt_hist=cnt_hist, verbose = verbose, name_solver = name_solver, dp_lim = dp_lim, beta_obj = beta_obj, mu = mu, p_hist_res = p_hist_res, p_hist_stor=p_hist_stor)
+                p_vec, e_vec, _, _, p_cur, bin_vec, status = solve_dispatch_pyomo(price[t:], m, rel, n, forecast[t], p_min, p_max, e_start_new, 0,  dt, stor, stor_null, n_hist = n_hist, cnt_hist=cnt_hist, verbose = verbose, name_solver = name_solver, dp_lim = dp_lim, beta_obj = beta_obj, mu = mu, p_hist_res = p_hist_res, p_hist_stor=p_hist_stor, alpha_obj=alpha_obj)
             else: 
                 cnt_hist = sum([0 if p+ps < p_min else 1 for ps, p in zip(p_res[:t], power[:t])])
         
-                p_vec, e_vec, _, _, p_cur, bin_vec, status = solve_dispatch_pyomo(price[t:], m, rel, n, forecast[t], p_min, p_max, e_start_new, 0,  dt, stor, stor_null, n_hist = n_hist, cnt_hist=(t-1), verbose = verbose, name_solver = name_solver, dp_lim = dp_lim, beta_obj = beta_obj, mu = mu, p_hist_res = p_hist_res, p_hist_stor=p_hist_stor)
+                p_vec, e_vec, _, _, p_cur, bin_vec, status = solve_dispatch_pyomo(price[t:], m, rel, n, forecast[t], p_min, p_max, e_start_new, 0,  dt, stor, stor_null, n_hist = n_hist, cnt_hist=(t-1), verbose = verbose, name_solver = name_solver, dp_lim = dp_lim, beta_obj = beta_obj, mu = mu, p_hist_res = p_hist_res, p_hist_stor=p_hist_stor,alpha_obj=alpha_obj)
             
             # If the optimization problem is solved correctly, we retrieve the results.
             if status == 'ok':
