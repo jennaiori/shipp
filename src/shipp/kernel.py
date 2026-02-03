@@ -33,14 +33,14 @@ def build_lp_obj_npv(price: np.ndarray, n: int, batt_p_cost: float,
     where factor = sum_n=1^(n_year) (1+discount_rate)**(-n)
 
     The objective vector corresponds to the following design variables:
-        Power from battery (charge/discharge), shape-(n,)
-        Power from fuel cell (>0) or electrolyzer (<0), shape-(n,)
-        State of charge from battery, shape-(n+1,)
-        Hydrogen levels, shape-(n+1,)
-        Max battery power capacity, shape-(1,)
-        Max state of charge (battery energy capacity), shape-(1,)
-        Max hydrogen system power capacity, shape-(1,)
-        Max hydrogen system energy capacity, shape-(1,)
+        - Power from battery (charge/discharge), shape-(n,)
+        - Power from fuel cell (>0) or electrolyzer (<0), shape-(n,)
+        - State of charge from battery, shape-(n+1,)
+        - Hydrogen levels, shape-(n+1,)
+        - Max battery power capacity, shape-(1,)
+        - Max state of charge (battery energy capacity), shape-(1,)
+        - Max hydrogen system power capacity, shape-(1,)
+        - Max hydrogen system energy capacity, shape-(1,)
 
     The number of design variables is n_x = 4*n+6
 

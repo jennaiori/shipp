@@ -237,10 +237,12 @@ class OpSchedule:
         '''
         Function to calculate the Net Present Value (npv) and 
         internal rate of return (irr) for the OpSchedule object
+        
         Params:
             discount rate [-]: Usually 3, 7 or 10% for wind energy
                 project
             n_year [-]: Number of years of operation
+        
         Returns:
             npv [M.currency]: Net Present Value
             irr [-]: Internal Rate of return
@@ -339,6 +341,7 @@ class OpSchedule:
     def check_losses(self, tol: float, verbose: bool = False) -> bool:
         '''
         Check the losses in the model and verify if they are within the tolerance.
+        
         Params:
             tol: The tolerance level for the losses.
             verbose: If True, prints the error values. Default is False.

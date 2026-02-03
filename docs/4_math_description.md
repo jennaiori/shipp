@@ -1,4 +1,4 @@
-# Problem Description
+# Mathematical formulation
 
 ## Hybrid power plant components
 
@@ -45,18 +45,32 @@ $$ \forall i \in[0,n], \quad  0 \leq e_i^s \leq \bar{E}^s$$
 Here, we assume that the minimum allowed state of charge is zero. Furthermore, degradation of the storage in time is not modeled.
 
 
-## Design problem
+## Performance metrics
 
-We want to size the storage system, in terms of its power and energy capacity, with the objective to maximize the net present value (NPV) of the system. 
+### Revenues
+We want to calculate the optimal dispatch strategy of the storage system, i.e., when to charge and discharge, in order to maximize revenues on the electricity markets. The objective function of the (minimization) problem is:
+
+```{math}
+ c(\boldsymbol{x}) = - \sum_{k=1}^m \sum_{s}\boldsymbol{\lambda}_\text{DAM}^T \cdot p^s
+ ```
+
+where $\lambda_\text{DAM}$ is the time series of electricity price on the day-ahead market. 
+
+
+
+### Net Present Value
+
+If instead, we want to size the storage system (i.e. its power and energy capacity) the objective function needs to take into account the associated costs. This is possible by using the net present value (NPV) of the system. 
 
 (Optional) This design problem can be solved with a baseload constraint, i.e. the power plant is required to produce a minimum power.
 
-
-The objective function of the (minimization) problem is:
+The objective function of the (minimization) problem becomes:
 
 ```{math}
  c(\boldsymbol{x}) = \sum_{s} (\lambda^s_P \bar{P}^s + \lambda_E^s \bar{E}^s) - \sum_{k=1}^m \sum_{s}\dfrac{\boldsymbol{\lambda}_\text{DAM}^T \cdot p^s}{(1+r)^k}
  ```
 
-where $m$ is the lifetime of the project, $r$ the discount rate and $\lambda_\text{DAM}$ is the time series of electricity price on the day-ahead market.
+where $m$ is the lifetime of the project, $r$ the discount rate and $\lambda_\text{DAM}$ is the time series of electricity price on the day-ahead market. Here we assume that the revenues estimated for one year with $\lambda_\text{DAM}$ are representative of the entire lifetime of the project.
+
+
 
