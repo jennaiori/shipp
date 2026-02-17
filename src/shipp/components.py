@@ -6,8 +6,10 @@ Class Storage:
     Represent storage system that can be charged or discharged
 
 Class Production:
-    Represent a power plant (wind or pv) production electricity from
-    a given resource
+    Represent a power plant (wind or pv) production electricity from a given resource
+
+Class OpSchedule:
+    Represent the operational schedule of the hybrid power plant.
 '''
 
 import matplotlib.pyplot as plt
@@ -213,8 +215,8 @@ class OpSchedule:
         schedule. The revenue is obtained by selling the electricity 
         to the grid (power_out) at the given price
         
-        Params:
-            price [currency/MWh]: day-ahead market price 
+        Args:
+            price (np.ndarray) : day-ahead market price [currency/MWh]
         '''
         assert price is not None
 
@@ -235,17 +237,14 @@ class OpSchedule:
     def get_npv_irr(self, discount_rate: float,
                     n_year: int) -> tuple[float, float]:
         '''
-        Function to calculate the Net Present Value (npv) and 
-        internal rate of return (irr) for the OpSchedule object
+        Function to calculate the Net Present Value (npv) and internal rate of return (irr) for the OpSchedule object
         
-        Params:
-            discount rate [-]: Usually 3, 7 or 10% for wind energy
-                project
-            n_year [-]: Number of years of operation
+        Args:
+            discount rate (float): Usually 3, 7 or 10% for wind energy project [-]
+            n_year (int): Number of years of operation [-]
         
         Returns:
-            npv [M.currency]: Net Present Value
-            irr [-]: Internal Rate of return
+           tuple[float, float]: Net Present Value [M.currency] and Internal Rate of return [-]
         '''
         assert self.annual_revenue is not None
         assert 0 <= discount_rate <=1
@@ -265,18 +264,16 @@ class OpSchedule:
         return npv, irr
     
     def get_added_npv(self, discount_rate: float,
-                    n_year: int) -> tuple[float, float]:
+                    n_year: int) -> float:
         '''
-        Function to calculate the difference in Net Present Value 
-        due to the addition of the storage
+        Function to calculate the difference in Net Present Value due to the addition of the storage (added NPV)
 
-        Params:
-            discount rate [-]: Usually 3, 7 or 10% for wind energy
-                project
-            n_year [-]: Number of years of operation
+        Args:
+            discount_rate (float): Usually 3, 7 or 10% for wind energy projects. [-]
+            n_year (int): Number of years of operation. [-]
 
         Returns:
-            a_npv [M.currency] added Net Present Value
+            float: added Net Present Value [M.currency]
         '''
         assert self.annual_revenue_storage is not None
         assert 0 <= discount_rate <=1
@@ -299,14 +296,10 @@ class OpSchedule:
 
     def get_power_partition(self) -> list[float]:
         '''
-        Function to calculate the partition of the total power 
-        production for each component, expressed as percentage of 
-        the total energy produced.
+        Function to calculate the partition of the total power production for each component, expressed as percentage of the total energy produced.
         
         Returns:
-            percent [-] array of percentage corresponding to the 
-            objects in self.production_list and then the one in 
-            self.storage_list
+           list[float]: array of percentage corresponding to the objects in self.production_list and then the one in self.storage_list [-]
         '''
         dt = self.production_p[0].dt
 
@@ -342,9 +335,9 @@ class OpSchedule:
         '''
         Check the losses in the model and verify if they are within the tolerance.
         
-        Params:
-            tol: The tolerance level for the losses.
-            verbose: If True, prints the error values. Default is False.
+        Args:
+            tol (float): The tolerance level for the losses. [-]
+            verbose (bool): If True, prints the error values. Default is False.
             
         Returns:
             bool: True if the losses are within the tolerance, False otherwise.
@@ -372,18 +365,15 @@ class OpSchedule:
 
         return verifiedModel
 
-    def plot_powerflow(self, label_list: list[str] = None,
-                       xlabel: str = 'Time [day]',
-                       ylabel1: str = 'Power [MW]',
-                       ylabel2: str = 'Energy [MWh]') -> None:
+    def plot_powerflow(self, label_list: list[str] = None, xlabel: str = 'Time [day]', ylabel1: str = 'Power [MW]', ylabel2: str = 'Energy [MWh]') -> None:
         '''
         Function to plot the power flow of the operation schedule
 
-        Params:
-            label_list: list of labels to appear on the legend
-            xlabel: label of the x-axis
-            ylabel1: label of the y-axis (left) for power
-            ylabel2: label of the y-axis (right) for energy
+        Args:
+            label_list (list[str]): list of labels to appear on the legend 
+            xlabel (str): label of the x-axis
+            ylabel1 (str): label of the y-axis (left) for power
+            ylabel2 (str): label of the y-axis (right) for energy
         '''
         if label_list is None:
             label_list = []
@@ -446,12 +436,11 @@ class OpSchedule:
         Function to plot the power the operation schedule, focusing
         on the power sent to the grid (power "out").
 
-        Params:
-            label_list: list of labels to appear on the legend
-            xlabel: label of the x-axis
-            ylabel: label of the y-axis for power
-            xlim [2,]: x range limits for the plot, allows to
-            reduce computational effort
+        Args:
+            label_list (list[str]): list of labels to appear on the legend
+            xlabel (str): label of the x-axis
+            ylabel (str): label of the y-axis for power
+            xlim (list[float]): x range limits for the plot, allows to reduce computational effort
         '''
         if label_list is None:
             cnt = 0

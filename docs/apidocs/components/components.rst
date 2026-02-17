@@ -126,7 +126,7 @@ API
       .. autodoc2-docstring:: components.OpSchedule.get_npv_irr
          :parser: docstrings_parser
 
-   .. py:method:: get_added_npv(discount_rate: float, n_year: int) -> tuple[float, float]
+   .. py:method:: get_added_npv(discount_rate: float, n_year: int) -> float
       :canonical: components.OpSchedule.get_added_npv
 
       .. autodoc2-docstring:: components.OpSchedule.get_added_npv

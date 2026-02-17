@@ -21,14 +21,6 @@ Functions
      - .. autodoc2-docstring:: kernel_pyomo.solve_lp_pyomo
           :parser: docstrings_parser
           :summary:
-   * - :py:obj:`solve_lp_alt_pyomo <kernel_pyomo.solve_lp_alt_pyomo>`
-     - .. autodoc2-docstring:: kernel_pyomo.solve_lp_alt_pyomo
-          :parser: docstrings_parser
-          :summary:
-   * - :py:obj:`solve_milp_pyomo <kernel_pyomo.solve_milp_pyomo>`
-     - .. autodoc2-docstring:: kernel_pyomo.solve_milp_pyomo
-          :parser: docstrings_parser
-          :summary:
    * - :py:obj:`run_storage_operation <kernel_pyomo.run_storage_operation>`
      - .. autodoc2-docstring:: kernel_pyomo.run_storage_operation
           :parser: docstrings_parser
@@ -82,25 +74,13 @@ API
    .. autodoc2-docstring:: kernel_pyomo.DEFAULT_ALPHA_OBJ
       :parser: docstrings_parser
 
-.. py:function:: solve_lp_pyomo(price_ts: shipp.timeseries.TimeSeries, prod_wind: shipp.components.Production, prod_pv: shipp.components.Production, stor1: shipp.components.Storage, stor2: shipp.components.Storage, discount_rate: float, n_year: int, p_min, p_max: float, n: int, name_solver: str = 'mosek', fixed_cap: bool = False, dp_lim=None, verbose=False) -> shipp.components.OpSchedule
+.. py:function:: solve_lp_pyomo(price_ts: shipp.timeseries.TimeSeries, prod1: shipp.components.Production, prod2: shipp.components.Production, stor1: shipp.components.Storage, stor2: shipp.components.Storage, discount_rate: float, n_year: int, p_min: float, p_max: float, n: int, name_solver: str = 'mosek', fixed_cap: bool = False, dp_lim=None, alpha_obj: float = DEFAULT_ALPHA_OBJ, verbose=False) -> shipp.components.OpSchedule
    :canonical: kernel_pyomo.solve_lp_pyomo
 
    .. autodoc2-docstring:: kernel_pyomo.solve_lp_pyomo
       :parser: docstrings_parser
 
-.. py:function:: solve_lp_alt_pyomo(price_ts: shipp.timeseries.TimeSeries, prod_wind: shipp.components.Production, prod_pv: shipp.components.Production, stor1: shipp.components.Storage, stor2: shipp.components.Storage, discount_rate: float, n_year: int, p_min, p_max: float, n: int, name_solver: str = 'mosek', fixed_cap: bool = False) -> shipp.components.OpSchedule
-   :canonical: kernel_pyomo.solve_lp_alt_pyomo
-
-   .. autodoc2-docstring:: kernel_pyomo.solve_lp_alt_pyomo
-      :parser: docstrings_parser
-
-.. py:function:: solve_milp_pyomo(price_ts: shipp.timeseries.TimeSeries, prod_wind: shipp.components.Production, prod_pv: shipp.components.Production, stor1: shipp.components.Storage, stor2: shipp.components.Storage, discount_rate: float, n_year: int, p_min, p_max: float, n: int, name_solver: str = 'mosek', fixed_cap: bool = False) -> shipp.components.OpSchedule
-   :canonical: kernel_pyomo.solve_milp_pyomo
-
-   .. autodoc2-docstring:: kernel_pyomo.solve_milp_pyomo
-      :parser: docstrings_parser
-
-.. py:function:: run_storage_operation(run_type: str, power: list, price: list, p_min: float, p_max: float, stor: shipp.components.Storage, e_start: float, n: int, nt: int, dt: float, rel: float = 1.0, forecast: list = None, n_hist: int = 0, verbose: bool = False, name_solver: str = 'mosek', dp_lim=None, beta_obj=1e-06, mu=1.0, alpha_obj=DEFAULT_ALPHA_OBJ) -> dict
+.. py:function:: run_storage_operation(run_type: str, power: list, price: list, p_min: float, p_max: float, stor: shipp.components.Storage, e_start: float, n: int, nt: int, dt: float, rel: float = 1.0, forecast: list = None, n_hist: int = 0, verbose: bool = False, name_solver: str = 'mosek', dp_lim=None, beta_obj: float = 1e-06, mu: float = 1.0, alpha_obj: float = DEFAULT_ALPHA_OBJ) -> dict
    :canonical: kernel_pyomo.run_storage_operation
 
    .. autodoc2-docstring:: kernel_pyomo.run_storage_operation

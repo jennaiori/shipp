@@ -26,15 +26,12 @@ This documentation describes the standard use of the functions implemented in th
 
 .. This documentation describes the optimization problems solved by SHIPP and their implementation.
 
-
-
 .. toctree::
    :maxdepth: 1
    :caption: Contents
 
    1_quick_start.md
    4_math_description.md
+   5_publications.md
    apidocs/index
-   .. 2_opt_problems.md
-   .. 3_add_concepts.md
 

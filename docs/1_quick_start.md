@@ -189,7 +189,7 @@ In the method {py:func}`run_storage_operation <kernel_pyomo.run_storage_operatio
 
 ## Ramp-limitation
 
-Similarly, a ramp-limit can be enforced in the dispatch optimization problem, here with the parameter 'dp_lim'. 
+Similarly, a ramp-limit can be enforced in the dispatch optimization problem, here with the parameter `dp_lim`. 
 
 ```{note}
    The ramp-limitation contraint is not implemented in ``solve_lp_sparse``.

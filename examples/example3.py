@@ -196,10 +196,9 @@ for t in range(nt):
 
 rel_res = 1/nt*sum(bin_res)
 rev_res = sum([data_price[i]*(p_res[i]-p_cur_res[i]) for i in range(nt)])
-cost_res = -rev_res/(sum(data_power[:nt])*dt)
 
 res = {'power':p_res, 'energy': e_res, 'reliability': rel_res, 
-        'revenues': rev_res, 'cost': cost_res, 'p_cur': p_cur_res,
+        'revenues': rev_res, 'p_cur': p_cur_res,
         'bin': np.array(bin_res).astype(int).tolist()}
 
 # Plot the realized power, energy and curtailed power

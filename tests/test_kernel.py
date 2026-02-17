@@ -55,15 +55,15 @@ def test_build_lp_cst_sparse():
     p_min = 1.0
     p_min_vec = np.array([0,0,0,1,0])
     p_max = 4.0
-    losses_batt = 0.0
-    losses_h2 = 0.0
+    eff_batt = 1.0
+    eff_h2 = 1.0
     rate_batt = 1.0
     rate_h2 = 1.0
     max_soc = 1.0
     max_h2 = 1.0
 
     mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub = \
-        build_lp_cst_sparse(power, dt, p_min, p_max, n, losses_batt, losses_h2)
+        build_lp_cst_sparse(power, dt, p_min, p_max, n, eff_batt, eff_h2)
     n_x = 4*n+6
     n_eq = 2
     n_ineq = 12*n+2
@@ -82,17 +82,17 @@ def test_build_lp_cst_sparse():
     assert ub.ndim == 1
 
     mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub = \
-        build_lp_cst_sparse(power, dt, p_min_vec, p_max, n, losses_batt,
-                            losses_h2)
+        build_lp_cst_sparse(power, dt, p_min_vec, p_max, n, eff_batt,
+                            eff_h2)
 
     mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub = \
-        build_lp_cst_sparse(power, dt, p_min_vec, p_max, n, losses_batt,
-                            losses_h2, rate_batt, rate_h2, max_soc, max_h2)
+        build_lp_cst_sparse(power, dt, p_min_vec, p_max, n, eff_batt,
+                            eff_h2, rate_batt, rate_h2, max_soc, max_h2)
 
     try:
         mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub = \
             build_lp_cst_sparse(power[:n-1], dt, p_min_vec, p_max, n,
-                                losses_batt, losses_h2)
+                                eff_batt, eff_h2)
     except AssertionError:
         assert True
     else:

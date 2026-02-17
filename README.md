@@ -1,16 +1,18 @@
 # SHIPP: Sizing optimization for HybrId Power Plants
 
+[![CI/CD test suite](https://github.com/jennaiori/shipp/actions/workflows/main.yml/badge.svg?branch=main)](https://github.com/jennaiori/shipp/actions/workflows/main.yml)
+[![DOI](https://img.shields.io/badge/DOI-10.4121%2F2EE36148--369F--4E1F--B770--C86752D7DCA4-yellow.svg)](https://doi.org/10.4121/2EE36148-369F-4E1F-B770-C86752D7DCA4)
+[![PyPi](https://img.shields.io/pypi/v/shipp)](https://pypi.org/project/shipp/)
+[![License](https://img.shields.io/pypi/l/shipp)](https://github.com/jennaiori/shipp/blob/main/LICENSE)
+
 ## Description
 SHIPP is used for studying and designing hybrid power plants, i.e. power plants combining one or more renewable energy production with energy storage systems.
 
-SHIPP is in development. Its capabilities are currently limited to sizing and operation of storage systems only. 
-
-
 ## Installation
-The package can be installed locally using pip after cloning the repository.
+The package can be installed using pip.
 
 ```python
-pip install path-to-shipp-folder
+pip install shipp
 ```
 
 ## Usage
@@ -18,12 +20,6 @@ pip install path-to-shipp-folder
 An example case is given in the folder `examples/`.
 
 The folder `experiments/` contains advanced applications of the code used for scientific conferences and publications. 
-
-## Future developments
-- Publish package on PyPI
-- Expand optimization problem definition to an arbitrary number of production and storage objects.
-- Include the lifetime of storage systems in the `Storage` objects.
-- Remove dependency on class `TimeSeries`
 
 ## Dependencies
 A valid access or license to a solver compatible with pyomo (MOSEK, CPLEX, Gurobi, etc.) is recommended to solve large problems (see more information here: https://www.pyomo.org/).
@@ -39,4 +35,4 @@ Technische Universiteit Delft hereby disclaims all copyright interest in the pro
 
 Henri Werij, Faculty of Aerospace Engineering, Technische Universiteit Delft.
 
-© 2024, Jenna Iori
+© 2024-2026, Jenna Iori

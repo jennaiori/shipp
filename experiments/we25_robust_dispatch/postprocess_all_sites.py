@@ -11,10 +11,11 @@ import numpy as np
 
 
 
-dir_name = 'results/'
+# dir_name = 'results/'
+dir_name = 'dir_6408696/'
 
 sitename_vec = ['hkn', 'hkz', 'bor', 'gem', 
-                'god', 'vej', 'hr3', 'anh', 
+                'god', 'vej', 'hr3', # 'anh', 
                 'kfl', 'bea','stb',
                 'sea', 'mor', 'tri', 'ark',
                  'stn' ,'hs2','hs1']
@@ -178,7 +179,7 @@ ax3.yaxis.set_visible(False) # hide the yaxis
 new_tick_locations = np.array([.2, .5, .9])
 
 for i in wdw_id[::-1]:
-    vp = ax3.violinplot([(res_all[i]['cost']/res_all[ref_id]['cost']-1)*100 for res_all in res_all_sites], showmeans=False, showextrema=False, showmedians=False, bw_method=0.5, side='low', vert=False)
+    vp = ax3.violinplot([(res_all[i]['revenues']/res_all[ref_id]['revenues']-1)*100 for res_all in res_all_sites], showmeans=False, showextrema=False, showmedians=False, bw_method=0.5, side='low', vert=False)
     for pc in vp['bodies']:
         pc.set_facecolor(col_vec[i])
         pc.set_edgecolor(col_vec[i])
