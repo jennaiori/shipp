@@ -1,24 +1,28 @@
 '''
-    module timeseries
+Module timeseries
 
-    contains the class TimeSeries
+Contains the class TimeSeries
 '''
 
 import numpy as np
 
 class TimeSeries:
     '''
-        class TimeSeries
+    class TimeSeries
 
-        Used to encapsulate data in the time domain associated to the time step. 
-        The class provides basic functions for the statistical analysis of time series.
+    Used to encapsulate data in the time domain associated to the time step. 
+    The class provides basic functions for the statistical analysis of time series.
+
+    Attributes:
+        data (np.ndarray): data array containing the time series.
+        dt (float): time step (in hours).
     '''
 
     def __init__(self, data=None, dt=0):
         if data is None:
             self.data = None
         else:
-            self.data = np.array(data)
+            self.data = np.array(data,  dtype=float)
 
         self.dt = dt
 

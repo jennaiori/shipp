@@ -6,8 +6,10 @@ Class Storage:
     Represent storage system that can be charged or discharged
 
 Class Production:
-    Represent a power plant (wind or pv) production electricity from
-    a given resource
+    Represent a power plant (wind or pv) production electricity from a given resource
+
+Class OpSchedule:
+    Represent the operational schedule of the hybrid power plant.
 '''
 
 import matplotlib.pyplot as plt
@@ -27,17 +29,27 @@ class Storage:
         eff_out (float): Efficiency to discharge the storage [-]
         e_cost (float): Cost per unit of energy capacity [Currency/MWh]
         p_cost (float): Cost per unit of power capacity [Currency/MW]
+        dod (float): Depth of discharge of the storage system, expressed as a fraction of the energy capacity (between 0 and 1) [-] 
     '''
 
     def __init__(self, e_cap: float = 0, p_cap: float = 0,
                  eff_in: float = 1, eff_out: float = 1, e_cost: float = 0,
-                 p_cost: float = 0) -> None:
-        self.e_cap = e_cap
+                 p_cost: float = 0, dod: float = 1) -> None:
+        if e_cap is not None:
+            assert e_cap >=0
+        if p_cap is not None:
+            assert p_cap >=0
+        assert 1 >= dod > 0
+        assert 1 >= eff_in >= 0
+        assert 1 >= eff_out >= 0
+        
+        self.e_cap = e_cap 
         self.p_cap = p_cap
         self.eff_in = eff_in
         self.eff_out = eff_out
         self.e_cost = e_cost
         self.p_cost = p_cost
+        self.dod = dod
 
     def get_av_eff(self) -> float:
         '''Returns the average efficiency'''
@@ -49,11 +61,31 @@ class Storage:
 
     def get_tot_costs(self) -> float:
         '''Returns total costs for the storage'''
+        if self.p_cap is None or self.e_cap is None:
+            raise ValueError("Both p_cap and e_cap must be set to valid values to calculate costs.")
         return self.p_cap * self.p_cost + self.e_cap * self.e_cost
     
+    def get_min_e(self) -> float:
+        '''Returns minimum allowed energy level'''
+        if self.e_cap is None:
+            raise ValueError("Energy capacity e_cap must be set to a valid value to calculate minimum energy level")
+        return self.e_cap * (1 - self.dod)
+
+    def copy(self) -> "Storage":
+        '''Create a deep copy of the Storage object'''
+        return Storage(
+            e_cap=self.e_cap,
+            p_cap=self.p_cap,
+            eff_in=self.eff_in,
+            eff_out=self.eff_out,
+            e_cost=self.e_cost,
+            p_cost=self.p_cost,
+            dod=self.dod
+        )
+
     def __repr__(self) -> str:
         return (f"Storage(e_cap={self.e_cap}, p_cap={self.p_cap}, eff_in={self.eff_in}, "
-                f"eff_out={self.eff_out}, e_cost={self.e_cost}, p_cost={self.p_cost})")
+                f"eff_out={self.eff_out}, e_cost={self.e_cost}, p_cost={self.p_cost}, dod={self.dod})")
 
 
 class Production:
@@ -90,12 +122,15 @@ class OpSchedule:
         storage_p (list[TimeSeries]): List of TimeSeries for the power output of storage units.
         storage_e (list[TimeSeries]): List of TimeSeries for the energy level of storage objects.
         power_out (TimeSeries): TimeSeries of total power to the grid.
-        revenue (float): Total annual revenue from selling electricity.
+        revenue (float): Total revenue from selling electricity.
+        annual_revenue (float): Estimated annual revenue from selling electricity.
         capex (float): Total capital expenditure from storage and production objects.
-        revenue_storage (float): Total annual revenue from storage units.
+        revenue_storage (float): Total revenue from storage units.
+        annual_revenue_storage (float): Estimated annual revenue from storage units.
         npv (float): Net Present Value of the operation schedule.
         irr (float): Internal Rate of Return of the operation schedule.
         a_npv (float): Added Net Present Value due to the addition of storage.
+        losses (list): List of storage power losses. Set when solving the dispatch optimization.
     '''
 
     def __init__(self,
@@ -104,10 +139,30 @@ class OpSchedule:
                  production_p: list[TimeSeries],
                  storage_p: list[TimeSeries],
                  storage_e: list[TimeSeries],
-                 price: list[float] = None) -> None:
+                 price: np.ndarray = None) -> None:
         '''
         Initialization function for OpSchedule
         '''
+        # Input validity checks
+        assert isinstance(production_list, list) and all(isinstance(p, Production) for p in production_list), \
+            "production_list must be a list of Production objects."
+        assert isinstance(storage_list, list) and all(isinstance(s, Storage) for s in storage_list), \
+            "storage_list must be a list of Storage objects."
+        assert isinstance(production_p, list) and all(isinstance(ts, TimeSeries) for ts in production_p), \
+            "production_p must be a list of TimeSeries objects."
+        assert isinstance(storage_p, list) and all(isinstance(ts, TimeSeries) for ts in storage_p), \
+            "storage_p must be a list of TimeSeries objects."
+        assert isinstance(storage_e, list) and all(isinstance(ts, TimeSeries) for ts in storage_e), \
+            "storage_e must be a list of TimeSeries objects."
+        if price is not None:
+            assert isinstance(price, np.ndarray) and all(isinstance(p, (int, float)) for p in price), \
+            "price must be a list of numeric values."
+        assert len(production_list) == len(production_p), \
+             "the number of Production objects must match the number of power production time series."
+        assert len(storage_list) == len(storage_p) and len(storage_list) == len(storage_e), \
+             "the number of Storage objects must match the number of time series for the storage power and energy."
+        
+
         self.production_list = production_list
         self.storage_list = storage_list
         self.production_p = production_p
@@ -115,7 +170,7 @@ class OpSchedule:
         self.storage_e = storage_e
 
         # Calculation of the power to the grid (power_out)
-        power_out_data = np.zeros_like(production_p[0].data)
+        power_out_data = np.zeros_like(production_p[0].data, dtype=float)
         power_out_dt = self.production_p[0].dt
 
         for item in self.production_p:
@@ -130,6 +185,13 @@ class OpSchedule:
 
         # Calculation of the revenue is the price is provided
         self.revenue = None
+        self.annual_revenue = None
+        self.revenue_storage = None
+        self.annual_revenue_storage = None
+        self.npv = None
+        self.a_npv = None
+        self.irr = None
+
         if price is not None:
             self.update_revenue(price)
 
@@ -138,8 +200,7 @@ class OpSchedule:
 
     def update_capex(self) -> None:
         '''
-        Function to calculate the total CAPEX from Storage and 
-        Production objects
+        Function to calculate the total CAPEX from Storage and Production objects.
         '''
         self.capex = 0
         for item in self.production_list:
@@ -148,47 +209,51 @@ class OpSchedule:
             self.capex += item.get_tot_costs()
 
 
-    def update_revenue(self, price: list[float]) -> None:
+    def update_revenue(self, price: np.ndarray) -> None:
         '''
         Function to calculate the yearly revenue for the operating 
         schedule. The revenue is obtained by selling the electricity 
         to the grid (power_out) at the given price
         
-        Params:
-            price [currency/MWh]: day-ahead market price 
+        Args:
+            price (np.ndarray) : day-ahead market price [currency/MWh]
         '''
+        assert price is not None
+
         n = min(len(price), len(self.power_out.data))
         dot_product = np.dot(price[:n], self.power_out.data[:n])
 
-        self.revenue = 365*24/n * dot_product*self.power_out.dt
+        self.revenue = dot_product*self.power_out.dt
+        self.annual_revenue = 365*24/n * dot_product
 
         self.revenue_storage = 0
+        self.annual_revenue_storage = 0
         for power in self.storage_p:
             dot_product = np.dot(price[:n], power.data[:n])
-            self.revenue_storage += 365*24/n * dot_product * power.dt
+            self.revenue_storage += dot_product * power.dt
+            self.annual_revenue_storage += 365*24/n * dot_product 
 
 
     def get_npv_irr(self, discount_rate: float,
                     n_year: int) -> tuple[float, float]:
         '''
-        Function to calculate the Net Present Value (npv) and 
-        internal rate of return (irr) for the OpSchedule object
-        Params:
-            discount rate [-]: Usually 3, 7 or 10% for wind energy
-                project
-            n_year [-]: Number of years of operation
+        Function to calculate the Net Present Value (npv) and internal rate of return (irr) for the OpSchedule object
+        
+        Args:
+            discount rate (float): Usually 3, 7 or 10% for wind energy project [-]
+            n_year (int): Number of years of operation [-]
+        
         Returns:
-            npv [M.currency]: Net Present Value
-            irr [-]: Internal Rate of return
+           tuple[float, float]: Net Present Value [M.currency] and Internal Rate of return [-]
         '''
-        assert self.revenue is not None
+        assert self.annual_revenue is not None
         assert 0 <= discount_rate <=1
         assert isinstance(n_year, int)
 
         cash_flow = [-self.capex]
 
         for _ in range(1,n_year):
-            cash_flow.append(self.revenue)
+            cash_flow.append(self.annual_revenue)
 
         npv = npf.npv(discount_rate, cash_flow) * 1e-6
         irr = npf.irr(cash_flow)
@@ -199,20 +264,18 @@ class OpSchedule:
         return npv, irr
     
     def get_added_npv(self, discount_rate: float,
-                    n_year: int) -> tuple[float, float]:
+                    n_year: int) -> float:
         '''
-        Function to calculate the difference in Net Present Value 
-        due to the addition of the storage
+        Function to calculate the difference in Net Present Value due to the addition of the storage (added NPV)
 
-        Params:
-            discount rate [-]: Usually 3, 7 or 10% for wind energy
-                project
-            n_year [-]: Number of years of operation
+        Args:
+            discount_rate (float): Usually 3, 7 or 10% for wind energy projects. [-]
+            n_year (int): Number of years of operation. [-]
 
         Returns:
-            a_npv [M.currency] added Net Present Value
+            float: added Net Present Value [M.currency]
         '''
-        assert self.revenue_storage is not None
+        assert self.annual_revenue_storage is not None
         assert 0 <= discount_rate <=1
         assert isinstance(n_year, int)
 
@@ -223,7 +286,7 @@ class OpSchedule:
         cash_flow = [-capex_storage]
 
         for _ in range(1,n_year):
-            cash_flow.append(self.revenue_storage)
+            cash_flow.append(self.annual_revenue_storage)
 
         a_npv = npf.npv(discount_rate, cash_flow) * 1e-6
 
@@ -233,19 +296,15 @@ class OpSchedule:
 
     def get_power_partition(self) -> list[float]:
         '''
-        Function to calculate the partition of the total power 
-        production for each component, expressed as percentage of 
-        the total energy produced.
+        Function to calculate the partition of the total power production for each component, expressed as percentage of the total energy produced.
         
         Returns:
-            percent [-] array of percentage corresponding to the 
-            objects in self.production_list and then the one in 
-            self.storage_list
+           list[float]: array of percentage corresponding to the objects in self.production_list and then the one in self.storage_list [-]
         '''
         dt = self.production_p[0].dt
 
         total_energy = dt * sum(self.power_out.data)
-
+        assert total_energy !=0
         percent = []
 
         # Calculation of the portion of energy used to charge (power<0) 
@@ -275,9 +334,10 @@ class OpSchedule:
     def check_losses(self, tol: float, verbose: bool = False) -> bool:
         '''
         Check the losses in the model and verify if they are within the tolerance.
-        Params:
-            tol: The tolerance level for the losses.
-            verbose: If True, prints the error values. Default is False.
+        
+        Args:
+            tol (float): The tolerance level for the losses. [-]
+            verbose (bool): If True, prints the error values. Default is False.
             
         Returns:
             bool: True if the losses are within the tolerance, False otherwise.
@@ -305,18 +365,15 @@ class OpSchedule:
 
         return verifiedModel
 
-    def plot_powerflow(self, label_list: list[str] = None,
-                       xlabel: str = 'Time [day]',
-                       ylabel1: str = 'Power [MW]',
-                       ylabel2: str = 'Energy [MWh]') -> None:
+    def plot_powerflow(self, label_list: list[str] = None, xlabel: str = 'Time [day]', ylabel1: str = 'Power [MW]', ylabel2: str = 'Energy [MWh]') -> None:
         '''
         Function to plot the power flow of the operation schedule
 
-        Params:
-            label_list: list of labels to appear on the legend
-            xlabel: label of the x-axis
-            ylabel1: label of the y-axis (left) for power
-            ylabel2: label of the y-axis (right) for energy
+        Args:
+            label_list (list[str]): list of labels to appear on the legend 
+            xlabel (str): label of the x-axis
+            ylabel1 (str): label of the y-axis (left) for power
+            ylabel2 (str): label of the y-axis (right) for energy
         '''
         if label_list is None:
             label_list = []
@@ -379,12 +436,11 @@ class OpSchedule:
         Function to plot the power the operation schedule, focusing
         on the power sent to the grid (power "out").
 
-        Params:
-            label_list: list of labels to appear on the legend
-            xlabel: label of the x-axis
-            ylabel: label of the y-axis for power
-            xlim [2,]: x range limits for the plot, allows to
-            reduce computational effort
+        Args:
+            label_list (list[str]): list of labels to appear on the legend
+            xlabel (str): label of the x-axis
+            ylabel (str): label of the y-axis for power
+            xlim (list[float]): x range limits for the plot, allows to reduce computational effort
         '''
         if label_list is None:
             cnt = 0

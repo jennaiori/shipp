@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 name = "shipp"
 
-version = "1.1"
+version = "1.2.0"
 
 description = "A design optimization software for hybrid power plants"
 
@@ -14,7 +14,7 @@ readme = "README.md"
 
 requires-python = ">=3.9"
 
-license = {file = "LICENSE"}
+license = "Apache-2.0"
 
 keywords = ["hybrid power plants", "renewable energy", "sizing optimization", "solar energy", "storage sizing", "wind energy", "wind farm", "wind power"]
 # Keywords that describe your project. These assist users in discovering your project on PyPI searches.
@@ -45,9 +45,6 @@ classifiers = [
   "Intended Audience :: Science/Research",
   "Topic :: Scientific/Engineering",
 
-  # License type
-  "License :: OSI Approved :: Apache Software License",
-
   # Python versions your software supports. This is not checked by pip install, and is different from "requires-python".
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.9",
@@ -62,7 +59,7 @@ classifiers = [
 # For more on how this field compares to pip's requirements files, see:
 # https://packaging.python.org/discussions/install-requires-vs-requirements/
 dependencies = [
-  "numpy",
+  "numpy>=1.22",
   "numpy-financial",
   "pandas>=2.0",
   "scipy",
