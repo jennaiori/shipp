@@ -542,7 +542,7 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
         dt (float): Time step duration in hours.
         stor1 (Storage): Object describing the first storage system (e.g., battery storage).
         stor2 (Storage): Object describing the second storage system (e.g., hydrogen storage).
-        cnt_hist (int, optional): Number of time steps meeting the power threshold within the time window for past operation. Default is 0.
+        cnt_hist (int, optional): Number of time steps meeting the dispatch constraint within the time window for past operation. Default is 0.
         n_hist (int, optional): Number of time steps for the time window for past operation. Default is 0.
         verbose (bool, optional): If True, enables verbose output during the optimization. Default is False.
         name_solver (str, optional): Name of the optimization solver to be used with Pyomo. Default is 'mosek'.
@@ -649,7 +649,11 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
     model.p_cur = pyo.Var(model.mat_m_n, domain=pyo.NonNegativeReals) #curtailed power
 
     # Input the objective function in the model
-    model.obj = pyo.Objective(expr = 1/m*sum([price[j] * (model.p_vec1[i,j] + model.p_vec2[i,j] - alpha_obj*model.p_cur[i,j]) for i,j in model.p_vec1]) - mu_obj*(model.penalty + model.penalty_power)+ beta_obj*1/m*sum([model.e_vec1[i, model.vec_np1.at(n+1)] + model.e_vec2[i, model.vec_np1.at(n+1)] for i in model.vec_m]), sense = pyo.maximize)
+    model.obj = pyo.Objective(expr = 1/m*sum([price[j] * (model.p_vec1[i,j] + model.p_vec2[i,j] - model.p_cur[i,j]) for i,j in model.p_vec1])
+                                    - mu_obj*(model.penalty + model.penalty_power)
+                                    + beta_obj*1/m*sum([model.e_vec1[i, model.vec_np1.at(n+1)] + model.e_vec2[i, model.vec_np1.at(n+1)] for i in model.vec_m])
+                                    + (1-alpha_obj) * 1/m*sum([price[0] * (model.p_cur[i,0]) for i in model.vec_m]),     
+                                    sense = pyo.maximize)
 
 
     # Define rule functions for the constraints

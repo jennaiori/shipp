@@ -2,8 +2,8 @@ from setuptools import setup
 
 setup(
    name='shipp',
-   version='1.1.3',
-   description='A simple module for sizing hybrid power plants',
+   version='1.2.0',
+   description='A design optimization software for hybrid power plants',
    author='Jenna Iori',
    author_email='j.iori@tudelft.nl',
    packages=['shipp'],  #same as name
