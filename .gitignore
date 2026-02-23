@@ -16,5 +16,4 @@ experiments/we25_robust_dispatch/results/*.json
 
 *.pckl
 *.txt
-*.png
 *.log

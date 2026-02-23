@@ -5,6 +5,14 @@
 [![PyPi](https://img.shields.io/pypi/v/shipp)](https://pypi.org/project/shipp/)
 [![License](https://img.shields.io/pypi/l/shipp)](https://github.com/jennaiori/shipp/blob/main/LICENSE)
 
+
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/shipp_extended_dark_small.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/shipp_extended_small.png">
+  <img alt="SHIPP logo">
+</picture>
+
 ## Description
 SHIPP is used for studying the design and operation of hybrid power plants, i.e. power plants combining one or more renewable energy production with energy storage systems.
 
