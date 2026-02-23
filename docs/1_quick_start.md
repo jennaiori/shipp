@@ -11,16 +11,16 @@ SHIPP is available as a Python package on PyPI and can be installed using pip.
 pip install shipp
 ```
 
-## Set-up
+## Setup
 
-The methods implemented in the package require timeseries of power and price as inputs. Such timeseries can be generated artificially or via the APIs of [renewables.ninja](https://www.renewables.ninja) and ENTSO-E. 
+The methods implemented in the package require time series of power and price as inputs. Such time series can be generated artificially or via the APIs of [renewables.ninja](https://www.renewables.ninja) and ENTSO-E. 
 
 ```{warning}
-   Please ensure that the price timeseries does not contain negative values. Due to the custom LP formulation of the dispatch optimization problem, negative prices are not supported.  
+   Please ensure that the price time series does not contain negative values. Due to the custom LP formulation of the dispatch optimization problem, negative prices are not supported.  
 ```
 
 ```python
-# Artifical generation of timeseries
+# Artificial generation of time series
 n = 1000 # Number of time steps
 frequency_power = 0.5 
 frequency_price = 5
@@ -34,11 +34,11 @@ time = np.arange(0, n)/24
 # The power is represented by a sine function of time
 data_power = mean_power*(1.0+np.sin(time * 2*np.pi * frequency_power))
 
-# The price is represented by the combinaison of a sine function of time and a random variation
+# The price is represented by the combination of a sine function of time and a random variation
 data_price = np.random.uniform(price_low, price_high, n) + \
         10*np.sin(np.arange(0, n)/24 * 2*np.pi * frequency_price)
 
-# Retrieval of power and price timeseries via renewables.ninja and entso-e
+# Retrieval of power and price time series via renewables.ninja and ENTSO-E
 date_start = '2019-01-01'
 date_end = '2019-02-02'
 latitude = 52.52
@@ -54,12 +54,12 @@ data_power, data_price = get_power_price_data(token_rninja, token_entsoe, date_s
 The raw data is then stored in a {py:obj}`TimeSeries <timeseries.TimeSeries>` object, with the information of the time step `dt`. 
 
 ```python
-dt = 1 # time step in hour
+dt = 1 # time step in hours
 power_ts = TimeSeries(data_power, dt)
 price_ts = TimeSeries(data_price, dt)
 ```
 
-A hybrid power plant is described with a combinaison of power generation technologies, described by the {py:obj}`Production <components.Production>` class, and storage technologies, described by {py:obj}`Storage <components.Storage>` class. 
+A hybrid power plant is described with a combination of power generation technologies, described by the {py:obj}`Production <components.Production>` class, and storage technologies, described by the {py:obj}`Storage <components.Storage>` class. 
 
 A {py:obj}`Production <components.Production>` object describes a renewable energy production (e.g. wind or solar PV) through
 - its power production in time `power`, stored in a `TimeSeries` object.
@@ -142,7 +142,7 @@ Additional details can be obtained with the other members of the class {py:obj}`
 
 Instead of using perfect power foresight, SHIPP implements a method to simulate the storage operation using a rolling-window, i.e. the storage dispatch is calculated every time step with updated forecast information.
 
-The forecast data must be stored in a 3-dimensional list format, where the first index refers to the time step, the second index refers to the trajectory number (in case of ensemble forecast) and the third index is the lead-time of the forecast. Thus, from the power observation `data_power`, a forecast signal can be built as follows
+The forecast data must be stored in a three-dimensional list format, where the first index refers to the time step, the second index refers to the trajectory number (in case of an ensemble forecast), and the third index is the lead time of the forecast. Thus, from the power observation `data_power`, a forecast signal can be built as follows:
 
 ```python
 n_for = 12 # Maximum forecast lead time in number of time steps
@@ -150,10 +150,10 @@ n = 48 # Number of time steps in the simulation
 forecast = [ [[p for p in data_power[init_index:init_index+n_for]]]  for init_index in range(0, n)] 
 ```
 
-Using the forecast as an input, the method {py:func}`run_storage_operation <kernel_pyomo.run_storage_operation>` simulates the storage operation for a given number of time steps
+Using the forecast as an input, the method {py:func}`run_storage_operation <kernel_pyomo.run_storage_operation>` simulates storage operation for a given number of time steps.
 
 ```python
-dt = 1 # Time step in hour
+dt = 1 # Time step in hours
 e_start = stor.e_cap # Initial state of charge
 p_min = 0
 p_max = 100
@@ -192,5 +192,5 @@ In the method {py:func}`run_storage_operation <kernel_pyomo.run_storage_operatio
 Similarly, a ramp-limit can be enforced in the dispatch optimization problem, here with the parameter `dp_lim`. 
 
 ```{note}
-   The ramp-limitation contraint is not implemented in ``solve_lp_sparse``.
+   The ramp-limitation constraint is not implemented in ``solve_lp_sparse``.
 ```

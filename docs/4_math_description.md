@@ -33,19 +33,54 @@ The cost $c^s$ of each storage component is calculated directly from its energy 
 $c^s = \lambda_P^s \bar{P}^s  + \lambda_E^s \bar{E}^s$.
 
 The operation of the storage systemm is described with the power $\boldsymbol{p}^s$ and energy $\boldsymbol{e}^s$ time series. The following convention is used: the power is negative during charge (*in*) and positive during discharge (*out*).
+The power and energy time series are bounded by the power and energy capacities of the component:
+
+$$ \forall i \in[0,n[, \quad  -\bar{P}^s \leq p_i^s \leq \bar{P}^s$$
+$$ \forall i \in[0,n], \quad  \bar{E}^s (1 - d^s) \leq e_i^s \leq \bar{E}^s$$
 
 
 Considering a time window of $n$ time steps with a discretization $\Delta t$, the power and energy time series satisfy the charge/discharge model of the storage for $i \in [0, n[$
+$$ e^s_{i+1} - e^s_{i} = \begin{cases}
+  - \Delta t \ \eta^s_\text{in} \  p^s_i & \text{if } p^s_i \leq 0 \\
+  - \Delta t \dfrac{1}{\eta^s_\text{out}}  p^s_i & \text{else}.
+\end{cases}$$
 
-$$ e^s_{i+1} - e^s_{i} =  - \Delta t \ \eta^s_\text{in} \  p^s_i \quad \text{if } p^s_i \leq 0, $$
-$$ e^s_{i+1} - e^s_{i} =  - \Delta t \dfrac{1}{\eta^s_\text{out}}  p^s_i \quad \text{else}. $$
+This constraint is piece-wise linear and cannot be implemented directly in a linear or mixed-integer linear optimization problem. Instead, it is possible to formulate the constraint exactly using binary variables $\boldsymbol{z}$, where $z_i=0$ if $p^s_i \leq 0$ and $z_i=1$ otherwise. The storage model is then modeled using big-M constraints as
 
-Furtermore, the power and energy time series are bounded by the power and energy capacities of the component:
+$$ -M z_i \leq  e^s_{i+1} - e^s_{i} + \Delta t \ \eta^s_\text{in} \  p^s_i \leq M z_i$$
+$$  -M(1-z_i) \leq e^s_{i+1} - e^s_{i} + \Delta t \dfrac{1}{\eta^s_\text{out}}  p^s_i  \leq M(1-z_i) $$
+$$ -M(1-z_i)  \leq p^s_i \leq M z_i $$
 
-$$ \forall i \in[0,n[, \quad  -\bar{P}^s \leq p_i^s \leq \bar{P}^s$$
-$$ \forall i \in[0,n], \quad  \bar{E}^s * (1 - d^s) \leq e_i^s \leq \bar{E}^s$$
+An alternative is to relax the contraints without using binary variables. Instead of enforcing the storage model at every time step, the constraints are active at the optimum provided that the objective function is correctly formulated.
+
+$$ e^s_{i+1} - e^s_{i} \leq  - \Delta t \ \eta^s_\text{in} \  p^s_i $$
+$$  e^s_{i+1} - e^s_{i} \leq - \Delta t \dfrac{1}{\eta^s_\text{out}}  p^s_i $$
 
 Degradation of the storage system in time is not modeled.
+
+## Dispatch constraints
+
+The power delivered should respect bounds dictated by the grid connection (assuming the storage systems cannot charge from the grid):
+
+$$ \forall i, \ 0 \leq\sum_{g} p^g_i + \sum_{s} p^s_i - p^c_i \leq \bar{P}  $$
+
+In the presence of a minimum baseload constraint, the lower bound becomes
+
+$$ \forall i, \ P_\text{bl} \leq\sum_{g} p^g_i + \sum_{s} p^s_i - p^c_i $$
+
+Instead, if a ramp constraint is enforced, the constraint is applied to the difference of power between two time steps
+
+$$ \forall i, \ - \delta P_\text{rl} \leq\sum_{g} (p^g_{i+1} - p^g_i ) + \sum_{s} (p^s_{i+1} - p^s_i) - (p^c_{i+1} - p^c_i)  \leq \delta P_\text{rl} $$
+
+The formulation of the dispatch constraints is adjusted for online optimization the optimization problem is feasible at each time step. Binary variables $\boldsymbol{y}$ are used to indicate if the constraint is active ($y_i=1$) or not ($y_i=0$). For example, the baseload constraint becomes
+
+$$ \forall i, \ y_i P_\text{bl}  \leq\sum_{g} p^g_i + \sum_{s} p^s_i - p^c_i $$
+
+The reliability is then enforced with a constraint of the type
+
+$$ \dfrac{1}{n}\sum_{i=0}^{n-1} y_i = 1-r, $$
+
+where $r$ is a slack variable to be minimized.
 
 
 ## Performance metrics
@@ -54,10 +89,10 @@ Degradation of the storage system in time is not modeled.
 We want to calculate the optimal dispatch strategy of the storage system, i.e., when to charge and discharge, in order to maximize revenues on the electricity markets. The objective function of the (minimization) problem is:
 
 ```{math}
- c(\boldsymbol{x}) = - \sum_{k=1}^m \sum_{s}\boldsymbol{\lambda}_\text{DAM}^T \cdot p^s
+ c_\text{R}(\boldsymbol{x}) = - \boldsymbol{\lambda}_\text{DAM}^T \cdot (\sum_{s} \boldsymbol{p}^s - \boldsymbol{p}^c)
  ```
 
-where $\lambda_\text{DAM}$ is the time series of electricity price on the day-ahead market. 
+where $\boldsymbol{\lambda}_\text{DAM}$ is the time series of electricity price on the day-ahead market. 
 
 
 
@@ -70,12 +105,16 @@ If instead, we want to size the storage system (i.e. its power and energy capaci
 The objective function of the (minimization) problem becomes:
 
 ```{math}
- c(\boldsymbol{x}) = \sum_{s} (\lambda^s_P \bar{P}^s + \lambda_E^s \bar{E}^s) - \sum_{k=1}^m \sum_{s}\dfrac{\boldsymbol{\lambda}_\text{DAM}^T \cdot p^s}{(1+r)^k}
+ c_\text{NPV}(\boldsymbol{x}) = \sum_{s} (\lambda^s_P \bar{P}^s + \lambda_E^s \bar{E}^s) - \sum_{k=1}^m \dfrac{\boldsymbol{\lambda}_\text{DAM}^T \cdot (\sum_{s} \boldsymbol{p}^s  - \boldsymbol{p}^c)}{(1+r)^k}
  ```
 
 where $m$ is the lifetime of the project, $r$ the discount rate and $\lambda_\text{DAM}$ is the time series of electricity price on the day-ahead market. Here we assume that the revenues estimated for one year with $\lambda_\text{DAM}$ are representative of the entire lifetime of the project.
 
 
+### Penalties and regularization
 
-## Dispatch Constraints
+When using the relaxed form of the storage model, two regularization terms are added to the objective function to ensure the constraints are active at the optimum. Furthermore, a penalty on the reliability binary variables is needed to ensure the dispatch constraints are respected as much as possible. As such, the objective function becomes
 
+$$ f(\boldsymbol{x}) = c_\text{R}(\boldsymbol{x}) + \mu r - \beta \sum_s e^s_{n} - \epsilon \sum_{i=0}^{n-1}p^c_i,  $$
+
+where $\mu \gg 1$ and $\beta \ll 1 $,  $\epsilon \ll 1 $

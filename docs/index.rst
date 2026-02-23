@@ -18,11 +18,11 @@ SHIPP documentation
 
 \
 
-SHIPP is a design optimization code for hybrid power plants, developed at Delft Univeristy of Technology.
+SHIPP is a design optimization code for hybrid power plants, developed at Delft University of Technology.
 
-This software implements methods to study and design hybrid power plants, i.e. power plants combining one or more renewable energy production with energy storage systems. The design methodology is based on integrated sizing optimization of storage systems, where the storage size and dispatch are design simultaneously.
+This software implements methods to study and design hybrid power plants, i.e. power plants combining one or more renewable energy sources with energy storage systems. The design methodology is based on integrated sizing optimization of storage systems, where the storage size and dispatch are designed simultaneously.
 
-This documentation describes the standard use of the functions implemented in the package and their implementation.
+This documentation describes the standard use of the functions in the package and their implementation.
 
 .. This documentation describes the optimization problems solved by SHIPP and their implementation.
 

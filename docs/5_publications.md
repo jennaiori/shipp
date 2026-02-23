@@ -20,7 +20,7 @@ Iori, Jenna (2025): SHIPP - A design optimization software for hybrid power plan
 ```
 
 Examples of use of SHIPP in academic research are available below.
-- Iori, J., Zaaijer, M. B., von Terzi, D. A., & Watson, S. J. (2024). Design drivers for the storage system of baseload hybrid power plants. In 8th International Hybrid Power Plants and Systems Workshop, HYB 2024 (2 ed., Vol. 2024, pp. 245-250) https://doi.org/10.1049/icp.2024.1844
-- Iori, J., Zaaijer, M. B., Kreeft, J., von Terzi, D. A., & Watson, S. J. (2025). Reliable operation of wind-storage systems for baseload power production. Paper presented at WindEurope Annual Event 2025, Copenhagen, Denmark. https://doi.org/10.1088/1742-6596/3025/1/012023
+- Iori, J., Zaaijer, M. B., von Terzi, D. A., & Watson, S. J. (2024). Design drivers for the storage system of baseload hybrid power plants. In 8th International Hybrid Power Plants and Systems Workshop, HYB 2024 (2 ed., Vol. 2024, pp. 245-250) [https://doi.org/10.1049/icp.2024.1844](https://doi.org/10.1049/icp.2024.1844)
+- Iori, J., Zaaijer, M. B., Kreeft, J., von Terzi, D. A., & Watson, S. J. (2025). Reliable operation of wind-storage systems for baseload power production. Paper presented at WindEurope Annual Event 2025, Copenhagen, Denmark. [https://doi.org/10.1088/1742-6596/3025/1/012023](https://doi.org/10.1088/1742-6596/3025/1/012023)
 
 
