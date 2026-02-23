@@ -13,7 +13,7 @@ jobs:
       - uses: actions/setup-python@v5
       - name: Install dependencies
         run: |
-          pip install sphinx sphinx_book_theme myst_parser sphinx_copybutton sphinx_tabs myst-parser[linkify] myst-parser[dollarmath]
+          pip install sphinx sphinx_book_theme myst_parser sphinx_copybutton sphinx_tabs myst-parser[linkify] myst-parser[dollarmath] autodoc2 shibuya
       - name: Sphinx build
         run: |
           sphinx-build docs _build
