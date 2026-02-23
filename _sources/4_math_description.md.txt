@@ -1,0 +1,120 @@
+# Mathematical formulation
+
+## Hybrid power plant components
+
+A hybrid power plant can be defined as the "combination of two or more electricity generation and/or storage technologies, providing coordinated electrical power services that are connected at a single point." ([IEA Task 50 - WP1](https://iea-wind.org/task50/t50-wp1/)). In SHIPP, the components of the hybrid power plant are divided in power generation components (wind farm, solar farm, etc.) and storage systems components (battery, etc.). 
+
+Each power generation component $g$ is characterized by:
+- $\boldsymbol{p}^g$: the time series of power generation during the considered time window
+- $\bar{P}^g$: its rated power
+- $\lambda_p^g$: its cost per MW of rated power
+
+Each storage compoment $s$ is characterised by:
+- $\bar{P}^s$: its power capacity
+- $\bar{E}^s$: its energy capacity
+- $\eta_\text{in}^s$, $\eta_\text{out}^s$: its efficiency in charge and discharge
+- $d^s$: its depth of discharge
+- $\lambda_p^s$: its cost per MW of power capacity
+- $\lambda_e^s$: its cost per MWh of energy capacity
+- $\boldsymbol{p}^s$: the time series of its power (in charge and discharge)
+- $\boldsymbol{e}^s$: the time series of its state of charge
+
+The hybrid power plant is characterized by:
+- the number and type of each component
+- $\bar{P}$: its rated power (corresponding to the capacity of the point of connection)
+-  $\boldsymbol{p}$: the time series of the power sent to the grid 
+-  $\boldsymbol{p}^c$: the time series of curtailed power
+- (optional) $P_\text{bl}$: its required baseload level
+- (optional) $\delta P_\text{rl}$: its maximum allowed power ramp (i.e., ramp limit)
+
+## Storage system model
+
+The cost $c^s$ of each storage component is calculated directly from its energy and power capacity,
+$c^s = \lambda_P^s \bar{P}^s  + \lambda_E^s \bar{E}^s$.
+
+The operation of the storage systemm is described with the power $\boldsymbol{p}^s$ and energy $\boldsymbol{e}^s$ time series. The following convention is used: the power is negative during charge (*in*) and positive during discharge (*out*).
+The power and energy time series are bounded by the power and energy capacities of the component:
+
+$$ \forall i \in[0,n[, \quad  -\bar{P}^s \leq p_i^s \leq \bar{P}^s$$
+$$ \forall i \in[0,n], \quad  \bar{E}^s (1 - d^s) \leq e_i^s \leq \bar{E}^s$$
+
+
+Considering a time window of $n$ time steps with a discretization $\Delta t$, the power and energy time series satisfy the charge/discharge model of the storage for $i \in [0, n[$
+$$ e^s_{i+1} - e^s_{i} = \begin{cases}
+  - \Delta t \ \eta^s_\text{in} \  p^s_i & \text{if } p^s_i \leq 0 \\
+  - \Delta t \dfrac{1}{\eta^s_\text{out}}  p^s_i & \text{else}.
+\end{cases}$$
+
+This constraint is piece-wise linear and cannot be implemented directly in a linear or mixed-integer linear optimization problem. Instead, it is possible to formulate the constraint exactly using binary variables $\boldsymbol{z}$, where $z_i=0$ if $p^s_i \leq 0$ and $z_i=1$ otherwise. The storage model is then modeled using big-M constraints as
+
+$$ -M z_i \leq  e^s_{i+1} - e^s_{i} + \Delta t \ \eta^s_\text{in} \  p^s_i \leq M z_i$$
+$$  -M(1-z_i) \leq e^s_{i+1} - e^s_{i} + \Delta t \dfrac{1}{\eta^s_\text{out}}  p^s_i  \leq M(1-z_i) $$
+$$ -M(1-z_i)  \leq p^s_i \leq M z_i $$
+
+An alternative is to relax the contraints without using binary variables. Instead of enforcing the storage model at every time step, the constraints are active at the optimum provided that the objective function is correctly formulated.
+
+$$ e^s_{i+1} - e^s_{i} \leq  - \Delta t \ \eta^s_\text{in} \  p^s_i $$
+$$  e^s_{i+1} - e^s_{i} \leq - \Delta t \dfrac{1}{\eta^s_\text{out}}  p^s_i $$
+
+Degradation of the storage system in time is not modeled.
+
+## Dispatch constraints
+
+The power delivered should respect bounds dictated by the grid connection (assuming the storage systems cannot charge from the grid):
+
+$$ \forall i, \ 0 \leq\sum_{g} p^g_i + \sum_{s} p^s_i - p^c_i \leq \bar{P}  $$
+
+In the presence of a minimum baseload constraint, the lower bound becomes
+
+$$ \forall i, \ P_\text{bl} \leq\sum_{g} p^g_i + \sum_{s} p^s_i - p^c_i $$
+
+Instead, if a ramp constraint is enforced, the constraint is applied to the difference of power between two time steps
+
+$$ \forall i, \ - \delta P_\text{rl} \leq\sum_{g} (p^g_{i+1} - p^g_i ) + \sum_{s} (p^s_{i+1} - p^s_i) - (p^c_{i+1} - p^c_i)  \leq \delta P_\text{rl} $$
+
+The formulation of the dispatch constraints is adjusted for online optimization the optimization problem is feasible at each time step. Binary variables $\boldsymbol{y}$ are used to indicate if the constraint is active ($y_i=1$) or not ($y_i=0$). For example, the baseload constraint becomes
+
+$$ \forall i, \ y_i P_\text{bl}  \leq\sum_{g} p^g_i + \sum_{s} p^s_i - p^c_i $$
+
+The reliability is then enforced with a constraint of the type
+
+$$ \dfrac{1}{n}\sum_{i=0}^{n-1} y_i = 1-r, $$
+
+where $r$ is a slack variable to be minimized.
+
+
+## Performance metrics
+
+### Revenues
+We want to calculate the optimal dispatch strategy of the storage system, i.e., when to charge and discharge, in order to maximize revenues on the electricity markets. The objective function of the (minimization) problem is:
+
+```{math}
+ c_\text{R}(\boldsymbol{x}) = - \boldsymbol{\lambda}_\text{DAM}^T \cdot (\sum_{s} \boldsymbol{p}^s - \boldsymbol{p}^c)
+ ```
+
+where $\boldsymbol{\lambda}_\text{DAM}$ is the time series of electricity price on the day-ahead market. 
+
+
+
+### Net Present Value
+
+If instead, we want to size the storage system (i.e. its power and energy capacity) the objective function needs to take into account the associated costs. This is possible by using the net present value (NPV) of the system. 
+
+(Optional) This design problem can be solved with a baseload constraint, i.e. the power plant is required to produce a minimum power.
+
+The objective function of the (minimization) problem becomes:
+
+```{math}
+ c_\text{NPV}(\boldsymbol{x}) = \sum_{s} (\lambda^s_P \bar{P}^s + \lambda_E^s \bar{E}^s) - \sum_{k=1}^m \dfrac{\boldsymbol{\lambda}_\text{DAM}^T \cdot (\sum_{s} \boldsymbol{p}^s  - \boldsymbol{p}^c)}{(1+r)^k}
+ ```
+
+where $m$ is the lifetime of the project, $r$ the discount rate and $\lambda_\text{DAM}$ is the time series of electricity price on the day-ahead market. Here we assume that the revenues estimated for one year with $\lambda_\text{DAM}$ are representative of the entire lifetime of the project.
+
+
+### Penalties and regularization
+
+When using the relaxed form of the storage model, two regularization terms are added to the objective function to ensure the constraints are active at the optimum. Furthermore, a penalty on the reliability binary variables is needed to ensure the dispatch constraints are respected as much as possible. As such, the objective function becomes
+
+$$ f(\boldsymbol{x}) = c_\text{R}(\boldsymbol{x}) + \mu r - \beta \sum_s e^s_{n} - \epsilon \sum_{i=0}^{n-1}p^c_i,  $$
+
+where $\mu \gg 1$ and $\beta \ll 1 $,  $\epsilon \ll 1 $

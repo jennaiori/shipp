@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="violet" data-content_root="../../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>kernel - SHIPP</title><link rel="shortcut icon" href="../../_static/shipp_logo_small_dark.png"/><link rel="index" title="Index" href="../../genindex.html" /><link rel="search" title="Search" href="../../search.html" /><link rel="next" title="kernel_pyomo" href="../kernel_pyomo/kernel_pyomo.html" /><link rel="prev" title="components" href="../components/components.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=d1c6635e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link media="print" rel="stylesheet" type="text/css" href="../../_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    <meta property="og:type" content="website"/><meta property="og:title" content="kernel"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="../../index.html">
+      <img class="light-logo" src="../../_static/shipp_logo_small.png" alt="shipp" height="28" loading="lazy" />
+      <img class="dark-logo" src="../../_static/shipp_logo_small_dark.png" alt="shipp" height="28" loading="lazy" />
+      <strong>shipp</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials"></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../1_quick_start.html">Quick start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../4_math_description.html">Mathematical formulation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../5_publications.html">Publications</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">API Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../components/components.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">components</span></code></a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">kernel</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kernel_pyomo/kernel_pyomo.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">kernel_pyomo</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../io_functions/io_functions.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">io_functions</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../timeseries/timeseries.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">timeseries</span></code></a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
+<li><a class="reference internal" href="#module-contents">Module Contents</a><ul>
+<li><a class="reference internal" href="#functions">Functions</a></li>
+<li><a class="reference internal" href="#data">Data</a></li>
+<li><a class="reference internal" href="#api">API</a><ul>
+<li><a class="reference internal" href="#kernel.TOL"><code class="docutils literal notranslate"><span class="pre">TOL</span></code></a></li>
+<li><a class="reference internal" href="#kernel.build_lp_obj_npv"><code class="docutils literal notranslate"><span class="pre">build_lp_obj_npv()</span></code></a></li>
+<li><a class="reference internal" href="#kernel.build_lp_cst_sparse"><code class="docutils literal notranslate"><span class="pre">build_lp_cst_sparse()</span></code></a></li>
+<li><a class="reference internal" href="#kernel.solve_lp_sparse"><code class="docutils literal notranslate"><span class="pre">solve_lp_sparse()</span></code></a></li>
+<li><a class="reference internal" href="#kernel.os_rule_based"><code class="docutils literal notranslate"><span class="pre">os_rule_based()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../index.html"><span itemprop="name">shipp</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../index.html"><span itemprop="name">API Reference</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name"><code class="xref py py-mod docutils literal notranslate"><span class="pre">kernel</span></code></strong>
+        <meta itemprop="position" content="3" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <article class="yue" role="main">
+          <section id="module-kernel">
+<span id="kernel"></span><h1><a class="reference internal" href="#module-kernel" title="kernel"><code class="xref py py-mod docutils literal notranslate"><span class="pre">kernel</span></code></a><a class="headerlink" href="#module-kernel" title="Link to this heading">¶</a></h1>
+<p>This module defines kernel functions for shipp.</p>
+<p>The functions defined in this module are used to solve the dispatch optimization problem with scipy.optimize.linprog or with a rule-based approach. They build the matrices describing the linear optimization from scratch. For complex problems, the use of the functions in kernel_pyomo is prefered.</p>
+<dl class="simple">
+<dt>Functions:</dt><dd><ul class="simple">
+<li><p>build_lp_obj_npv: Build objective vector for NPV maximization.</p></li>
+<li><p>build_lp_cst_sparse: Build sparse constraints for a LP.</p></li>
+<li><p>solve_lp_sparse: Build and solve a LP for NPV maximization.</p></li>
+<li><p>os_rule_based: Build the operation schedule with a rule-based EMS</p></li>
+</ul>
+</dd>
+</dl>
+<section id="module-contents">
+<h2>Module Contents<a class="headerlink" href="#module-contents" title="Link to this heading">¶</a></h2>
+<section id="functions">
+<h3>Functions<a class="headerlink" href="#functions" title="Link to this heading">¶</a></h3>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-left">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#kernel.build_lp_obj_npv" title="kernel.build_lp_obj_npv"><code class="xref py py-obj docutils literal notranslate"><span class="pre">build_lp_obj_npv</span></code></a></p></td>
+<td><p>Build the objective function vector for NPV maximization for the LP formulation.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#kernel.build_lp_cst_sparse" title="kernel.build_lp_cst_sparse"><code class="xref py py-obj docutils literal notranslate"><span class="pre">build_lp_cst_sparse</span></code></a></p></td>
+<td><p>Build the sparse constraints for the LP formulation of the dispatch optimization problem.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#kernel.solve_lp_sparse" title="kernel.solve_lp_sparse"><code class="xref py py-obj docutils literal notranslate"><span class="pre">solve_lp_sparse</span></code></a></p></td>
+<td><p>Build and solve the integrated dispatch optimization problem, formulated as a linear program.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#kernel.os_rule_based" title="kernel.os_rule_based"><code class="xref py py-obj docutils literal notranslate"><span class="pre">os_rule_based</span></code></a></p></td>
+<td><p>Build the operation schedule following a rule-based control.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="data">
+<h3>Data<a class="headerlink" href="#data" title="Link to this heading">¶</a></h3>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-left">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#kernel.TOL" title="kernel.TOL"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TOL</span></code></a></p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="api">
+<h3>API<a class="headerlink" href="#api" title="Link to this heading">¶</a></h3>
+<dl class="py data">
+<dt class="sig sig-object py" id="kernel.TOL">
+<span class="sig-prename descclassname"><span class="pre">kernel.</span></span><span class="sig-name descname"><span class="pre">TOL</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0001</span></span><a class="headerlink" href="#kernel.TOL" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="kernel.build_lp_obj_npv">
+<span class="sig-prename descclassname"><span class="pre">kernel.</span></span><span class="sig-name descname"><span class="pre">build_lp_obj_npv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">price</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">numpy.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stor1_p_cost</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stor1_e_cost</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stor2_p_cost</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stor2_e_cost</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discount_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_year</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">numpy.ndarray</span></span></span><a class="headerlink" href="#kernel.build_lp_obj_npv" title="Link to this definition">¶</a></dt>
+<dd><p>Build the objective function vector for NPV maximization for the LP formulation.</p>
+<p>This function returns an objective vector corresponding the
+maximization of Net Present Value (NPV):</p>
+<blockquote>
+<div><p>f(x) = - factor*price*power + stor1_e_cost*stor1_e_cap + stor1_p_cost*stor1_p_cap + stor2_e_cost*stor2_e_cap + stor2_p_cost*stor2_p_cap</p>
+</div></blockquote>
+<p>where factor = sum_n=1^(n_year) (1+discount_rate)**(-n).
+The objective function vector corresponds to the following design variables:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Power from storage 1, shape-(n,)</p></li>
+<li><p>Power from storage 2, shape-(n,)</p></li>
+<li><p>State of charge (energy) of storage 1, shape-(n+1,)</p></li>
+<li><p>State of charge (energy) of storage 2, shape-(n+1,)</p></li>
+<li><p>Power capacity of storage 1, shape-(1,)</p></li>
+<li><p>Energy capacity of storage 1, shape-(1,)</p></li>
+<li><p>Power capacity of storage 2, shape-(1,)</p></li>
+<li><p>Energy capacity of storage 2, shape-(1,)</p></li>
+</ul>
+</div></blockquote>
+<p>The number of design variables is n_x = 4*n+6</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>price</strong> (<em>np.array</em>) – An array of electricity price to calculate the revenue [currency/MWh]</p></li>
+<li><p><strong>n</strong> (<em>int</em>) – the number of time steps [-]</p></li>
+<li><p><strong>stor1_p_cost</strong> (<em>float</em>) – cost of storage 1 per power capacity [currency/MW]</p></li>
+<li><p><strong>stor1_e_cost</strong> (<em>float</em>) – cost of storage 1 per energy capacity [currency/MWh]</p></li>
+<li><p><strong>stor2_p_cost</strong> (<em>float</em>) – cost of storage 2 per power capacity [currency/MW]</p></li>
+<li><p><strong>stor2_e_cost</strong> (<em>float</em>) – cost of storage 2 per energy capacity [currency/MWh]</p></li>
+<li><p><strong>discount_rate</strong> (<em>float</em>) – discount rate to calculate the NPV [-]</p></li>
+<li><p><strong>n_year</strong> (<em>int</em>) – number of years of operation of the project [-]</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A shape-(n_x,) array representing the objective function of the linear program [-]</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>AssertionError</strong> – if the length of the price is below n, if any input is not finite</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="kernel.build_lp_cst_sparse">
+<span class="sig-prename descclassname"><span class="pre">kernel.</span></span><span class="sig-name descname"><span class="pre">build_lp_cst_sparse</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">power</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">numpy.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dt</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p_min</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p_max</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stor1_eff</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stor2_eff</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stor1_p_cap_max</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">-1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stor2_p_cap_max</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">-1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stor1_e_cap_max</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">-1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stor2_e_cap_max</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">-1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fixed_cap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">scipy.sparse.coo_matrix</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">scipy.sparse.coo_matrix</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#kernel.build_lp_cst_sparse" title="Link to this definition">¶</a></dt>
+<dd><p>Build the sparse constraints for the LP formulation of the dispatch optimization problem.</p>
+<p>Function to build the matrices and vectors for the constraints of the dispatch optimization problem, considering two different storage systems, and as a linear program. A sparse format is used to represent the matrices.</p>
+<p>The constraints are made of equality and inequality  constraints such that:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>mat_eq * x = vec_eq</p></li>
+<li><p>mat_ineq * x &lt;= vec_ineq</p></li>
+<li><p>bounds_lower &lt;= x &lt;= bounds_upper</p></li>
+</ul>
+</div></blockquote>
+<p>With n the number of time steps, the problem is made of:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>n_x = 4*n+6 design variables</p></li>
+<li><p>n_eq = 2 equality constraints</p></li>
+<li><p>n_ineq = 12*n+2 inequality constraints</p></li>
+</ul>
+</div></blockquote>
+<p>The design variables for the linear problem are:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Power from storage 1, shape-(n,)</p></li>
+<li><p>Power from storage 2, shape-(n,)</p></li>
+<li><p>State of charge (energy) of storage 1, shape-(n+1,)</p></li>
+<li><p>State of charge (energy) of storage 2, shape-(n+1,)</p></li>
+<li><p>Power capacity of storage 1, shape-(1,)</p></li>
+<li><p>Energy capacity of storage 1, shape-(1,)</p></li>
+<li><p>Power capacity of storage 2, shape-(1,)</p></li>
+<li><p>Energy capacity of storage 2, shape-(1,)</p></li>
+</ul>
+</div></blockquote>
+<p>The equality constraints for the problem are:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Constraint to enforce the value of the first stored energy of storage 1 is equal to the last (size 1)</p></li>
+<li><p>Constraint to enforce the value of the first stored energy of storage 2 is equal to the last (size 1)</p></li>
+</ul>
+</div></blockquote>
+<p>The inequality constraints for the problem are:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Constraints on the minimum and maximum combined power from production and storage assets (size 2*n)</p></li>
+<li><p>Constraints on the stored energy of storage 1 (size 2*n)</p></li>
+<li><p>Constraints on the stored energy of storage 2 (size 2*n)</p></li>
+<li><p>Constraints on the maximmum and minimum power to and from storage 1 (size 2*n)</p></li>
+<li><p>Constraints on the maximmum and minimum power to and from storage 2 (size 2*n)</p></li>
+<li><p>Constraints on the maximum stored energy in storage 1 (size n+1)</p></li>
+<li><p>Constraints on the maximum stored energy in storage 2 (size n+1)</p></li>
+</ul>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>power</strong> (<em>np.ndarray</em>) – A shape-(n,) array for the power production from renewables [MW].</p></li>
+<li><p><strong>dt</strong> (<em>float</em>) – time step [s].</p></li>
+<li><p><strong>p_min</strong> (<em>float</em><em> or </em><em>np.ndarray</em>) – A float or shape-(n,) array for the minimum required power production [MW].</p></li>
+<li><p><strong>p_max</strong> (<em>float</em>) – maximum power production [MW]</p></li>
+<li><p><strong>n</strong> (<em>int</em>) – number of time steps [-].</p></li>
+<li><p><strong>stor1_eff</strong> (<em>float</em>) – represents the round trip efficiency of storage 1 [-]. The losses are applied in discharge.</p></li>
+<li><p><strong>stor2_eff</strong> (<em>float</em>) – represents the round trip efficiency of storage 2 [-]. The losses are applied in discharge..</p></li>
+<li><p><strong>stor1_p_cap_max</strong> (<em>float</em>) – maximum power capacity for storage 1 [MW]. Default to -1.0 when there is no limit in power rate.</p></li>
+<li><p><strong>stor2_p_cap_max</strong> (<em>float</em>) – maximum power capacity for storage 2 [MW]. Default to -1.0 when there is no limit in power rate.</p></li>
+<li><p><strong>stor1_e_cap_max</strong> (<em>float</em>) – maximum energy capacity for storage 1 [MWh]. Default to -1.0 when there is no limit.</p></li>
+<li><p><strong>stor2_e_cap_max</strong> (<em>float</em>) – maximum energy capacity for storage 2 [MWh]. Default to -1.0 when there is no limit.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>[mat_eq, vec_ec, mat_ineq, vec_ineq, bounds_lower, bounds_upper] matrices and vectors representing the inequality, equality and bound constraints of the problem.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple[sps.coo_matrix, np.ndarray, sps.coo_matrix, np.ndarray, np.ndarray, np.ndarray]</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>ValueError</strong> – if argument p_min is not a float or a list of floats</p></li>
+<li><p><strong>AssertionError</strong> – if any argument is not finite and if the argument power has a length lower than n</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="kernel.solve_lp_sparse">
+<span class="sig-prename descclassname"><span class="pre">kernel.</span></span><span class="sig-name descname"><span class="pre">solve_lp_sparse</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">price_ts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">shipp.timeseries.TimeSeries</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prod1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">shipp.components.Production</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prod2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">shipp.components.Production</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stor1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">shipp.components.Storage</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stor2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">shipp.components.Storage</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discount_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_year</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p_min</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p_max</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fixed_cap</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">shipp.components.OpSchedule</span></span></span><a class="headerlink" href="#kernel.solve_lp_sparse" title="Link to this definition">¶</a></dt>
+<dd><p>Build and solve the integrated dispatch optimization problem, formulated as a linear program.</p>
+<p>This function builds and solves the hybrid sizing and operation problem as a linear program. The objective is to minimize the Net Present Value of the plant. The optimization problem finds the optimal energy and power capacity of two storage systems and their optimal dispatch. In this function, the power production inputs are represented by two Production objects (e.g. one for wind and one for solar PV).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>price_ts</strong> (<a class="reference internal" href="../timeseries/timeseries.html#timeseries.TimeSeries" title="timeseries.TimeSeries"><em>TimeSeries</em></a>) – Time series of the price of electricity on the day-ahead market [currency/MWh].</p></li>
+<li><p><strong>prod1</strong> (<a class="reference internal" href="../components/components.html#components.Production" title="components.Production"><em>Production</em></a>) – Object representing the power production of the first production asset.</p></li>
+<li><p><strong>prod2</strong> (<a class="reference internal" href="../components/components.html#components.Production" title="components.Production"><em>Production</em></a>) – Object representing the power production of the second production asset.</p></li>
+<li><p><strong>stor1</strong> (<a class="reference internal" href="../components/components.html#components.Storage" title="components.Storage"><em>Storage</em></a>) – Object describing storage 1.</p></li>
+<li><p><strong>stor2</strong> (<a class="reference internal" href="../components/components.html#components.Storage" title="components.Storage"><em>Storage</em></a>) – Object describing storage 2.</p></li>
+<li><p><strong>discount_rate</strong> (<em>float</em>) – Discount rate for the NPV calculation [-].</p></li>
+<li><p><strong>n_year</strong> (<em>int</em>) – Number of years for the NPV calculation [-].</p></li>
+<li><p><strong>p_min</strong> (<em>float</em><em> or </em><em>np.ndarray</em>) – Minimum power requirement (e.g. baseload) [MW].</p></li>
+<li><p><strong>p_max</strong> (<em>float</em>) – Maximum power requirement [MW].</p></li>
+<li><p><strong>n</strong> (<em>int</em>) – Number of time steps to consider in the optimization.</p></li>
+<li><p><strong>fixed_cap</strong> (<em>bool</em>) – If True, the capacity of the storage is fixed.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Object describing the optimal operational schedule and optimal storage capacities.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="../components/components.html#components.OpSchedule" title="components.OpSchedule">OpSchedule</a></p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>AssertionError</strong> – if the time step of the power and price time series do not match, if the length of the power in the Production objects is below n.</p></li>
+<li><p><strong>RuntimeError</strong> – if the optimization algorithm fails to solve the problem.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="kernel.os_rule_based">
+<span class="sig-prename descclassname"><span class="pre">kernel.</span></span><span class="sig-name descname"><span class="pre">os_rule_based</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">price_ts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">shipp.timeseries.TimeSeries</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prod1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">shipp.components.Production</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prod2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">shipp.components.Production</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stor1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">shipp.components.Storage</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stor2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">shipp.components.Storage</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discount_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_year</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p_min</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p_rule</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">price_min</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">e_start</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">shipp.components.OpSchedule</span></span></span><a class="headerlink" href="#kernel.os_rule_based" title="Link to this definition">¶</a></dt>
+<dd><p>Build the operation schedule following a rule-based control.</p>
+<p>This function builds the operation schedule for a hybrid power plant following a rule-based approach. The objective of the controller is to satisfy a baseload power represented by p_min. The control rules are as follow:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>if the power produced is above a given value (p_rule), the storage systems are charged.</p></li>
+<li><p>if the power produced is below p_rule but above the baseload, and if the price is above a threshold (price_min), the storage systems should sell power</p></li>
+<li><p>if the power output is below the required baseload, power is delivered from the storage systems.</p></li>
+</ul>
+</div></blockquote>
+<p>This implementation is based on the work by Jasper Kreeft for the sizing of the Baseload Power Hub.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>price_ts</strong> (<a class="reference internal" href="../timeseries/timeseries.html#timeseries.TimeSeries" title="timeseries.TimeSeries"><em>TimeSeries</em></a>) – Time series of the price of electricity on theday-ahead market [currency/MWh].</p></li>
+<li><p><strong>prod1</strong> (<a class="reference internal" href="../components/components.html#components.Production" title="components.Production"><em>Production</em></a>) – Object describing the first production asset.</p></li>
+<li><p><strong>prod2</strong> (<a class="reference internal" href="../components/components.html#components.Production" title="components.Production"><em>Production</em></a>) – Object describing the second production asset.</p></li>
+<li><p><strong>stor1</strong> (<a class="reference internal" href="../components/components.html#components.Storage" title="components.Storage"><em>Storage</em></a>) – Object describing storage 1.</p></li>
+<li><p><strong>stor2</strong> (<a class="reference internal" href="../components/components.html#components.Storage" title="components.Storage"><em>Storage</em></a>) – Object describing storage 2.</p></li>
+<li><p><strong>discount_rate</strong> (<em>float</em>) – Discount rate for the NPV calculation [-].</p></li>
+<li><p><strong>n_year</strong> (<em>int</em>) – Number of years for the NPV calculation [-].</p></li>
+<li><p><strong>p_min</strong> (<em>float</em><em> or </em><em>np.ndarray</em>) – Minimum power requirement [MW].</p></li>
+<li><p><strong>p_rule</strong> (<em>float</em>) – Power above which the storage should charge [MW].</p></li>
+<li><p><strong>price_min</strong> (<em>float</em>) – Price above which the storage should discharge [currency]</p></li>
+<li><p><strong>n</strong> (<em>int</em>) – Number of time steps to consider simulation.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Object describing the operational schedule.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="../components/components.html#components.OpSchedule" title="components.OpSchedule">OpSchedule</a></p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>AssertionError</strong> – if the time step of the power and price time series do not match.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+</section>
+
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"><div class="navigation-prev">
+    <a href="../components/components.html">
+      <i class="i-lucide chevron-left"></i>
+      <div class="page-info">
+        <span>Previous</span><div class="title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">components</span></code></div></div>
+    </a>
+  </div><div class="navigation-next">
+    <a href="../kernel_pyomo/kernel_pyomo.html">
+      <div class="page-info">
+        <span>Next</span>
+        <div class="title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">kernel_pyomo</span></code></div>
+      </div>
+      <i class="i-lucide chevron-right"></i>
+    </a>
+  </div></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2026, Jenna Iori</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials"></div>
+    </div>
+  </div>
+</footer>
+      <script src="../../_static/documentation_options.js?v=2709fde1"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../_static/copybutton.js?v=f281be69"></script>
+      <script src="../../_static/shibuya.js?v=cac61aee"></script></body>
+</html>

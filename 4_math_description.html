@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="violet" data-content_root="./">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Mathematical formulation - SHIPP</title><link rel="shortcut icon" href="_static/shipp_logo_small_dark.png"/><link rel="index" title="Index" href="genindex.html" /><link rel="search" title="Search" href="search.html" /><link rel="next" title="Publications" href="5_publications.html" /><link rel="prev" title="Quick start" href="1_quick_start.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d1c6635e" />
+    <link rel="stylesheet" type="text/css" href="_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link media="print" rel="stylesheet" type="text/css" href="_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    <meta property="og:type" content="website"/><meta property="og:title" content="Mathematical formulation"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="index.html">
+      <img class="light-logo" src="_static/shipp_logo_small.png" alt="shipp" height="28" loading="lazy" />
+      <img class="dark-logo" src="_static/shipp_logo_small_dark.png" alt="shipp" height="28" loading="lazy" />
+      <strong>shipp</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials"></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="1_quick_start.html">Quick start</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Mathematical formulation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="5_publications.html">Publications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="apidocs/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="apidocs/components/components.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">components</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="apidocs/kernel/kernel.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">kernel</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="apidocs/kernel_pyomo/kernel_pyomo.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">kernel_pyomo</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="apidocs/io_functions/io_functions.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">io_functions</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="apidocs/timeseries/timeseries.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">timeseries</span></code></a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
+<li><a class="reference internal" href="#hybrid-power-plant-components">Hybrid power plant components</a></li>
+<li><a class="reference internal" href="#storage-system-model">Storage system model</a></li>
+<li><a class="reference internal" href="#dispatch-constraints">Dispatch constraints</a></li>
+<li><a class="reference internal" href="#performance-metrics">Performance metrics</a><ul>
+<li><a class="reference internal" href="#revenues">Revenues</a></li>
+<li><a class="reference internal" href="#net-present-value">Net Present Value</a></li>
+<li><a class="reference internal" href="#penalties-and-regularization">Penalties and regularization</a></li>
+</ul>
+</li>
+</ul>
+</div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="index.html"><span itemprop="name">shipp</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">Mathematical formulation</strong>
+        <meta itemprop="position" content="2" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <article class="yue" role="main">
+          <section class="tex2jax_ignore mathjax_ignore" id="mathematical-formulation">
+<h1>Mathematical formulation<a class="headerlink" href="#mathematical-formulation" title="Link to this heading">¶</a></h1>
+<section id="hybrid-power-plant-components">
+<h2>Hybrid power plant components<a class="headerlink" href="#hybrid-power-plant-components" title="Link to this heading">¶</a></h2>
+<p>A hybrid power plant can be defined as the “combination of two or more electricity generation and/or storage technologies, providing coordinated electrical power services that are connected at a single point.” (<a class="reference external" href="https://iea-wind.org/task50/t50-wp1/">IEA Task 50 - WP1</a>). In SHIPP, the components of the hybrid power plant are divided in power generation components (wind farm, solar farm, etc.) and storage systems components (battery, etc.).</p>
+<p>Each power generation component <span class="math notranslate nohighlight">\(g\)</span> is characterized by:</p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(\boldsymbol{p}^g\)</span>: the time series of power generation during the considered time window</p></li>
+<li><p><span class="math notranslate nohighlight">\(\bar{P}^g\)</span>: its rated power</p></li>
+<li><p><span class="math notranslate nohighlight">\(\lambda_p^g\)</span>: its cost per MW of rated power</p></li>
+</ul>
+<p>Each storage compoment <span class="math notranslate nohighlight">\(s\)</span> is characterised by:</p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(\bar{P}^s\)</span>: its power capacity</p></li>
+<li><p><span class="math notranslate nohighlight">\(\bar{E}^s\)</span>: its energy capacity</p></li>
+<li><p><span class="math notranslate nohighlight">\(\eta_\text{in}^s\)</span>, <span class="math notranslate nohighlight">\(\eta_\text{out}^s\)</span>: its efficiency in charge and discharge</p></li>
+<li><p><span class="math notranslate nohighlight">\(d^s\)</span>: its depth of discharge</p></li>
+<li><p><span class="math notranslate nohighlight">\(\lambda_p^s\)</span>: its cost per MW of power capacity</p></li>
+<li><p><span class="math notranslate nohighlight">\(\lambda_e^s\)</span>: its cost per MWh of energy capacity</p></li>
+<li><p><span class="math notranslate nohighlight">\(\boldsymbol{p}^s\)</span>: the time series of its power (in charge and discharge)</p></li>
+<li><p><span class="math notranslate nohighlight">\(\boldsymbol{e}^s\)</span>: the time series of its state of charge</p></li>
+</ul>
+<p>The hybrid power plant is characterized by:</p>
+<ul class="simple">
+<li><p>the number and type of each component</p></li>
+<li><p><span class="math notranslate nohighlight">\(\bar{P}\)</span>: its rated power (corresponding to the capacity of the point of connection)</p></li>
+<li><p><span class="math notranslate nohighlight">\(\boldsymbol{p}\)</span>: the time series of the power sent to the grid</p></li>
+<li><p><span class="math notranslate nohighlight">\(\boldsymbol{p}^c\)</span>: the time series of curtailed power</p></li>
+<li><p>(optional) <span class="math notranslate nohighlight">\(P_\text{bl}\)</span>: its required baseload level</p></li>
+<li><p>(optional) <span class="math notranslate nohighlight">\(\delta P_\text{rl}\)</span>: its maximum allowed power ramp (i.e., ramp limit)</p></li>
+</ul>
+</section>
+<section id="storage-system-model">
+<h2>Storage system model<a class="headerlink" href="#storage-system-model" title="Link to this heading">¶</a></h2>
+<p>The cost <span class="math notranslate nohighlight">\(c^s\)</span> of each storage component is calculated directly from its energy and power capacity,
+<span class="math notranslate nohighlight">\(c^s = \lambda_P^s \bar{P}^s  + \lambda_E^s \bar{E}^s\)</span>.</p>
+<p>The operation of the storage systemm is described with the power <span class="math notranslate nohighlight">\(\boldsymbol{p}^s\)</span> and energy <span class="math notranslate nohighlight">\(\boldsymbol{e}^s\)</span> time series. The following convention is used: the power is negative during charge (<em>in</em>) and positive during discharge (<em>out</em>).
+The power and energy time series are bounded by the power and energy capacities of the component:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[ \forall i \in[0,n[, \quad  -\bar{P}^s \leq p_i^s \leq \bar{P}^s\]</div>
+</div>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[ \forall i \in[0,n], \quad  \bar{E}^s (1 - d^s) \leq e_i^s \leq \bar{E}^s\]</div>
+</div>
+<p>Considering a time window of <span class="math notranslate nohighlight">\(n\)</span> time steps with a discretization <span class="math notranslate nohighlight">\(\Delta t\)</span>, the power and energy time series satisfy the charge/discharge model of the storage for <span class="math notranslate nohighlight">\(i \in [0, n[\)</span>
+$$ e^s_{i+1} - e^s_{i} = \begin{cases}</p>
+<ul class="simple">
+<li><p>\Delta t \ \eta^s_\text{in} \  p^s_i &amp; \text{if } p^s_i \leq 0 \</p></li>
+<li><p>\Delta t \dfrac{1}{\eta^s_\text{out}}  p^s_i &amp; \text{else}.
+\end{cases}$$</p></li>
+</ul>
+<p>This constraint is piece-wise linear and cannot be implemented directly in a linear or mixed-integer linear optimization problem. Instead, it is possible to formulate the constraint exactly using binary variables <span class="math notranslate nohighlight">\(\boldsymbol{z}\)</span>, where <span class="math notranslate nohighlight">\(z_i=0\)</span> if <span class="math notranslate nohighlight">\(p^s_i \leq 0\)</span> and <span class="math notranslate nohighlight">\(z_i=1\)</span> otherwise. The storage model is then modeled using big-M constraints as</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[ -M z_i \leq  e^s_{i+1} - e^s_{i} + \Delta t \ \eta^s_\text{in} \  p^s_i \leq M z_i\]</div>
+</div>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[  -M(1-z_i) \leq e^s_{i+1} - e^s_{i} + \Delta t \dfrac{1}{\eta^s_\text{out}}  p^s_i  \leq M(1-z_i) \]</div>
+</div>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[ -M(1-z_i)  \leq p^s_i \leq M z_i \]</div>
+</div>
+<p>An alternative is to relax the contraints without using binary variables. Instead of enforcing the storage model at every time step, the constraints are active at the optimum provided that the objective function is correctly formulated.</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[ e^s_{i+1} - e^s_{i} \leq  - \Delta t \ \eta^s_\text{in} \  p^s_i \]</div>
+</div>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[  e^s_{i+1} - e^s_{i} \leq - \Delta t \dfrac{1}{\eta^s_\text{out}}  p^s_i \]</div>
+</div>
+<p>Degradation of the storage system in time is not modeled.</p>
+</section>
+<section id="dispatch-constraints">
+<h2>Dispatch constraints<a class="headerlink" href="#dispatch-constraints" title="Link to this heading">¶</a></h2>
+<p>The power delivered should respect bounds dictated by the grid connection (assuming the storage systems cannot charge from the grid):</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[ \forall i, \ 0 \leq\sum_{g} p^g_i + \sum_{s} p^s_i - p^c_i \leq \bar{P}  \]</div>
+</div>
+<p>In the presence of a minimum baseload constraint, the lower bound becomes</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[ \forall i, \ P_\text{bl} \leq\sum_{g} p^g_i + \sum_{s} p^s_i - p^c_i \]</div>
+</div>
+<p>Instead, if a ramp constraint is enforced, the constraint is applied to the difference of power between two time steps</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[ \forall i, \ - \delta P_\text{rl} \leq\sum_{g} (p^g_{i+1} - p^g_i ) + \sum_{s} (p^s_{i+1} - p^s_i) - (p^c_{i+1} - p^c_i)  \leq \delta P_\text{rl} \]</div>
+</div>
+<p>The formulation of the dispatch constraints is adjusted for online optimization the optimization problem is feasible at each time step. Binary variables <span class="math notranslate nohighlight">\(\boldsymbol{y}\)</span> are used to indicate if the constraint is active (<span class="math notranslate nohighlight">\(y_i=1\)</span>) or not (<span class="math notranslate nohighlight">\(y_i=0\)</span>). For example, the baseload constraint becomes</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[ \forall i, \ y_i P_\text{bl}  \leq\sum_{g} p^g_i + \sum_{s} p^s_i - p^c_i \]</div>
+</div>
+<p>The reliability is then enforced with a constraint of the type</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[ \dfrac{1}{n}\sum_{i=0}^{n-1} y_i = 1-r, \]</div>
+</div>
+<p>where <span class="math notranslate nohighlight">\(r\)</span> is a slack variable to be minimized.</p>
+</section>
+<section id="performance-metrics">
+<h2>Performance metrics<a class="headerlink" href="#performance-metrics" title="Link to this heading">¶</a></h2>
+<section id="revenues">
+<h3>Revenues<a class="headerlink" href="#revenues" title="Link to this heading">¶</a></h3>
+<p>We want to calculate the optimal dispatch strategy of the storage system, i.e., when to charge and discharge, in order to maximize revenues on the electricity markets. The objective function of the (minimization) problem is:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[ c_\text{R}(\boldsymbol{x}) = - \boldsymbol{\lambda}_\text{DAM}^T \cdot (\sum_{s} \boldsymbol{p}^s - \boldsymbol{p}^c)\]</div>
+</div>
+<p>where <span class="math notranslate nohighlight">\(\boldsymbol{\lambda}_\text{DAM}\)</span> is the time series of electricity price on the day-ahead market.</p>
+</section>
+<section id="net-present-value">
+<h3>Net Present Value<a class="headerlink" href="#net-present-value" title="Link to this heading">¶</a></h3>
+<p>If instead, we want to size the storage system (i.e. its power and energy capacity) the objective function needs to take into account the associated costs. This is possible by using the net present value (NPV) of the system.</p>
+<p>(Optional) This design problem can be solved with a baseload constraint, i.e. the power plant is required to produce a minimum power.</p>
+<p>The objective function of the (minimization) problem becomes:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[ c_\text{NPV}(\boldsymbol{x}) = \sum_{s} (\lambda^s_P \bar{P}^s + \lambda_E^s \bar{E}^s) - \sum_{k=1}^m \dfrac{\boldsymbol{\lambda}_\text{DAM}^T \cdot (\sum_{s} \boldsymbol{p}^s  - \boldsymbol{p}^c)}{(1+r)^k}\]</div>
+</div>
+<p>where <span class="math notranslate nohighlight">\(m\)</span> is the lifetime of the project, <span class="math notranslate nohighlight">\(r\)</span> the discount rate and <span class="math notranslate nohighlight">\(\lambda_\text{DAM}\)</span> is the time series of electricity price on the day-ahead market. Here we assume that the revenues estimated for one year with <span class="math notranslate nohighlight">\(\lambda_\text{DAM}\)</span> are representative of the entire lifetime of the project.</p>
+</section>
+<section id="penalties-and-regularization">
+<h3>Penalties and regularization<a class="headerlink" href="#penalties-and-regularization" title="Link to this heading">¶</a></h3>
+<p>When using the relaxed form of the storage model, two regularization terms are added to the objective function to ensure the constraints are active at the optimum. Furthermore, a penalty on the reliability binary variables is needed to ensure the dispatch constraints are respected as much as possible. As such, the objective function becomes</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[ f(\boldsymbol{x}) = c_\text{R}(\boldsymbol{x}) + \mu r - \beta \sum_s e^s_{n} - \epsilon \sum_{i=0}^{n-1}p^c_i,  \]</div>
+</div>
+<p>where <span class="math notranslate nohighlight">\(\mu \gg 1\)</span> and <span class="math notranslate nohighlight">\(\beta \ll 1 \)</span>,  <span class="math notranslate nohighlight">\(\epsilon \ll 1 \)</span></p>
+</section>
+</section>
+</section>
+
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"><div class="navigation-prev">
+    <a href="1_quick_start.html">
+      <i class="i-lucide chevron-left"></i>
+      <div class="page-info">
+        <span>Previous</span><div class="title">Quick start</div></div>
+    </a>
+  </div><div class="navigation-next">
+    <a href="5_publications.html">
+      <div class="page-info">
+        <span>Next</span>
+        <div class="title">Publications</div>
+      </div>
+      <i class="i-lucide chevron-right"></i>
+    </a>
+  </div></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2026, Jenna Iori</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials"></div>
+    </div>
+  </div>
+</footer>
+      <script src="_static/documentation_options.js?v=2709fde1"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="_static/copybutton.js?v=f281be69"></script>
+      <script src="_static/shibuya.js?v=cac61aee"></script>
+      <script>window.MathJax = {"options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script></body>
+</html>

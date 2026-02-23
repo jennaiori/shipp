@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="violet" data-content_root="../../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>components - SHIPP</title><link rel="shortcut icon" href="../../_static/shipp_logo_small_dark.png"/><link rel="index" title="Index" href="../../genindex.html" /><link rel="search" title="Search" href="../../search.html" /><link rel="next" title="kernel" href="../kernel/kernel.html" /><link rel="prev" title="API Reference" href="../index.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=d1c6635e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link media="print" rel="stylesheet" type="text/css" href="../../_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    <meta property="og:type" content="website"/><meta property="og:title" content="components"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="../../index.html">
+      <img class="light-logo" src="../../_static/shipp_logo_small.png" alt="shipp" height="28" loading="lazy" />
+      <img class="dark-logo" src="../../_static/shipp_logo_small_dark.png" alt="shipp" height="28" loading="lazy" />
+      <strong>shipp</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials"></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../1_quick_start.html">Quick start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../4_math_description.html">Mathematical formulation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../5_publications.html">Publications</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">API Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">components</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kernel/kernel.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">kernel</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kernel_pyomo/kernel_pyomo.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">kernel_pyomo</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../io_functions/io_functions.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">io_functions</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../timeseries/timeseries.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">timeseries</span></code></a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
+<li><a class="reference internal" href="#module-contents">Module Contents</a><ul>
+<li><a class="reference internal" href="#classes">Classes</a></li>
+<li><a class="reference internal" href="#api">API</a><ul>
+<li><a class="reference internal" href="#components.Storage"><code class="docutils literal notranslate"><span class="pre">Storage</span></code></a><ul>
+<li><a class="reference internal" href="#components.Storage.e_cap"><code class="docutils literal notranslate">e_cap</span></code></a></li>
+<li><a class="reference internal" href="#components.Storage.p_cap"><code class="docutils literal notranslate">p_cap</span></code></a></li>
+<li><a class="reference internal" href="#components.Storage.eff_in"><code class="docutils literal notranslate">eff_in</span></code></a></li>
+<li><a class="reference internal" href="#components.Storage.eff_out"><code class="docutils literal notranslate">eff_out</span></code></a></li>
+<li><a class="reference internal" href="#components.Storage.e_cost"><code class="docutils literal notranslate">e_cost</span></code></a></li>
+<li><a class="reference internal" href="#components.Storage.p_cost"><code class="docutils literal notranslate">p_cost</span></code></a></li>
+<li><a class="reference internal" href="#components.Storage.dod"><code class="docutils literal notranslate">dod</span></code></a></li>
+<li><a class="reference internal" href="#components.Storage.get_av_eff"><code class="docutils literal notranslate">get_av_eff()</span></code></a></li>
+<li><a class="reference internal" href="#components.Storage.get_rt_eff"><code class="docutils literal notranslate">get_rt_eff()</span></code></a></li>
+<li><a class="reference internal" href="#components.Storage.get_tot_costs"><code class="docutils literal notranslate">get_tot_costs()</span></code></a></li>
+<li><a class="reference internal" href="#components.Storage.get_min_e"><code class="docutils literal notranslate">get_min_e()</span></code></a></li>
+<li><a class="reference internal" href="#components.Storage.copy"><code class="docutils literal notranslate">copy()</span></code></a></li>
+<li><a class="reference internal" href="#components.Storage.__repr__"><code class="docutils literal notranslate">__repr__()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#components.Production"><code class="docutils literal notranslate"><span class="pre">Production</span></code></a><ul>
+<li><a class="reference internal" href="#components.Production.power_ts"><code class="docutils literal notranslate">power_ts</span></code></a></li>
+<li><a class="reference internal" href="#components.Production.p_max"><code class="docutils literal notranslate">p_max</span></code></a></li>
+<li><a class="reference internal" href="#components.Production.p_cost"><code class="docutils literal notranslate">p_cost</span></code></a></li>
+<li><a class="reference internal" href="#components.Production.get_tot_costs"><code class="docutils literal notranslate">get_tot_costs()</span></code></a></li>
+<li><a class="reference internal" href="#components.Production.__repr__"><code class="docutils literal notranslate">__repr__()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#components.OpSchedule"><code class="docutils literal notranslate"><span class="pre">OpSchedule</span></code></a><ul>
+<li><a class="reference internal" href="#components.OpSchedule.storage_list"><code class="docutils literal notranslate">storage_list</span></code></a></li>
+<li><a class="reference internal" href="#components.OpSchedule.production_list"><code class="docutils literal notranslate">production_list</span></code></a></li>
+<li><a class="reference internal" href="#components.OpSchedule.production_p"><code class="docutils literal notranslate">production_p</span></code></a></li>
+<li><a class="reference internal" href="#components.OpSchedule.storage_p"><code class="docutils literal notranslate">storage_p</span></code></a></li>
+<li><a class="reference internal" href="#components.OpSchedule.storage_e"><code class="docutils literal notranslate">storage_e</span></code></a></li>
+<li><a class="reference internal" href="#components.OpSchedule.power_out"><code class="docutils literal notranslate">power_out</span></code></a></li>
+<li><a class="reference internal" href="#components.OpSchedule.revenue"><code class="docutils literal notranslate">revenue</span></code></a></li>
+<li><a class="reference internal" href="#components.OpSchedule.annual_revenue"><code class="docutils literal notranslate">annual_revenue</span></code></a></li>
+<li><a class="reference internal" href="#components.OpSchedule.capex"><code class="docutils literal notranslate">capex</span></code></a></li>
+<li><a class="reference internal" href="#components.OpSchedule.revenue_storage"><code class="docutils literal notranslate">revenue_storage</span></code></a></li>
+<li><a class="reference internal" href="#components.OpSchedule.annual_revenue_storage"><code class="docutils literal notranslate">annual_revenue_storage</span></code></a></li>
+<li><a class="reference internal" href="#components.OpSchedule.npv"><code class="docutils literal notranslate">npv</span></code></a></li>
+<li><a class="reference internal" href="#components.OpSchedule.irr"><code class="docutils literal notranslate">irr</span></code></a></li>
+<li><a class="reference internal" href="#components.OpSchedule.a_npv"><code class="docutils literal notranslate">a_npv</span></code></a></li>
+<li><a class="reference internal" href="#components.OpSchedule.losses"><code class="docutils literal notranslate">losses</span></code></a></li>
+<li><a class="reference internal" href="#components.OpSchedule.update_capex"><code class="docutils literal notranslate">update_capex()</span></code></a></li>
+<li><a class="reference internal" href="#components.OpSchedule.update_revenue"><code class="docutils literal notranslate">update_revenue()</span></code></a></li>
+<li><a class="reference internal" href="#components.OpSchedule.get_npv_irr"><code class="docutils literal notranslate">get_npv_irr()</span></code></a></li>
+<li><a class="reference internal" href="#components.OpSchedule.get_added_npv"><code class="docutils literal notranslate">get_added_npv()</span></code></a></li>
+<li><a class="reference internal" href="#components.OpSchedule.get_power_partition"><code class="docutils literal notranslate">get_power_partition()</span></code></a></li>
+<li><a class="reference internal" href="#components.OpSchedule.check_losses"><code class="docutils literal notranslate">check_losses()</span></code></a></li>
+<li><a class="reference internal" href="#components.OpSchedule.plot_powerflow"><code class="docutils literal notranslate">plot_powerflow()</span></code></a></li>
+<li><a class="reference internal" href="#components.OpSchedule.plot_powerout"><code class="docutils literal notranslate">plot_powerout()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../index.html"><span itemprop="name">shipp</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../index.html"><span itemprop="name">API Reference</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name"><code class="xref py py-mod docutils literal notranslate"><span class="pre">components</span></code></strong>
+        <meta itemprop="position" content="3" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <article class="yue" role="main">
+          <section id="module-components">
+<span id="components"></span><h1><a class="reference internal" href="#module-components" title="components"><code class="xref py py-mod docutils literal notranslate"><span class="pre">components</span></code></a><a class="headerlink" href="#module-components" title="Link to this heading">¶</a></h1>
+<p>Module components
+Contains classes to describe the components of an hybrid power plant</p>
+<dl class="simple">
+<dt>Class Storage:</dt><dd><p>Represent storage system that can be charged or discharged</p>
+</dd>
+<dt>Class Production:</dt><dd><p>Represent a power plant (wind or pv) production electricity from a given resource</p>
+</dd>
+<dt>Class OpSchedule:</dt><dd><p>Represent the operational schedule of the hybrid power plant.</p>
+</dd>
+</dl>
+<section id="module-contents">
+<h2>Module Contents<a class="headerlink" href="#module-contents" title="Link to this heading">¶</a></h2>
+<section id="classes">
+<h3>Classes<a class="headerlink" href="#classes" title="Link to this heading">¶</a></h3>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-left">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#components.Storage" title="components.Storage"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Storage</span></code></a></p></td>
+<td><p>Class Storage used to represent energy storage systems</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#components.Production" title="components.Production"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Production</span></code></a></p></td>
+<td><p>Class Production represents wind or solar PV production systems</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#components.OpSchedule" title="components.OpSchedule"><code class="xref py py-obj docutils literal notranslate"><span class="pre">OpSchedule</span></code></a></p></td>
+<td><p>Class OpSchedule describes a realization of an energy schedule
+and renewable electric production units.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="api">
+<h3>API<a class="headerlink" href="#api" title="Link to this heading">¶</a></h3>
+<dl class="py class">
+<dt class="sig sig-object py" id="components.Storage">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">components.</span></span><span class="sig-name descname"><span class="pre">Storage</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">e_cap</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p_cap</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eff_in</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eff_out</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">e_cost</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p_cost</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dod</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#components.Storage" title="Link to this definition">¶</a></dt>
+<dd><p>Class Storage used to represent energy storage systems</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="components.Storage.e_cap">
+<span class="sig-name descname"><span class="pre">e_cap</span></span><a class="headerlink" href="#components.Storage.e_cap" title="Link to this definition">¶</a></dt>
+<dd><p>Energy capacity [MWh]</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="components.Storage.p_cap">
+<span class="sig-name descname"><span class="pre">p_cap</span></span><a class="headerlink" href="#components.Storage.p_cap" title="Link to this definition">¶</a></dt>
+<dd><p>Power capacity [MW]</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="components.Storage.eff_in">
+<span class="sig-name descname"><span class="pre">eff_in</span></span><a class="headerlink" href="#components.Storage.eff_in" title="Link to this definition">¶</a></dt>
+<dd><p>Efficiency to charge the storage [-]</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="components.Storage.eff_out">
+<span class="sig-name descname"><span class="pre">eff_out</span></span><a class="headerlink" href="#components.Storage.eff_out" title="Link to this definition">¶</a></dt>
+<dd><p>Efficiency to discharge the storage [-]</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="components.Storage.e_cost">
+<span class="sig-name descname"><span class="pre">e_cost</span></span><a class="headerlink" href="#components.Storage.e_cost" title="Link to this definition">¶</a></dt>
+<dd><p>Cost per unit of energy capacity [Currency/MWh]</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="components.Storage.p_cost">
+<span class="sig-name descname"><span class="pre">p_cost</span></span><a class="headerlink" href="#components.Storage.p_cost" title="Link to this definition">¶</a></dt>
+<dd><p>Cost per unit of power capacity [Currency/MW]</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="components.Storage.dod">
+<span class="sig-name descname"><span class="pre">dod</span></span><a class="headerlink" href="#components.Storage.dod" title="Link to this definition">¶</a></dt>
+<dd><p>Depth of discharge of the storage system, expressed as a fraction of the energy capacity (between 0 and 1) [-]</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<p class="rubric">Initialization</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="components.Storage.get_av_eff">
+<span class="sig-name descname"><span class="pre">get_av_eff</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="headerlink" href="#components.Storage.get_av_eff" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the average efficiency</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="components.Storage.get_rt_eff">
+<span class="sig-name descname"><span class="pre">get_rt_eff</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="headerlink" href="#components.Storage.get_rt_eff" title="Link to this definition">¶</a></dt>
+<dd><p>Returns the round trip efficiency</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="components.Storage.get_tot_costs">
+<span class="sig-name descname"><span class="pre">get_tot_costs</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="headerlink" href="#components.Storage.get_tot_costs" title="Link to this definition">¶</a></dt>
+<dd><p>Returns total costs for the storage</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="components.Storage.get_min_e">
+<span class="sig-name descname"><span class="pre">get_min_e</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="headerlink" href="#components.Storage.get_min_e" title="Link to this definition">¶</a></dt>
+<dd><p>Returns minimum allowed energy level</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="components.Storage.copy">
+<span class="sig-name descname"><span class="pre">copy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#components.Storage" title="components.Storage"><span class="pre">components.Storage</span></a></span></span><a class="headerlink" href="#components.Storage.copy" title="Link to this definition">¶</a></dt>
+<dd><p>Create a deep copy of the Storage object</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="components.Storage.__repr__">
+<span class="sig-name descname"><span class="pre">__repr__</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#components.Storage.__repr__" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="components.Production">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">components.</span></span><span class="sig-name descname"><span class="pre">Production</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">power_ts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">shipp.timeseries.TimeSeries</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p_cost</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#components.Production" title="Link to this definition">¶</a></dt>
+<dd><p>Class Production represents wind or solar PV production systems</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="components.Production.power_ts">
+<span class="sig-name descname"><span class="pre">power_ts</span></span><a class="headerlink" href="#components.Production.power_ts" title="Link to this definition">¶</a></dt>
+<dd><p>time series of power production [MW]</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="../timeseries/timeseries.html#timeseries.TimeSeries" title="timeseries.TimeSeries">TimeSeries</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="components.Production.p_max">
+<span class="sig-name descname"><span class="pre">p_max</span></span><a class="headerlink" href="#components.Production.p_max" title="Link to this definition">¶</a></dt>
+<dd><p>Maximum power [MW]</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="components.Production.p_cost">
+<span class="sig-name descname"><span class="pre">p_cost</span></span><a class="headerlink" href="#components.Production.p_cost" title="Link to this definition">¶</a></dt>
+<dd><p>cost per unit of power capacity [Currency/MW]</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<p class="rubric">Initialization</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="components.Production.get_tot_costs">
+<span class="sig-name descname"><span class="pre">get_tot_costs</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="headerlink" href="#components.Production.get_tot_costs" title="Link to this definition">¶</a></dt>
+<dd><p>Returns total costs for the production</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="components.Production.__repr__">
+<span class="sig-name descname"><span class="pre">__repr__</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#components.Production.__repr__" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="components.OpSchedule">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">components.</span></span><span class="sig-name descname"><span class="pre">OpSchedule</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">production_list</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#components.Production" title="components.Production"><span class="pre">components.Production</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">storage_list</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#components.Storage" title="components.Storage"><span class="pre">components.Storage</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">production_p</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">shipp.timeseries.TimeSeries</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">storage_p</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">shipp.timeseries.TimeSeries</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">storage_e</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">shipp.timeseries.TimeSeries</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">price</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">numpy.ndarray</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#components.OpSchedule" title="Link to this definition">¶</a></dt>
+<dd><p>Class OpSchedule describes a realization of an energy schedule
+and renewable electric production units.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="components.OpSchedule.storage_list">
+<span class="sig-name descname"><span class="pre">storage_list</span></span><a class="headerlink" href="#components.OpSchedule.storage_list" title="Link to this definition">¶</a></dt>
+<dd><p>List of energy storage units.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list[<a class="reference internal" href="#components.Storage" title="components.Storage">Storage</a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="components.OpSchedule.production_list">
+<span class="sig-name descname"><span class="pre">production_list</span></span><a class="headerlink" href="#components.OpSchedule.production_list" title="Link to this definition">¶</a></dt>
+<dd><p>List of renewable power production units.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list[<a class="reference internal" href="#components.Production" title="components.Production">Production</a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="components.OpSchedule.production_p">
+<span class="sig-name descname"><span class="pre">production_p</span></span><a class="headerlink" href="#components.OpSchedule.production_p" title="Link to this definition">¶</a></dt>
+<dd><p>List of TimeSeries for the power output of production units.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list[<a class="reference internal" href="../timeseries/timeseries.html#timeseries.TimeSeries" title="timeseries.TimeSeries">TimeSeries</a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="components.OpSchedule.storage_p">
+<span class="sig-name descname"><span class="pre">storage_p</span></span><a class="headerlink" href="#components.OpSchedule.storage_p" title="Link to this definition">¶</a></dt>
+<dd><p>List of TimeSeries for the power output of storage units.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list[<a class="reference internal" href="../timeseries/timeseries.html#timeseries.TimeSeries" title="timeseries.TimeSeries">TimeSeries</a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="components.OpSchedule.storage_e">
+<span class="sig-name descname"><span class="pre">storage_e</span></span><a class="headerlink" href="#components.OpSchedule.storage_e" title="Link to this definition">¶</a></dt>
+<dd><p>List of TimeSeries for the energy level of storage objects.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list[<a class="reference internal" href="../timeseries/timeseries.html#timeseries.TimeSeries" title="timeseries.TimeSeries">TimeSeries</a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="components.OpSchedule.power_out">
+<span class="sig-name descname"><span class="pre">power_out</span></span><a class="headerlink" href="#components.OpSchedule.power_out" title="Link to this definition">¶</a></dt>
+<dd><p>TimeSeries of total power to the grid.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="../timeseries/timeseries.html#timeseries.TimeSeries" title="timeseries.TimeSeries">TimeSeries</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="components.OpSchedule.revenue">
+<span class="sig-name descname"><span class="pre">revenue</span></span><a class="headerlink" href="#components.OpSchedule.revenue" title="Link to this definition">¶</a></dt>
+<dd><p>Total revenue from selling electricity.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="components.OpSchedule.annual_revenue">
+<span class="sig-name descname"><span class="pre">annual_revenue</span></span><a class="headerlink" href="#components.OpSchedule.annual_revenue" title="Link to this definition">¶</a></dt>
+<dd><p>Estimated annual revenue from selling electricity.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="components.OpSchedule.capex">
+<span class="sig-name descname"><span class="pre">capex</span></span><a class="headerlink" href="#components.OpSchedule.capex" title="Link to this definition">¶</a></dt>
+<dd><p>Total capital expenditure from storage and production objects.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="components.OpSchedule.revenue_storage">
+<span class="sig-name descname"><span class="pre">revenue_storage</span></span><a class="headerlink" href="#components.OpSchedule.revenue_storage" title="Link to this definition">¶</a></dt>
+<dd><p>Total revenue from storage units.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="components.OpSchedule.annual_revenue_storage">
+<span class="sig-name descname"><span class="pre">annual_revenue_storage</span></span><a class="headerlink" href="#components.OpSchedule.annual_revenue_storage" title="Link to this definition">¶</a></dt>
+<dd><p>Estimated annual revenue from storage units.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="components.OpSchedule.npv">
+<span class="sig-name descname"><span class="pre">npv</span></span><a class="headerlink" href="#components.OpSchedule.npv" title="Link to this definition">¶</a></dt>
+<dd><p>Net Present Value of the operation schedule.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="components.OpSchedule.irr">
+<span class="sig-name descname"><span class="pre">irr</span></span><a class="headerlink" href="#components.OpSchedule.irr" title="Link to this definition">¶</a></dt>
+<dd><p>Internal Rate of Return of the operation schedule.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="components.OpSchedule.a_npv">
+<span class="sig-name descname"><span class="pre">a_npv</span></span><a class="headerlink" href="#components.OpSchedule.a_npv" title="Link to this definition">¶</a></dt>
+<dd><p>Added Net Present Value due to the addition of storage.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="components.OpSchedule.losses">
+<span class="sig-name descname"><span class="pre">losses</span></span><a class="headerlink" href="#components.OpSchedule.losses" title="Link to this definition">¶</a></dt>
+<dd><p>List of storage power losses. Set when solving the dispatch optimization.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<p class="rubric">Initialization</p>
+<p>Initialization function for OpSchedule</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="components.OpSchedule.update_capex">
+<span class="sig-name descname"><span class="pre">update_capex</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#components.OpSchedule.update_capex" title="Link to this definition">¶</a></dt>
+<dd><p>Function to calculate the total CAPEX from Storage and Production objects.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="components.OpSchedule.update_revenue">
+<span class="sig-name descname"><span class="pre">update_revenue</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">price</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">numpy.ndarray</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#components.OpSchedule.update_revenue" title="Link to this definition">¶</a></dt>
+<dd><p>Function to calculate the yearly revenue for the operating
+schedule. The revenue is obtained by selling the electricity
+to the grid (power_out) at the given price</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>price</strong> (<em>np.ndarray</em>) – day-ahead market price [currency/MWh]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="components.OpSchedule.get_npv_irr">
+<span class="sig-name descname"><span class="pre">get_npv_irr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">discount_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_year</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#components.OpSchedule.get_npv_irr" title="Link to this definition">¶</a></dt>
+<dd><p>Function to calculate the Net Present Value (npv) and internal rate of return (irr) for the OpSchedule object</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>rate</strong> (<em>discount</em>) – Usually 3, 7 or 10% for wind energy project [-]</p></li>
+<li><p><strong>n_year</strong> (<em>int</em>) – Number of years of operation [-]</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Net Present Value [M.currency] and Internal Rate of return [-]</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple[float, float]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="components.OpSchedule.get_added_npv">
+<span class="sig-name descname"><span class="pre">get_added_npv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">discount_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_year</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="headerlink" href="#components.OpSchedule.get_added_npv" title="Link to this definition">¶</a></dt>
+<dd><p>Function to calculate the difference in Net Present Value due to the addition of the storage (added NPV)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>discount_rate</strong> (<em>float</em>) – Usually 3, 7 or 10% for wind energy projects. [-]</p></li>
+<li><p><strong>n_year</strong> (<em>int</em>) – Number of years of operation. [-]</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>added Net Present Value [M.currency]</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="components.OpSchedule.get_power_partition">
+<span class="sig-name descname"><span class="pre">get_power_partition</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#components.OpSchedule.get_power_partition" title="Link to this definition">¶</a></dt>
+<dd><p>Function to calculate the partition of the total power production for each component, expressed as percentage of the total energy produced.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>array of percentage corresponding to the objects in self.production_list and then the one in self.storage_list [-]</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>list[float]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="components.OpSchedule.check_losses">
+<span class="sig-name descname"><span class="pre">check_losses</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="headerlink" href="#components.OpSchedule.check_losses" title="Link to this definition">¶</a></dt>
+<dd><p>Check the losses in the model and verify if they are within the tolerance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>tol</strong> (<em>float</em>) – The tolerance level for the losses. [-]</p></li>
+<li><p><strong>verbose</strong> (<em>bool</em>) – If True, prints the error values. Default is False.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>True if the losses are within the tolerance, False otherwise.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="components.OpSchedule.plot_powerflow">
+<span class="sig-name descname"><span class="pre">plot_powerflow</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">label_list</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xlabel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'Time</span> <span class="pre">[day]'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ylabel1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'Power</span> <span class="pre">[MW]'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ylabel2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'Energy</span> <span class="pre">[MWh]'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#components.OpSchedule.plot_powerflow" title="Link to this definition">¶</a></dt>
+<dd><p>Function to plot the power flow of the operation schedule</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>label_list</strong> (<em>list</em><em>[</em><em>str</em><em>]</em>) – list of labels to appear on the legend</p></li>
+<li><p><strong>xlabel</strong> (<em>str</em>) – label of the x-axis</p></li>
+<li><p><strong>ylabel1</strong> (<em>str</em>) – label of the y-axis (left) for power</p></li>
+<li><p><strong>ylabel2</strong> (<em>str</em>) – label of the y-axis (right) for energy</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="components.OpSchedule.plot_powerout">
+<span class="sig-name descname"><span class="pre">plot_powerout</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">label_list</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xlabel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'Time</span> <span class="pre">[day]'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ylabel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'Power</span> <span class="pre">[MW]'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xlim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#components.OpSchedule.plot_powerout" title="Link to this definition">¶</a></dt>
+<dd><p>Function to plot the power the operation schedule, focusing
+on the power sent to the grid (power “out”).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>label_list</strong> (<em>list</em><em>[</em><em>str</em><em>]</em>) – list of labels to appear on the legend</p></li>
+<li><p><strong>xlabel</strong> (<em>str</em>) – label of the x-axis</p></li>
+<li><p><strong>ylabel</strong> (<em>str</em>) – label of the y-axis for power</p></li>
+<li><p><strong>xlim</strong> (<em>list</em><em>[</em><em>float</em><em>]</em>) – x range limits for the plot, allows to reduce computational effort</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+</section>
+</section>
+
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"><div class="navigation-prev">
+    <a href="../index.html">
+      <i class="i-lucide chevron-left"></i>
+      <div class="page-info">
+        <span>Previous</span><div class="title">API Reference</div></div>
+    </a>
+  </div><div class="navigation-next">
+    <a href="../kernel/kernel.html">
+      <div class="page-info">
+        <span>Next</span>
+        <div class="title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">kernel</span></code></div>
+      </div>
+      <i class="i-lucide chevron-right"></i>
+    </a>
+  </div></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2026, Jenna Iori</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials"></div>
+    </div>
+  </div>
+</footer>
+      <script src="../../_static/documentation_options.js?v=2709fde1"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../_static/copybutton.js?v=f281be69"></script>
+      <script src="../../_static/shibuya.js?v=cac61aee"></script></body>
+</html>

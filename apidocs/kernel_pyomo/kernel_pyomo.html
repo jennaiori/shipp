@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="violet" data-content_root="../../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>kernel_pyomo - SHIPP</title><link rel="shortcut icon" href="../../_static/shipp_logo_small_dark.png"/><link rel="index" title="Index" href="../../genindex.html" /><link rel="search" title="Search" href="../../search.html" /><link rel="next" title="io_functions" href="../io_functions/io_functions.html" /><link rel="prev" title="kernel" href="../kernel/kernel.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=d1c6635e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link media="print" rel="stylesheet" type="text/css" href="../../_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    <meta property="og:type" content="website"/><meta property="og:title" content="kernel_pyomo"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="../../index.html">
+      <img class="light-logo" src="../../_static/shipp_logo_small.png" alt="shipp" height="28" loading="lazy" />
+      <img class="dark-logo" src="../../_static/shipp_logo_small_dark.png" alt="shipp" height="28" loading="lazy" />
+      <strong>shipp</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials"></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../1_quick_start.html">Quick start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../4_math_description.html">Mathematical formulation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../5_publications.html">Publications</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">API Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../components/components.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">components</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../kernel/kernel.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">kernel</span></code></a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#"><code class="xref py py-mod docutils literal notranslate"><span class="pre">kernel_pyomo</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../io_functions/io_functions.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">io_functions</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="../timeseries/timeseries.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">timeseries</span></code></a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
+<li><a class="reference internal" href="#module-contents">Module Contents</a><ul>
+<li><a class="reference internal" href="#functions">Functions</a></li>
+<li><a class="reference internal" href="#data">Data</a></li>
+<li><a class="reference internal" href="#api">API</a><ul>
+<li><a class="reference internal" href="#kernel_pyomo.TIME_LIMIT_SHORT"><code class="docutils literal notranslate"><span class="pre">TIME_LIMIT_SHORT</span></code></a></li>
+<li><a class="reference internal" href="#kernel_pyomo.TIME_LIMIT_LONG"><code class="docutils literal notranslate"><span class="pre">TIME_LIMIT_LONG</span></code></a></li>
+<li><a class="reference internal" href="#kernel_pyomo.DEFAULT_ALPHA_OBJ"><code class="docutils literal notranslate"><span class="pre">DEFAULT_ALPHA_OBJ</span></code></a></li>
+<li><a class="reference internal" href="#kernel_pyomo.solve_lp_pyomo"><code class="docutils literal notranslate"><span class="pre">solve_lp_pyomo()</span></code></a></li>
+<li><a class="reference internal" href="#kernel_pyomo.run_storage_operation"><code class="docutils literal notranslate"><span class="pre">run_storage_operation()</span></code></a></li>
+<li><a class="reference internal" href="#kernel_pyomo.solve_dispatch_pyomo"><code class="docutils literal notranslate"><span class="pre">solve_dispatch_pyomo()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../index.html"><span itemprop="name">shipp</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../index.html"><span itemprop="name">API Reference</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name"><code class="xref py py-mod docutils literal notranslate"><span class="pre">kernel_pyomo</span></code></strong>
+        <meta itemprop="position" content="3" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <article class="yue" role="main">
+          <section id="module-kernel_pyomo">
+<span id="kernel-pyomo"></span><h1><a class="reference internal" href="#module-kernel_pyomo" title="kernel_pyomo"><code class="xref py py-mod docutils literal notranslate"><span class="pre">kernel_pyomo</span></code></a><a class="headerlink" href="#module-kernel_pyomo" title="Link to this heading">¶</a></h1>
+<p>This module defines kernel functions for shipp.</p>
+<p>The functions defined in this module are used to analyze or compute data
+for the classes defined in shipp.</p>
+<dl class="simple">
+<dt>Functions:</dt><dd><p>solve_lp_pyomo: Build and solve a linear program (LP) for NPV maximization with pyomo.
+solve_lp_alt_pyomo: Build and solve an alternative LP for NPV maximization with pyomo.
+solve_milp_pyomo: Build and solve a MILP for NPV maximization with pyomo.
+run_storage_operation: Run a series of online dispatch optimization problems.
+solve_dispatch_pyomo: Build and solve a MILP for the dispatch optimization of storage systems considering reliability.</p>
+</dd>
+</dl>
+<section id="module-contents">
+<h2>Module Contents<a class="headerlink" href="#module-contents" title="Link to this heading">¶</a></h2>
+<section id="functions">
+<h3>Functions<a class="headerlink" href="#functions" title="Link to this heading">¶</a></h3>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-left">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#kernel_pyomo.solve_lp_pyomo" title="kernel_pyomo.solve_lp_pyomo"><code class="xref py py-obj docutils literal notranslate"><span class="pre">solve_lp_pyomo</span></code></a></p></td>
+<td><p>Build and solve an integrated dispatch NPV maximization with pyomo as a linear program.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#kernel_pyomo.run_storage_operation" title="kernel_pyomo.run_storage_operation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">run_storage_operation</span></code></a></p></td>
+<td><p>Execute a storage operation simulation.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#kernel_pyomo.solve_dispatch_pyomo" title="kernel_pyomo.solve_dispatch_pyomo"><code class="xref py py-obj docutils literal notranslate"><span class="pre">solve_dispatch_pyomo</span></code></a></p></td>
+<td><p>Build and solve a MILP for the dispatch optimization of storage systems, with dispatch constraints.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="data">
+<h3>Data<a class="headerlink" href="#data" title="Link to this heading">¶</a></h3>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-left">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#kernel_pyomo.TIME_LIMIT_SHORT" title="kernel_pyomo.TIME_LIMIT_SHORT"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TIME_LIMIT_SHORT</span></code></a></p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#kernel_pyomo.TIME_LIMIT_LONG" title="kernel_pyomo.TIME_LIMIT_LONG"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TIME_LIMIT_LONG</span></code></a></p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#kernel_pyomo.DEFAULT_ALPHA_OBJ" title="kernel_pyomo.DEFAULT_ALPHA_OBJ"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DEFAULT_ALPHA_OBJ</span></code></a></p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="api">
+<h3>API<a class="headerlink" href="#api" title="Link to this heading">¶</a></h3>
+<dl class="py data">
+<dt class="sig sig-object py" id="kernel_pyomo.TIME_LIMIT_SHORT">
+<span class="sig-prename descclassname"><span class="pre">kernel_pyomo.</span></span><span class="sig-name descname"><span class="pre">TIME_LIMIT_SHORT</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">2</span></span><a class="headerlink" href="#kernel_pyomo.TIME_LIMIT_SHORT" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="kernel_pyomo.TIME_LIMIT_LONG">
+<span class="sig-prename descclassname"><span class="pre">kernel_pyomo.</span></span><span class="sig-name descname"><span class="pre">TIME_LIMIT_LONG</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">180</span></span><a class="headerlink" href="#kernel_pyomo.TIME_LIMIT_LONG" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="kernel_pyomo.DEFAULT_ALPHA_OBJ">
+<span class="sig-prename descclassname"><span class="pre">kernel_pyomo.</span></span><span class="sig-name descname"><span class="pre">DEFAULT_ALPHA_OBJ</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#kernel_pyomo.DEFAULT_ALPHA_OBJ" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="kernel_pyomo.solve_lp_pyomo">
+<span class="sig-prename descclassname"><span class="pre">kernel_pyomo.</span></span><span class="sig-name descname"><span class="pre">solve_lp_pyomo</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">price_ts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">shipp.timeseries.TimeSeries</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prod1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">shipp.components.Production</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prod2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">shipp.components.Production</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stor1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">shipp.components.Storage</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stor2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">shipp.components.Storage</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discount_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_year</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p_min</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p_max</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name_solver</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'mosek'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fixed_cap</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dp_lim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha_obj</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">DEFAULT_ALPHA_OBJ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">shipp.components.OpSchedule</span></span></span><a class="headerlink" href="#kernel_pyomo.solve_lp_pyomo" title="Link to this definition">¶</a></dt>
+<dd><p>Build and solve an integrated dispatch NPV maximization with pyomo as a linear program.</p>
+<p>This function builds and solves the hybrid sizing and operation problem as a linear program. The objective is to minimize the Net Present Value of the plant. The optimization problem finds the optimal energy and power capacity of two storage systems and their optimal dispatch. In this function, the input for the power production represented by two Production objects. The problem can be constrained by a baseload power production constraint or a ramp limitation constraint.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>price_ts</strong> (<a class="reference internal" href="../timeseries/timeseries.html#timeseries.TimeSeries" title="timeseries.TimeSeries"><em>TimeSeries</em></a>) – Time series of the price of electricity on the day-ahead market [currency/MWh].</p></li>
+<li><p><strong>prod1</strong> (<a class="reference internal" href="../components/components.html#components.Production" title="components.Production"><em>Production</em></a>) – Object representing the first power production asset.</p></li>
+<li><p><strong>prod2</strong> (<a class="reference internal" href="../components/components.html#components.Production" title="components.Production"><em>Production</em></a>) – Object representing the second power production asset.</p></li>
+<li><p><strong>stor1</strong> (<a class="reference internal" href="../components/components.html#components.Storage" title="components.Storage"><em>Storage</em></a>) – Object describing storage 1.</p></li>
+<li><p><strong>stor2</strong> (<a class="reference internal" href="../components/components.html#components.Storage" title="components.Storage"><em>Storage</em></a>) – Object describing storage 2.</p></li>
+<li><p><strong>discount_rate</strong> (<em>float</em>) – Discount rate for the NPV calculation [-].</p></li>
+<li><p><strong>n_year</strong> (<em>int</em>) – Number of years for the NPV calculation [-].</p></li>
+<li><p><strong>p_min</strong> (<em>float</em><em> or </em><em>np.ndarray</em>) – Minimum power requirement [MW].</p></li>
+<li><p><strong>p_max</strong> (<em>float</em>) – Maximum power requirement [MW].</p></li>
+<li><p><strong>n</strong> (<em>int</em>) – Number of time steps to consider in the optimization.</p></li>
+<li><p><strong>name_solver</strong> (<em>str</em>) – Name of optimization solver to be used with pyomo.</p></li>
+<li><p><strong>fixed_cap</strong> (<em>bool</em>) – If True, the capacity of the storage is fixed.</p></li>
+<li><p><strong>dp_lim</strong> (<em>float</em>) – Limit for the ramp limitation [MW/h] (up and down)</p></li>
+<li><p><strong>alpha_obj</strong> (<em>float</em>) – factor in the objective function to adjust the relative weight of curtailement and storage power.</p></li>
+<li><p><strong>verbose</strong> (<em>bool</em>) – If true, prints the output of the optimization algorithm.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Object describing the optimal operational schedule and storage size.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="../components/components.html#components.OpSchedule" title="components.OpSchedule">OpSchedule</a></p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>AssertionError</strong> – if the time step of the power and price time series do not match, if the length of the power in the Production objects is below n.</p></li>
+<li><p><strong>RuntimeError</strong> – if the optimization algorithm fails to solve the problem.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="kernel_pyomo.run_storage_operation">
+<span class="sig-prename descclassname"><span class="pre">kernel_pyomo.</span></span><span class="sig-name descname"><span class="pre">run_storage_operation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">run_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">power</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">price</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p_min</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p_max</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">shipp.components.Storage</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">e_start</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nt</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dt</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">forecast</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_hist</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name_solver</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'mosek'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dp_lim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta_obj</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mu</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha_obj</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">DEFAULT_ALPHA_OBJ</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="headerlink" href="#kernel_pyomo.run_storage_operation" title="Link to this definition">¶</a></dt>
+<dd><p>Execute a storage operation simulation.</p>
+<p>This function simulates the dispatch operation of a storage system. It supports rule-based operation, and dispatch optimization based on point and ensemble forecast as well as unlimited information to determine the power and energy levels of the storage system over a given time horizon. The problem can be constrained by a baseload power production constraint or a down-ramp limitation constraint.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>run_type</strong> (<em>str</em>) – <p>The type of operation to run. Options are ‘unlimited’, ‘rule-based’, or ‘forecast’.</p>
+<ul>
+<li><p>’unlimited’: Solves a optimization problem with unlimited and perfect information to maximize revenues, over a defined time window.</p></li>
+<li><p>’rule-based’: Uses predefined rules for storage operation based on thresholds for power and price.</p></li>
+<li><p>’forecast’: Considers a rolling horizon with a new power forecast at each time step.</p></li>
+</ul>
+</p></li>
+<li><p><strong>power</strong> (<em>list</em>) – A list of power values (e.g., renewable generation) over the time horizon [MW]</p></li>
+<li><p><strong>price</strong> (<em>list</em>) – A list of price values over the time horizon. [currency/MW]</p></li>
+<li><p><strong>p_min</strong> (<em>float</em>) – Minimum power threshold for the storage operation. [MW]</p></li>
+<li><p><strong>p_max</strong> (<em>float</em>) – Maximum power threshold for the storage operation. [MW]</p></li>
+<li><p><strong>stor</strong> (<a class="reference internal" href="../components/components.html#components.Storage" title="components.Storage"><em>Storage</em></a>) – The storage object containing storage parameters (e.g., capacity, efficiency).</p></li>
+<li><p><strong>e_start</strong> (<em>float</em>) – Initial energy level in the storage [MWh].</p></li>
+<li><p><strong>n</strong> (<em>int</em>) – Number of time steps for the forecast.</p></li>
+<li><p><strong>nt</strong> (<em>int</em>) – Number of time steps in the simulation.</p></li>
+<li><p><strong>dt</strong> (<em>float</em>) – Time step duration in hours.</p></li>
+<li><p><strong>rel</strong> (<em>float</em><em>, </em><em>optional</em>) – Reliability threshold for the operation. Default is 1.0.</p></li>
+<li><p><strong>forecast</strong> (<em>list</em><em>, </em><em>optional</em>) – Forecasted power scenarios for the ‘forecast’ run type [MW]. Default is None.</p></li>
+<li><p><strong>n_hist</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of historical time steps to consider for reliability in the ‘forecast’ run type. Default is 0.</p></li>
+<li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, enables verbose output during the simulation. Default is False.</p></li>
+<li><p><strong>name_solver</strong> (<em>str</em><em>, </em><em>optional</em>) – Name of the solver to use for optimization. Default is ‘mosek’.</p></li>
+<li><p><strong>dp_lim</strong> (<em>float</em><em>, </em><em>optional</em>) – Limit for the ramp-limitation constraint (up and down) [MW/h]</p></li>
+<li><p><strong>beta_obj</strong> (<em>float</em><em>, </em><em>optional</em>) – penalty term in the objective function for the energy level at the last time step.</p></li>
+<li><p><strong>mu</strong> (<em>float</em><em>, </em><em>optional</em>) – penalty term in the objective function for the reliability penalties.</p></li>
+<li><p><strong>alpha_obj</strong> (<em>float</em><em>, </em><em>optional</em>) – factor in the objective function to adjust the relative weight of curtailement and storage power.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><p>A dictionary containing the results of the storage operation simulation:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>’power’ (list): Power output of the storage over the time horizon.</p></li>
+<li><p>’energy’ (list): Energy levels of the storage over the time horizon.</p></li>
+<li><p>’reliability’ (float): Reliability of the operation (fraction of time steps meeting the power threshold).</p></li>
+<li><p>’revenues’ (float): Total revenues from the storage operation.</p></li>
+<li><p>’p_cur’ (list): Curtailed power over the time horizon.</p></li>
+<li><p>’bin’ (list): Binary indicators for whether the power constraint (baseload and/or ramp-limitation) was met at each time step.</p></li>
+</ul>
+</div></blockquote>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>RuntimeError</strong> – If an invalid <cite>run_type</cite> is provided.</p></li>
+<li><p><strong>AssertionError</strong> – If <cite>forecast</cite> is None when <cite>run_type</cite> is ‘forecast’.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="kernel_pyomo.solve_dispatch_pyomo">
+<span class="sig-prename descclassname"><span class="pre">kernel_pyomo.</span></span><span class="sig-name descname"><span class="pre">solve_dispatch_pyomo</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">price</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">m</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">power_forecast</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p_min</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p_max</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">e_start1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">e_start2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dt</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stor1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">shipp.components.Storage</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stor2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">shipp.components.Storage</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cnt_hist</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_hist</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name_solver</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'mosek'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dp_lim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta_obj</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha_obj</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">DEFAULT_ALPHA_OBJ</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mu</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p_hist_res</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p_hist_stor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">pyomo.environ.SolverStatus</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#kernel_pyomo.solve_dispatch_pyomo" title="Link to this definition">¶</a></dt>
+<dd><p>Build and solve a MILP for the dispatch optimization of storage systems, with dispatch constraints.</p>
+<p>This function builds and solves the dispatch optimization problem for two storage systems operating with dispatch constraints (baseload or ramp limitation) as a mixed integer linear program.
+The objective is to maximize the income of the storage system (i.e. revenues on the spot market). Constraints are set to respect the dispatch constraints. In order to ensure feasibility of the problem, the reliability of the dispatch constraints is added as a design variable to relax the constraints. A term in the objective function is added to maximize reliability.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>price</strong> (<em>list</em>) – Price of electricity on the day-ahead market [currency/MWh].</p></li>
+<li><p><strong>m</strong> (<em>int</em>) – Number of forecast scenarios.</p></li>
+<li><p><strong>rel</strong> (<em>float</em>) – Percentage of baseload reliability required.</p></li>
+<li><p><strong>n</strong> (<em>int</em>) – Number of time steps to consider in the optimization (i.e. forecast lead-time)</p></li>
+<li><p><strong>power_forecast</strong> (<em>list</em>) – Forecasted power scenarios for the optimization.</p></li>
+<li><p><strong>p_min</strong> (<em>float</em>) – Minimum baseload power requirement [MW].</p></li>
+<li><p><strong>p_max</strong> (<em>float</em>) – Maximum power [MW].</p></li>
+<li><p><strong>e_start1</strong> (<em>float</em>) – Initial energy level in the first storage system [MWh].</p></li>
+<li><p><strong>e_start2</strong> (<em>float</em>) – Initial energy level in the second storage system [MWh].</p></li>
+<li><p><strong>dt</strong> (<em>float</em>) – Time step duration in hours.</p></li>
+<li><p><strong>stor1</strong> (<a class="reference internal" href="../components/components.html#components.Storage" title="components.Storage"><em>Storage</em></a>) – Object describing the first storage system (e.g., battery storage).</p></li>
+<li><p><strong>stor2</strong> (<a class="reference internal" href="../components/components.html#components.Storage" title="components.Storage"><em>Storage</em></a>) – Object describing the second storage system (e.g., hydrogen storage).</p></li>
+<li><p><strong>cnt_hist</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of time steps meeting the dispatch constraint within the time window for past operation. Default is 0.</p></li>
+<li><p><strong>n_hist</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of time steps for the time window for past operation. Default is 0.</p></li>
+<li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, enables verbose output during the optimization. Default is False.</p></li>
+<li><p><strong>name_solver</strong> (<em>str</em><em>, </em><em>optional</em>) – Name of the optimization solver to be used with Pyomo. Default is ‘mosek’.</p></li>
+<li><p><strong>dp_lim</strong> (<em>float</em>) – Limit for the ramp limitation [MW/h] (up and down)</p></li>
+<li><p><strong>beta_obj</strong> (<em>float</em>) – penalty term in the objective function for the energy level at the last time step.</p></li>
+<li><p><strong>alpha_obj</strong> (<em>float</em>) – factor in the objective function to adjust the relative weight of curtailement and storage power.</p></li>
+<li><p><strong>mu</strong> (<em>float</em>) – penalty term in the objective function for the reliability penalties.</p></li>
+<li><p><strong>tol</strong> (<em>float</em>) – tolerance for checking the input validity and storage losses.</p></li>
+<li><p><strong>p_hist_res</strong> (<em>float</em>) – value of the power produced at the previous time step.</p></li>
+<li><p><strong>p_hist_stor</strong> (<em>float</em>) – value of the storage power at the previous time step.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>A tuple containing the following elements:</dt><dd><ul class="simple">
+<li><p>p_vec1 (np.ndarray): Power output of the first storage system over the time horizon.</p></li>
+<li><p>e_vec1 (np.ndarray): Energy levels of the first storage system over the time horizon.</p></li>
+<li><p>p_vec2 (np.ndarray): Power output of the second storage system over the time horizon.</p></li>
+<li><p>e_vec2 (np.ndarray): Energy levels of the second storage system over the time horizon.</p></li>
+<li><p>p_cur (np.ndarray): Curtailed power over the time horizon.</p></li>
+<li><p>bin (np.ndarray): Binary indicators for whether the power threshold was met at each time step.</p></li>
+<li><p>results.solver.status: Solver status indicating the outcome of the optimization.</p></li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>RuntimeError</strong> – If the optimization algorithm fails to solve the problem.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+</section>
+
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"><div class="navigation-prev">
+    <a href="../kernel/kernel.html">
+      <i class="i-lucide chevron-left"></i>
+      <div class="page-info">
+        <span>Previous</span><div class="title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">kernel</span></code></div></div>
+    </a>
+  </div><div class="navigation-next">
+    <a href="../io_functions/io_functions.html">
+      <div class="page-info">
+        <span>Next</span>
+        <div class="title"><code class="xref py py-mod docutils literal notranslate"><span class="pre">io_functions</span></code></div>
+      </div>
+      <i class="i-lucide chevron-right"></i>
+    </a>
+  </div></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2026, Jenna Iori</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials"></div>
+    </div>
+  </div>
+</footer>
+      <script src="../../_static/documentation_options.js?v=2709fde1"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../_static/copybutton.js?v=f281be69"></script>
+      <script src="../../_static/shibuya.js?v=cac61aee"></script></body>
+</html>
