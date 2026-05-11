@@ -350,12 +350,12 @@ class OpSchedule:
                 wdw_in = np.where(pow.data < 0)
                 wdw_out = np.where(pow.data >=0)
 
-                diff_in = los[wdw_in] + (1-stor.eff_in)* pow.data[wdw_in]
+                diff_in = los[wdw_in] + (1-stor.eff_in)* pow.data[wdw_in]*pow.dt
                 diff_out = los[wdw_out] - (1-stor.eff_out)/stor.eff_out* \
-                                            pow.data[wdw_out]
+                                            pow.data[wdw_out]*pow.dt
 
-                error_in = sum( eps**2 for eps in diff_in)
-                error_out = sum( eps**2 for eps in diff_out)
+                error_in = max([0] + [ abs(eps) for eps in diff_in])
+                error_out = max([0] + [abs(eps) for eps in diff_out])
                 if verbose:
                     print('Error : {:.2e}\t{:.2e}'.format(error_in, error_out))
                 if error_in > tol or error_out > tol:

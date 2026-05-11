@@ -70,13 +70,13 @@ if pyo_solver == 'none':
     # Solve the integrated sizing + dispatch problem
     os =  solve_lp_sparse(price_dam, prod, prod_null, stor, stor_null, discount_rate, n_year, p_min, p_max, n)
     # Solve the dispatch problem with fixed storage capacity
-    os_fixed =  solve_lp_sparse(price_dam, prod, prod_null, stor, stor_null, discount_rate, n_year, p_min, p_max, n, fixed_cap = True)
+    os_fixed =  solve_lp_sparse(price_dam, prod, prod_null, stor, stor_null, discount_rate, n_year, p_min, p_max, n, options=dict(fixed_cap = True))
 
 else:
     # Solve the integrated sizing + dispatch problem
     os =  solve_lp_pyomo(price_dam, prod, prod_null, stor, stor_null, discount_rate, n_year, p_min, p_max, n, pyo_solver)
      # Solve the dispatch problem with fixed storage capacity
-    os_fixed =  solve_lp_pyomo(price_dam, prod, prod_null, stor, stor_null, discount_rate, n_year, p_min, p_max, n, pyo_solver, fixed_cap = True)
+    os_fixed =  solve_lp_pyomo(price_dam, prod, prod_null, stor, stor_null, discount_rate, n_year, p_min, p_max, n, pyo_solver, options=dict(fixed_cap = True))
 
 #calculate yearly revenues for renewable power only
 revenues_res_only = np.dot(data_price[:n], np.minimum(data_power[:n], p_max))*dt

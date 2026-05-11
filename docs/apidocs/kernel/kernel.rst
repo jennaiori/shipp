@@ -21,6 +21,10 @@ Functions
      - .. autodoc2-docstring:: kernel.build_lp_obj_npv
           :parser: docstrings_parser
           :summary:
+   * - :py:obj:`build_lp_obj_revenues <kernel.build_lp_obj_revenues>`
+     - .. autodoc2-docstring:: kernel.build_lp_obj_revenues
+          :parser: docstrings_parser
+          :summary:
    * - :py:obj:`build_lp_cst_sparse <kernel.build_lp_cst_sparse>`
      - .. autodoc2-docstring:: kernel.build_lp_cst_sparse
           :parser: docstrings_parser
@@ -45,6 +49,14 @@ Data
      - .. autodoc2-docstring:: kernel.TOL
           :parser: docstrings_parser
           :summary:
+   * - :py:obj:`DEFAULT_ALPHA_OBJ <kernel.DEFAULT_ALPHA_OBJ>`
+     - .. autodoc2-docstring:: kernel.DEFAULT_ALPHA_OBJ
+          :parser: docstrings_parser
+          :summary:
+   * - :py:obj:`BIG_M <kernel.BIG_M>`
+     - .. autodoc2-docstring:: kernel.BIG_M
+          :parser: docstrings_parser
+          :summary:
 
 API
 ~~~
@@ -56,19 +68,39 @@ API
    .. autodoc2-docstring:: kernel.TOL
       :parser: docstrings_parser
 
-.. py:function:: build_lp_obj_npv(price: numpy.ndarray, n: int, stor1_p_cost: float, stor1_e_cost: float, stor2_p_cost: float, stor2_e_cost: float, discount_rate: float, n_year: int) -> numpy.ndarray
+.. py:data:: DEFAULT_ALPHA_OBJ
+   :canonical: kernel.DEFAULT_ALPHA_OBJ
+   :value: None
+
+   .. autodoc2-docstring:: kernel.DEFAULT_ALPHA_OBJ
+      :parser: docstrings_parser
+
+.. py:data:: BIG_M
+   :canonical: kernel.BIG_M
+   :value: 100
+
+   .. autodoc2-docstring:: kernel.BIG_M
+      :parser: docstrings_parser
+
+.. py:function:: build_lp_obj_npv(price: numpy.ndarray, n: int, stor1_p_cost: float, stor1_e_cost: float, stor2_p_cost: float, stor2_e_cost: float, discount_rate: float, n_year: int, options: dict = None) -> numpy.ndarray
    :canonical: kernel.build_lp_obj_npv
 
    .. autodoc2-docstring:: kernel.build_lp_obj_npv
       :parser: docstrings_parser
 
-.. py:function:: build_lp_cst_sparse(power: numpy.ndarray, dt: float, p_min, p_max: float, n: int, stor1_eff: float, stor2_eff: float, stor1_p_cap_max: float = -1.0, stor2_p_cap_max: float = -1.0, stor1_e_cap_max: float = -1.0, stor2_e_cap_max: float = -1.0, fixed_cap=False) -> tuple[scipy.sparse.coo_matrix, numpy.ndarray, scipy.sparse.coo_matrix, numpy.ndarray, numpy.ndarray, numpy.ndarray]
+.. py:function:: build_lp_obj_revenues(price: numpy.ndarray, n: int, options: dict = None) -> numpy.ndarray
+   :canonical: kernel.build_lp_obj_revenues
+
+   .. autodoc2-docstring:: kernel.build_lp_obj_revenues
+      :parser: docstrings_parser
+
+.. py:function:: build_lp_cst_sparse(power: numpy.ndarray, dt: float, p_min, p_max: float, n: int, stor1: shipp.components.Storage, stor2: shipp.components.Storage, stor1_p_cap_max: float = -1.0, stor2_p_cap_max: float = -1.0, stor1_e_cap_max: float = -1.0, stor2_e_cap_max: float = -1.0, options: dict = None) -> tuple[scipy.sparse.coo_matrix, numpy.ndarray, scipy.sparse.coo_matrix, numpy.ndarray, numpy.ndarray, numpy.ndarray]
    :canonical: kernel.build_lp_cst_sparse
 
    .. autodoc2-docstring:: kernel.build_lp_cst_sparse
       :parser: docstrings_parser
 
-.. py:function:: solve_lp_sparse(price_ts: shipp.timeseries.TimeSeries, prod1: shipp.components.Production, prod2: shipp.components.Production, stor1: shipp.components.Storage, stor2: shipp.components.Storage, discount_rate: float, n_year: int, p_min, p_max: float, n: int, fixed_cap: bool = False) -> shipp.components.OpSchedule
+.. py:function:: solve_lp_sparse(price_ts: shipp.timeseries.TimeSeries, prod1: shipp.components.Production, prod2: shipp.components.Production, stor1: shipp.components.Storage, stor2: shipp.components.Storage, discount_rate: float, n_year: int, p_min, p_max: float, n: int, options: dict = None) -> shipp.components.OpSchedule
    :canonical: kernel.solve_lp_sparse
 
    .. autodoc2-docstring:: kernel.solve_lp_sparse

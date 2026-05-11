@@ -19,20 +19,26 @@ from shipp.components import Storage, OpSchedule, Production
 from shipp.timeseries import TimeSeries
 
 TOL = 1e-4 # tolerance for checking the losses of the storage system
+DEFAULT_ALPHA_OBJ = (1-1e-6)
+BIG_M = 100
 
-def build_lp_obj_npv(price: np.ndarray, n: int, stor1_p_cost: float, stor1_e_cost: float, stor2_p_cost: float, stor2_e_cost: float,
-                     discount_rate: float, n_year: int) -> np.ndarray:
+def build_lp_obj_npv(price: np.ndarray, n: int, stor1_p_cost: float, stor1_e_cost: float, stor2_p_cost: float, stor2_e_cost: float, discount_rate: float, n_year: int, options: dict = None) -> np.ndarray:
     """Build the objective function vector for NPV maximization for the LP formulation.
 
-    This function returns an objective vector corresponding the
+    This function returns an objective vector corresponding to the
     maximization of Net Present Value (NPV):
 
-        f(x) = - factor*price*power + stor1_e_cost*stor1_e_cap + stor1_p_cost*stor1_p_cap + stor2_e_cost*stor2_e_cap + stor2_p_cost*stor2_p_cap
+        f(x) = - factor*price*(power - alpha*curtailed_power) + stor1_e_cost*stor1_e_cap + stor1_p_cost*stor1_p_cap + stor2_e_cost*stor2_e_cap + stor2_p_cost*stor2_p_cap
 
     where factor = sum_n=1^(n_year) (1+discount_rate)**(-n).
     The objective function vector corresponds to the following design variables:
-        - Power from storage 1, shape-(n,)
-        - Power from storage 2, shape-(n,)
+
+    *Formulation lp:*
+        - Power from storage 1 in charge, shape-(n,)
+        - Power from storage 1 in discharge, shape-(n,)
+        - Power from storage 2 in charge, shape-(n,)
+        - Power from storage 2 in discharge, shape-(n,)
+        - Curtailed power, shape-(n,)
         - State of charge (energy) of storage 1, shape-(n+1,)
         - State of charge (energy) of storage 2, shape-(n+1,)
         - Power capacity of storage 1, shape-(1,)
@@ -40,7 +46,28 @@ def build_lp_obj_npv(price: np.ndarray, n: int, stor1_p_cost: float, stor1_e_cos
         - Power capacity of storage 2, shape-(1,)
         - Energy capacity of storage 2, shape-(1,)
 
-    The number of design variables is n_x = 4*n+6
+    The number of design variables is n_x = 7*n+6
+
+    *Formulation milp:*
+
+    Same as the lp formulation with the addition of:
+        - Integer variables for storage 1, shape-(n,)
+        - Integer variables for storage 2, shape-(n,)
+    
+    The number of design variables is n_x = 9*n+6
+        
+    *Formulation lp_alt:*
+        - Power from storage 1, shape-(n,)
+        - Power from storage 2, shape-(n,)
+        - Curtailed power, shape-(n,)
+        - State of charge (energy) of storage 1, shape-(n+1,)
+        - State of charge (energy) of storage 2, shape-(n+1,)
+        - Power capacity of storage 1, shape-(1,)
+        - Energy capacity of storage 1, shape-(1,)
+        - Power capacity of storage 2, shape-(1,)
+        - Energy capacity of storage 2, shape-(1,)
+        
+    The number of design variables is n_x = 5*n+6
 
     Args:
         price (np.array): An array of electricity price to calculate the revenue [currency/MWh]
@@ -51,6 +78,12 @@ def build_lp_obj_npv(price: np.ndarray, n: int, stor1_p_cost: float, stor1_e_cos
         stor2_e_cost (float): cost of storage 2 per energy capacity [currency/MWh]
         discount_rate (float): discount rate to calculate the NPV [-]
         n_year (int): number of years of operation of the project [-]
+        options (dict): list of options for the problem formulation
+
+            - formulation (str): Problem formulation for the storage model. Allowed values are 'lp', 'lp_alt', 'milp'. Default is lp_alt.
+            - alpha_obj (float): penalty factor for the curtailed power in the objective function proportional to the price. Default is (1+1e-6)
+            - beta_obj (float): penalty factor for the curtailed power in the objective function. Default is 0
+            - epsilon (float): penalty factor to avoid simultaneous charge and discharge for the lp formulation. Default is 1e-3.
 
     Returns:
         np.ndarray: A shape-(n_x,) array representing the objective function of the linear program [-]
@@ -68,24 +101,201 @@ def build_lp_obj_npv(price: np.ndarray, n: int, stor1_p_cost: float, stor1_e_cos
     assert np.isfinite(stor2_e_cost)
     assert n_year > 0
     assert 0 <= discount_rate <= 1
+    
+    # Default values for the options
+    formulation = 'lp_alt'
+    alpha_obj = DEFAULT_ALPHA_OBJ
+    beta_obj = 0
+    epsilon = 1e-3
 
+    if options is not None:
+        if 'formulation' in options.keys():
+            formulation = options['formulation']
+            assert (formulation == 'lp_alt') or (formulation == 'lp') or (formulation == 'milp')
+        if 'epsilon' in options.keys():
+            epsilon = options['epsilon']
+            assert isinstance(epsilon, float)
+        if 'alpha_obj' in options.keys():
+            alpha_obj = options['alpha_obj']
+            assert isinstance(alpha_obj, float)
+        if 'beta_obj' in options.keys():
+            beta_obj = options['beta_obj']
+            assert isinstance(beta_obj, float)
+    
 
     factor = npf.npv(discount_rate, np.ones(n_year))-1
 
     normed_price = 365 * 24 / n * np.reshape(price[:n], (n,1))*factor
 
-    vec_obj = np.vstack((-normed_price,             # Batt power
-                        -normed_price,             # Power from fuel cell / to electrolyzer
-                        np.zeros((n+1, 1)),
-                        np.zeros((n+1, 1)),
-                        stor1_p_cost*np.ones((1,1)),           # minimize max batt power
-                        stor1_e_cost*np.ones((1,1)),           # minimize max state of charge
-                        stor2_p_cost*np.ones((1,1)),             # minimize max stor2_e power rate
-                        stor2_e_cost*np.ones((1,1)))).squeeze()  # minimize max stor2_e energy capacity
+
+    if formulation ==  'lp_alt':
+        vec_obj = np.vstack((-normed_price ,             # Storage 1 power
+                            -normed_price,             # Storage 2 power
+                            alpha_obj*normed_price + beta_obj*np.ones((n,1)),             # Curtailed power
+                            np.zeros((n+1, 1)),
+                            np.zeros((n+1, 1)),
+                            stor1_p_cost*np.ones((1,1)),           # minimize max batt power
+                            stor1_e_cost*np.ones((1,1)),           # minimize max state of charge
+                            stor2_p_cost*np.ones((1,1)),             # minimize max stor2_e power rate
+                            stor2_e_cost*np.ones((1,1)))).squeeze()  # minimize max stor2_e energy capacity
+    elif formulation ==  'lp':
+        vec_obj = np.vstack((normed_price + epsilon*np.ones((n,1)),             # Storage 1 power charge
+                            -normed_price + epsilon*np.ones((n,1)),             # Storage 1 power discharge
+                            normed_price + epsilon*np.ones((n,1)),             # Storage 2 power charge
+                            -normed_price + epsilon*np.ones((n,1)),             # Storage 2 power discharge
+                            alpha_obj*normed_price + beta_obj*np.ones((n,1)),             # Curtailed power
+                            np.zeros((n+1, 1)),
+                            np.zeros((n+1, 1)),
+                            stor1_p_cost*np.ones((1,1)),           # minimize max batt power
+                            stor1_e_cost*np.ones((1,1)),           # minimize max state of charge
+                            stor2_p_cost*np.ones((1,1)),             # minimize max stor2_e power rate
+                            stor2_e_cost*np.ones((1,1)))).squeeze()  # minimize max stor2_e energy capacity
+    elif formulation ==  'milp':
+        vec_obj = np.vstack((normed_price + epsilon*np.ones((n,1)),             # Storage 1 power charge
+                            -normed_price + epsilon*np.ones((n,1)),             # Storage 1 power discharge
+                            normed_price + epsilon*np.ones((n,1)),             # Storage 2 power charge
+                            -normed_price + epsilon*np.ones((n,1)),             # Storage 2 power discharge
+                            alpha_obj*normed_price + beta_obj*np.ones((n,1)),             # Curtailed power
+                            np.zeros((n+1, 1)),
+                            np.zeros((n+1, 1)),
+                            stor1_p_cost*np.ones((1,1)),           # minimize max batt power
+                            stor1_e_cost*np.ones((1,1)),           # minimize max state of charge
+                            stor2_p_cost*np.ones((1,1)),             # minimize max stor2_e power rate
+                            stor2_e_cost*np.ones((1,1)),           # minimize max stor2_e energy capacity
+                            np.zeros((n,1)),                          # integer variables storage 1
+                            np.zeros((n,1)))).squeeze()              # integer variables storage 2
+    
 
     return vec_obj
 
-def build_lp_cst_sparse(power: np.ndarray, dt: float, p_min, p_max: float, n: int, stor1_eff: float, stor2_eff: float, stor1_p_cap_max: float = -1.0, stor2_p_cap_max: float = -1.0, stor1_e_cap_max: float = -1.0, stor2_e_cap_max: float = -1.0, fixed_cap = False ) -> tuple[sps.coo_matrix, np.ndarray, sps.coo_matrix, np.ndarray, np.ndarray, np.ndarray]:
+def build_lp_obj_revenues(price: np.ndarray, n: int, options: dict = None) -> np.ndarray:
+    """Build the objective function vector for revenues maximization for the LP formulation.
+
+    This function returns an objective vector corresponding to revenue maximization
+
+        f(x) = -price*(power - alpha*curtailed_power)
+
+    The objective function vector corresponds to the following design variables:
+    
+    *Formulation lp:*
+        - Power from storage 1 in charge, shape-(n,)
+        - Power from storage 1 in discharge, shape-(n,)
+        - Power from storage 2 in charge, shape-(n,)
+        - Power from storage 2 in discharge, shape-(n,)
+        - Curtailed power, shape-(n,)
+        - State of charge (energy) of storage 1, shape-(n+1,)
+        - State of charge (energy) of storage 2, shape-(n+1,)
+        - Power capacity of storage 1, shape-(1,)
+        - Energy capacity of storage 1, shape-(1,)
+        - Power capacity of storage 2, shape-(1,)
+        - Energy capacity of storage 2, shape-(1,)
+
+    The number of design variables is n_x = 7*n+6
+
+    *Formulation milp:*
+
+    Same as the lp formulation with the addition of:
+        - Integer variables for storage 1, shape-(n,)
+        - Integer variables for storage 2, shape-(n,)
+    
+    The number of design variables is n_x = 9*n+6
+
+    *Formulation lp_alt:*
+        - Power from storage 1, shape-(n,)
+        - Power from storage 2, shape-(n,)
+        - Curtailed power, shape-(n,)
+        - State of charge (energy) of storage 1, shape-(n+1,)
+        - State of charge (energy) of storage 2, shape-(n+1,)
+        - Power capacity of storage 1, shape-(1,)
+        - Energy capacity of storage 1, shape-(1,)
+        - Power capacity of storage 2, shape-(1,)
+        - Energy capacity of storage 2, shape-(1,)
+        
+    The number of design variables is n_x = 5*n+6
+
+    Args:
+        price (np.array): An array of electricity price to calculate the revenue [currency/MWh]
+        n (int): the number of time steps [-]
+        options (dict): list of options for the problem formulation
+
+            - formulation (str): Problem formulation for the storage model. Allowed values are 'lp', 'lp_alt', 'milp'. Default is lp_alt.
+            - alpha_obj (float): penalty factor for the curtailed power in the objective function proportional to the price. Default is (1+1e-6)
+            - beta_obj (float): penalty factor for the curtailed power in the objective function. Default is 0
+            - epsilon (float): penalty factor to avoid simultaneous charge and discharge for the lp formulation. Default is 1e-3.
+
+    Returns:
+        np.ndarray: A shape-(n_x,) array representing the objective function of the linear program [-]
+
+    Raises:
+        AssertionError: if the length of the price is below n, if any input is not finite
+    """
+
+    assert len(price) >= n
+    assert np.all(np.isfinite(price))
+    assert n != 0
+
+    # Default values for the options
+    formulation = 'lp_alt'
+    alpha_obj = DEFAULT_ALPHA_OBJ
+    beta_obj = 0
+    epsilon = 1e-3
+
+    if options is not None:
+        if 'formulation' in options.keys():
+            formulation = options['formulation']
+            assert (formulation == 'lp_alt') or (formulation == 'lp') or (formulation == 'milp')
+        if 'epsilon' in options.keys():
+            epsilon = options['epsilon']
+            assert isinstance(epsilon, float)
+        if 'alpha_obj' in options.keys():
+            alpha_obj = options['alpha_obj']
+            assert isinstance(alpha_obj, float)
+        if 'beta_obj' in options.keys():
+            beta_obj = options['beta_obj']
+            assert isinstance(beta_obj, float)
+
+    if formulation ==  'lp_alt':
+        vec_obj = np.vstack((-np.reshape(price[:n], (n,1)),             # Power from Storage 1
+                            -np.reshape(price[:n], (n,1)),             # Power from Storage 2
+                            np.reshape(price[:n], (n,1))*alpha_obj + np.ones((n,1))*beta_obj,   # Curtailed power
+                            np.zeros((n+1, 1)),
+                            np.zeros((n+1, 1)),
+                            np.zeros((1,1)),           
+                            np.zeros((1,1)),           
+                            np.zeros((1,1)),             
+                            np.zeros((1,1)))).squeeze()  
+    
+    elif formulation ==  'lp':
+        vec_obj = np.vstack((np.reshape(price[:n], (n,1)) + epsilon*np.ones((n,1)),             # Power from Storage 1 charge
+                            -np.reshape(price[:n], (n,1)) + epsilon*np.ones((n,1)),             # Power from Storage 1 discharge
+                            np.reshape(price[:n], (n,1)) + epsilon*np.ones((n,1)),             # Power from Storage 2 charge
+                            -np.reshape(price[:n], (n,1)) + epsilon*np.ones((n,1)),             # Power from Storage 2 discharge
+                            np.reshape(price[:n], (n,1))*alpha_obj + np.ones((n,1))*beta_obj,   # Curtailed power
+                            np.zeros((n+1, 1)),
+                            np.zeros((n+1, 1)),
+                            np.zeros((1,1)),           
+                            np.zeros((1,1)),           
+                            np.zeros((1,1)),             
+                            np.zeros((1,1)))).squeeze()  
+        
+    elif formulation == 'milp':
+        vec_obj = np.vstack((np.reshape(price[:n], (n,1)) + epsilon*np.ones((n,1)),             # Power from Storage 1 charge
+                            -np.reshape(price[:n], (n,1)) + epsilon*np.ones((n,1)),             # Power from Storage 1 discharge
+                            np.reshape(price[:n], (n,1)) + epsilon*np.ones((n,1)),             # Power from Storage 2 charge
+                            -np.reshape(price[:n], (n,1)) + epsilon*np.ones((n,1)),             # Power from Storage 2 discharge
+                            np.reshape(price[:n], (n,1))*alpha_obj + np.ones((n,1))*beta_obj,   # Curtailed power
+                            np.zeros((n+1, 1)),
+                            np.zeros((n+1, 1)),
+                            np.zeros((1,1)),           
+                            np.zeros((1,1)),           
+                            np.zeros((1,1)),             
+                            np.zeros((1,1)),
+                            np.zeros((n,1)),                        # integer variables storage 1
+                            np.zeros((n,1)))).squeeze()              # integer variables storage 2
+
+    return vec_obj
+
+def build_lp_cst_sparse(power: np.ndarray, dt: float, p_min, p_max: float, n: int, stor1: Storage, stor2: Storage, stor1_p_cap_max: float = -1.0, stor2_p_cap_max: float = -1.0, stor1_e_cap_max: float = -1.0, stor2_e_cap_max: float = -1.0, options: dict = None ) -> tuple[sps.coo_matrix, np.ndarray, sps.coo_matrix, np.ndarray, np.ndarray, np.ndarray]:
     """Build the sparse constraints for the LP formulation of the dispatch optimization problem.
 
     Function to build the matrices and vectors for the constraints of the dispatch optimization problem, considering two different storage systems, and as a linear program. A sparse format is used to represent the matrices.
@@ -98,35 +308,46 @@ def build_lp_cst_sparse(power: np.ndarray, dt: float, p_min, p_max: float, n: in
   
     With n the number of time steps, the problem is made of:
 
-        - n_x = 4*n+6 design variables
-        - n_eq = 2 equality constraints
-        - n_ineq = 12*n+2 inequality constraints
+        - n_x = 5*n+6 design variables (lp_alt formulation) or 7*n+6 (lp formulation) or 10*n+6 (milp formulation) 
+        - n_eq = 2 equality constraints  (lp_alt formulation) or 2+2*n (lp and milp formulation)
+        - n_ineq = 14*n+4 inequality constraints  (lp_alt formulation) or 4+10*n (lp formulation) or 4+16*n (milp formulation)
 
     The design variables for the linear problem are:
 
-        - Power from storage 1, shape-(n,)
-        - Power from storage 2, shape-(n,)
+        - Power from storage 1, shape-(n,) (lp_alt formulation) or Power from storage 1 in charge, shape-(n,) and discharge, shape-(n,) (lp_formulation) 
+        - Power from storage 2, shape-(n,) (lp_alt formulation) or Power from storage 2 in charge, shape-(n,) and discharge, shape-(n,) (lp_formulation) 
+        - Curtailed power, shape-(n,)
         - State of charge (energy) of storage 1, shape-(n+1,)
         - State of charge (energy) of storage 2, shape-(n+1,)
         - Power capacity of storage 1, shape-(1,)
         - Energy capacity of storage 1, shape-(1,)
         - Power capacity of storage 2, shape-(1,)
         - Energy capacity of storage 2, shape-(1,)
+        - Integer variables for storage 1, shape-(n,1) (milp formulation)
+        - Integer variables for storage 2, shape-(n,1) (milp formulation)
 
     The equality constraints for the problem are:
 
         - Constraint to enforce the value of the first stored energy of storage 1 is equal to the last (size 1)
         - Constraint to enforce the value of the first stored energy of storage 2 is equal to the last (size 1)
+        - (lp formulation only) Constraint to enforce the storage model for Storage 1 (size n)
+        - (lp formulation only) Constraint to enforce the storage model for Storage 2 (size n)
 
     The inequality constraints for the problem are:
 
         - Constraints on the minimum and maximum combined power from production and storage assets (size 2*n)
-        - Constraints on the stored energy of storage 1 (size 2*n) 
-        - Constraints on the stored energy of storage 2 (size 2*n)
-        - Constraints on the maximmum and minimum power to and from storage 1 (size 2*n)
-        - Constraints on the maximmum and minimum power to and from storage 2 (size 2*n)
-        - Constraints on the maximum stored energy in storage 1 (size n+1)
-        - Constraints on the maximum stored energy in storage 2 (size n+1)
+        - (lp_alt formulation only) Constraints on the stored energy of storage 1 (size 2*n) 
+        - (lp_alt formulation only) Constraints on the stored energy of storage 2 (size 2*n)
+        - (lp_alt formulation only) Constraints on the maximmum and minimum power to and from storage 1 (size 2*n)
+        - (lp_alt formulation only) Constraints on the maximmum and minimum power to and from storage 2 (size 2*n)
+        - (lp formulation only) Constraints on the maximmum charge and discharge power for storage 1 (size 2*n)
+        - (lp formulation only) Constraints on the maximmum charge and discharge power for storage 2 (size 2*n)
+        - Constraints on the minimum and maximum stored energy in storage 1 (size 2*(n+1))
+        - Constraints on the minimum and maximum stored energy in storage 2 (size 2*(n+1))
+        - (milp formulation only) Constraint to enforce distinct charge and discharge in storage 1 (size 2*n)
+        - (milp formulation only) Constraint to enforce distinct charge and discharge in storage 2 (size 2*n)
+        - (milp formulation only) Constraint to enforce distinct curtailment and discharge in storage 1 (size n)
+        - (milp formulation only) Constraint to enforce distinct curtailment and discharge in storage 1 (size n)
 
     Args:
         power (np.ndarray): A shape-(n,) array for the power production from renewables [MW].
@@ -134,13 +355,17 @@ def build_lp_cst_sparse(power: np.ndarray, dt: float, p_min, p_max: float, n: in
         p_min (float or np.ndarray): A float or shape-(n,) array for the minimum required power production [MW].
         p_max (float): maximum power production [MW]
         n (int): number of time steps [-].
-        stor1_eff (float): represents the round trip efficiency of storage 1 [-]. The losses are applied in discharge.
-        stor2_eff (float): represents the round trip efficiency of storage 2 [-]. The losses are applied in discharge..
+        stor1 (Storage): object representing Storage 1 [-]. 
+        stor2 (Storage): object representing Storage 2 [-].
         stor1_p_cap_max (float): maximum power capacity for storage 1 [MW]. Default to -1.0 when there is no limit in power rate.
         stor2_p_cap_max (float): maximum power capacity for storage 2 [MW]. Default to -1.0 when there is no limit in power rate.
         stor1_e_cap_max (float): maximum energy capacity for storage 1 [MWh]. Default to -1.0 when there is no limit.
         stor2_e_cap_max (float): maximum energy capacity for storage 2 [MWh]. Default to -1.0 when there is no limit.
+        options (dict): list of options for the problem formulation
 
+            - fixed_cap (bool): True if the storage capacity is fixed during the optimization. Default is False.
+            - formulation (str): Problem formulation for the storage model. Allowed values are 'lp', 'lp_alt', 'milp'. Default is lp_alt.
+    
     Returns:
         tuple[sps.coo_matrix, np.ndarray, sps.coo_matrix, np.ndarray, np.ndarray, np.ndarray] : [mat_eq, vec_ec, mat_ineq, vec_ineq, bounds_lower, bounds_upper] matrices and vectors representing the inequality, equality and bound constraints of the problem.
 
@@ -154,8 +379,19 @@ def build_lp_cst_sparse(power: np.ndarray, dt: float, p_min, p_max: float, n: in
     assert np.all(np.isfinite(p_min))
     assert np.isfinite(p_max)
     assert np.isfinite(dt)
-    assert np.isfinite(stor1_eff)
-    assert np.isfinite(stor2_eff)
+
+    # Default values for the options
+    formulation = 'lp_alt'
+    fixed_cap = False
+
+    if options is not None:
+        if 'formulation' in options.keys():
+            formulation = options['formulation']
+            assert (formulation == 'lp_alt') or (formulation == 'lp') or (formulation == 'milp')
+        if 'fixed_cap' in options.keys():
+            fixed_cap = options['fixed_cap']
+            assert isinstance(fixed_cap, bool)
+
 
     if stor1_p_cap_max == -1 or stor1_p_cap_max is None:
         stor1_p_cap_max = p_max
@@ -202,131 +438,319 @@ def build_lp_cst_sparse(power: np.ndarray, dt: float, p_min, p_max: float, n: in
     mat_diag_soc = eye_n - sps.diags(np.ones(n-1),1)
 
     # upper bound on power
-    power_ub =(np.array([ max(0, p_max - p) for p in  power[:n]])).reshape(n,1)
-
+    # power_ub =(np.array([ max(0, p_max - p) for p in  power[:n]])).reshape(n,1)
 
 
     # EQUALITY CONSTRAINTS
     # Constraint on first stored energy of storage 1
-    mat_stor1_first_e = sps.hstack((z_1n, z_1n,
-                            one_11, np.zeros((1, n-1)), -one_11,
-                            z_1_np1,
-                            z_11, z_11, z_11, z_11))
+    if formulation == 'lp_alt':
+        mat_stor1_first_e = sps.hstack((z_1n, z_1n, z_1n,
+                                one_11, np.zeros((1, n-1)), -one_11,
+                                z_1_np1,
+                                z_11, z_11, z_11, z_11))
+    elif formulation == 'lp' or formulation == 'milp':
+        mat_stor1_first_e = sps.hstack((z_1n, z_1n, z_1n, z_1n, z_1n,
+                                one_11, np.zeros((1, n-1)), -one_11,
+                                z_1_np1,
+                                z_11, z_11, z_11, z_11))
+    
     vec_stor1_first_e = z_11
 
     # Constraint on first stored energy of storage 2
-    mat_stor2_first_e = sps.hstack((z_1n, z_1n,
-                            z_1_np1,
-                            one_11, np.zeros((1, n-1)), -one_11,
-                            z_11, z_11, z_11, z_11))
+    if formulation == 'lp_alt':
+        mat_stor2_first_e = sps.hstack((z_1n, z_1n, z_1n,
+                                z_1_np1,
+                                one_11, np.zeros((1, n-1)), -one_11,
+                                z_11, z_11, z_11, z_11))
+    elif formulation == 'lp' or formulation == 'milp':
+        mat_stor2_first_e = sps.hstack((z_1n, z_1n, z_1n, z_1n, z_1n,
+                                z_1_np1,
+                                one_11, np.zeros((1, n-1)), -one_11,
+                                z_11, z_11, z_11, z_11))
     vec_stor2_first_e = z_11
 
     # INEQ CONSTRAINT
-    # Constraint on power production + storage 1 power + storage 2 power >= p_min
-    mat_power_bound = sps.hstack((eye_n, eye_n,
+    # Constraint on power production + storage 1 power + storage 2 power - curtailed_power >= p_min
+    if formulation == 'lp_alt':
+        mat_power_bound = sps.hstack((eye_n, eye_n, -eye_n,
+                                    z_n_np1, z_n_np1,
+                                    z_n1, z_n1, z_n1, z_n1))
+    elif formulation == 'lp' or formulation == 'milp':
+        mat_power_bound = sps.hstack((-eye_n, eye_n, -eye_n, eye_n, -eye_n,
                                     z_n_np1, z_n_np1,
                                     z_n1, z_n1, z_n1, z_n1))
     vec_power_min = p_min_vec - power[:n].reshape(n,1)
-    vec_power_max = power_ub
+    vec_power_max = p_max - power[:n].reshape(n,1)
 
-    # Constraint on the maximum stored energy of storage 1
-    mat_stor1_max_energy = sps.hstack((z_np1_n, z_np1_n, eye_np1, z_np1,
+    # Constraint on the minimum and maximum stored energy of storage 1
+    if formulation == 'lp_alt':
+        mat_stor1_min_energy = sps.hstack((z_np1_n, z_np1_n, z_np1_n, -eye_np1, z_np1,
+                                z_np1_1, (1-stor1.dod)*one_np1_1, z_np1_1, z_np1_1))
+        mat_stor1_max_energy = sps.hstack((z_np1_n, z_np1_n, z_np1_n, eye_np1, z_np1,
                                 z_np1_1, -1*one_np1_1, z_np1_1, z_np1_1))
+    elif formulation == 'lp' or formulation == 'milp':
+        mat_stor1_min_energy = sps.hstack((z_np1_n, z_np1_n, z_np1_n, z_np1_n, z_np1_n, -eye_np1, z_np1,
+                                z_np1_1, (1-stor1.dod)*one_np1_1, z_np1_1, z_np1_1))
+        mat_stor1_max_energy = sps.hstack((z_np1_n, z_np1_n, z_np1_n, z_np1_n, z_np1_n, eye_np1, z_np1,
+                                z_np1_1, -1*one_np1_1, z_np1_1, z_np1_1))
+    vec_stor1_min_energy = z_np1_1
     vec_stor1_max_energy = z_np1_1
 
     # Constraints on the minimum and maximum power of storage 1
-    mat_stor1_max_power = sps.hstack((eye_n, z_n, z_n_np1, z_n_np1,
+    if formulation == 'lp_alt':
+        mat_stor1_max_power = sps.hstack((eye_n, z_n, z_n, z_n_np1, z_n_np1,
                                     -1*one_n1, z_n1, z_n1, z_n1))
-    vec_stor1_max_power = z_n1
+        mat_stor1_min_power = sps.hstack(( -eye_n, z_n, z_n, z_n_np1, z_n_np1,
+                                    -1*one_n1, z_n1, z_n1, z_n1))
+        vec_stor1_max_power = z_n1
+        vec_stor1_min_power = z_n1
 
-    mat_stor1_min_power = sps.hstack(( -eye_n, z_n, z_n_np1, z_n_np1,
+    elif formulation == 'lp' or formulation == 'milp':
+        mat_stor1_max_power_c = sps.hstack((eye_n, z_n, z_n, z_n, z_n, z_n_np1, z_n_np1,
                                     -1*one_n1, z_n1, z_n1, z_n1))
-    vec_stor1_min_power = z_n1
+        mat_stor1_max_power_d = sps.hstack(( z_n, eye_n, z_n, z_n, z_n, z_n_np1, z_n_np1,
+                                    -1*one_n1, z_n1, z_n1, z_n1))        
+        mat_stor1_max_power = sps.vstack((mat_stor1_max_power_c,  mat_stor1_max_power_d))
+        vec_stor1_max_power = sps.vstack((z_n1, z_n1))        
 
     # Constraint on the maximum stored energy of storage 2
-    mat_stor2_max_energy = sps.hstack((z_np1_n, z_np1_n, z_np1,  eye_np1,
-                             z_np1_1, z_np1_1, z_np1_1, -1*one_np1_1,))
+    if formulation == 'lp_alt':
+        mat_stor2_min_energy = sps.hstack((z_np1_n, z_np1_n, z_np1_n, z_np1,  -eye_np1,
+                                z_np1_1, z_np1_1, z_np1_1, (1-stor2.dod)*one_np1_1))
+        mat_stor2_max_energy = sps.hstack((z_np1_n, z_np1_n, z_np1_n, z_np1,  eye_np1,
+                                z_np1_1, z_np1_1, z_np1_1, -1*one_np1_1,))
+    elif formulation == 'lp' or formulation == 'milp':
+        mat_stor2_min_energy = sps.hstack((z_np1_n, z_np1_n, z_np1_n, z_np1_n, z_np1_n,  z_np1,  -eye_np1,
+                                z_np1_1, z_np1_1, z_np1_1, (1-stor2.dod)*one_np1_1))
+        mat_stor2_max_energy = sps.hstack((z_np1_n, z_np1_n, z_np1_n, z_np1_n, z_np1_n, z_np1,  eye_np1,
+                                z_np1_1, z_np1_1, z_np1_1, -1*one_np1_1))
+    vec_stor2_min_energy = z_np1_1
     vec_stor2_max_energy = z_np1_1
 
     # Constraint on minimum and maximum power of storage 2
-    mat_stor2_max_power = sps.hstack((z_n, eye_n, z_n_np1, z_n_np1,
-                                   z_n1, z_n1, -one_n1, z_n1))
-    vec_stor2_max_power = z_n1
+    if formulation == 'lp_alt':
+        mat_stor2_max_power = sps.hstack((z_n, eye_n, z_n, z_n_np1, z_n_np1,
+                                    z_n1, z_n1, -one_n1, z_n1))
 
-    mat_stor2_min_power = sps.hstack((z_n, -eye_n, z_n_np1, z_n_np1,
-                                   z_n1, z_n1, -one_n1, z_n1))
-    vec_stor2_min_power = z_n1
+        mat_stor2_min_power = sps.hstack((z_n, -eye_n, z_n, z_n_np1, z_n_np1,
+                                    z_n1, z_n1, -one_n1, z_n1))
+        vec_stor2_max_power = z_n1
+        vec_stor2_min_power = z_n1
+    elif formulation == 'lp' or formulation == 'milp':
+        mat_stor2_max_power_c = sps.hstack(( z_n, z_n, eye_n, z_n, z_n, z_n_np1, z_n_np1,
+                                     z_n1, z_n1, -1*one_n1, z_n1))
+        mat_stor2_max_power_d = sps.hstack(( z_n, z_n,  z_n, eye_n, z_n, z_n_np1, z_n_np1,
+                                    z_n1, z_n1, -1*one_n1, z_n1))
+        
+        mat_stor2_max_power = sps.vstack((mat_stor2_max_power_c,  mat_stor2_max_power_d))
+        vec_stor2_max_power = sps.vstack((z_n1, z_n1))
 
     # Constraint representing the storage model, linking stored energy to power and including storage losses
-    # e_(n+1) - e_(n) <= - dt * p_(n)
-    mat_stor1_model_in = sps.hstack((dt * eye_n, z_n,
+    if formulation == 'lp_alt':
+        # e_(n+1) - e_(n) <= - dt * eff_in * p_(n)  (in)
+        # e_(n+1) - e_(n) <= - dt/eff_out * p_(n) (out)
+        mat_stor1_model_in = sps.hstack((dt * eye_n*stor1.eff_in, z_n, z_n,
                             -mat_diag_soc, -mat_last_soc, z_n_np1,
                             z_n1, z_n1, z_n1, z_n1))
-    vec_stor1_model_in = z_n1
-
-    # e_(n+1) - e_(n) <= - dt/eta * p_(n)
-    mat_stor1_model_out = sps.hstack((dt/stor1_eff * eye_n, z_n,
+        mat_stor1_model_out = sps.hstack((dt/stor1.eff_out * eye_n, z_n, z_n,
+                                -mat_diag_soc, -mat_last_soc, z_n_np1,
+                                z_n1, z_n1, z_n1, z_n1))
+        vec_stor1_model_in = z_n1
+        vec_stor1_model_out = z_n1
+    elif formulation == 'lp' or formulation == 'milp':
+        # e_(n+1) - e_(n) = dt * eff_in * p^charge_(n) - dt/eff_out * p^discharge_(n) 
+        mat_stor1_model = sps.hstack((-dt * eye_n * stor1.eff_in, dt/stor1.eff_out * eye_n, z_n, z_n, z_n,
                             -mat_diag_soc, -mat_last_soc, z_n_np1,
                             z_n1, z_n1, z_n1, z_n1))
-    vec_stor1_model_out = z_n1
+        vec_stor1_model = z_n1
 
-    # Constraint on hydrogen levels:
-    #  e_(n+1) - e_(n) <= - dt * p_(n)
-    mat_stor2_model_in = sps.hstack((z_n, dt * eye_n,
-                                z_n_np1, -mat_diag_soc, -mat_last_soc,
-                                z_n1, z_n1, z_n1, z_n1))
-    vec_stor2_model_in = z_n1
+    # Constraint on storage 2 energy:
+    if formulation == 'lp_alt':
+        #  e_(n+1) - e_(n) <= - dt * p_(n)
+        #  e_(n+1) - e_(n) <= - dt/eta * p_(n)
+        mat_stor2_model_in = sps.hstack((z_n, dt * eye_n *stor2.eff_in, z_n,
+                                    z_n_np1, -mat_diag_soc, -mat_last_soc,
+                                    z_n1, z_n1, z_n1, z_n1))
+        mat_stor2_model_out = sps.hstack((z_n, dt/stor2.eff_out * eye_n, z_n,
+                                    z_n_np1, -mat_diag_soc, -mat_last_soc,
+                                    z_n1, z_n1, z_n1, z_n1))
+        vec_stor2_model_in = z_n1
+        vec_stor2_model_out = z_n1
+    elif formulation == 'lp' or formulation == 'milp':
+        # e_(n+1) - e_(n) = dt * p^charge_(n) - dt/eta * p^discharge_(n) 
+        mat_stor2_model = sps.hstack((z_n, z_n, -dt*stor2.eff_in * eye_n, dt/stor2.eff_out * eye_n, z_n,
+                            z_n_np1, -mat_diag_soc, -mat_last_soc,
+                            z_n1, z_n1, z_n1, z_n1))
+        vec_stor2_model = z_n1
 
-    #  e_(n+1) - e_(n) <= - dt/eta * p_(n)
-    mat_stor2_model_out = sps.hstack((z_n, dt/stor2_eff * eye_n,
-                                z_n_np1, -mat_diag_soc, -mat_last_soc,
-                                z_n1, z_n1, z_n1, z_n1))
-    vec_stor2_model_out = z_n1
+    # Constraint to enforce charge distinct from discharge, and discharge distinct from curtailement with integer variables
+    if formulation == 'milp':
+        # Charging power  p^charge <= bigM * p_max * z_i
+        mat_stor1_power_c_int = sps.hstack((eye_n, z_n, z_n, z_n, z_n, z_n_np1, z_n_np1,
+                                    z_n1, z_n1, z_n1, z_n1, -BIG_M*p_max*eye_n, z_n))
+        # Charging power  p^discharge <= bigM * p_max * ( 1- z_i)
+        mat_stor1_power_d_int = sps.hstack(( z_n, eye_n, z_n, z_n, z_n, z_n_np1, z_n_np1,
+                                    z_n1, z_n1, z_n1, z_n1, BIG_M*p_max*eye_n, z_n))  
+        # Charging power  p^charge <= bigM * p_max * z_i
+        mat_stor2_power_c_int = sps.hstack((z_n, z_n, eye_n, z_n, z_n, z_n_np1, z_n_np1,
+                                    z_n1, z_n1, z_n1, z_n1, z_n, -BIG_M*p_max*eye_n))
+        # Charging power  p^discharge <= bigM * p_max * ( 1- z_i)
+        mat_stor2_power_d_int = sps.hstack(( z_n, z_n, z_n, eye_n, z_n, z_n_np1, z_n_np1,
+                                    z_n1, z_n1, z_n1, z_n1, z_n, BIG_M*p_max*eye_n))
+        # Curtailed energy
+        mat_p_curt_stor1_int = sps.hstack(( z_n, z_n, z_n, z_n, eye_n, z_n_np1, z_n_np1,
+                                    z_n1, z_n1, z_n1, z_n1,  -BIG_M*p_max*eye_n, z_n))
+        mat_p_curt_stor2_int = sps.hstack(( z_n, z_n, z_n, z_n, eye_n, z_n_np1, z_n_np1,
+                                    z_n1, z_n1, z_n1, z_n1, z_n, -BIG_M*p_max*eye_n))
+        
+        vec_stor1_power_c_int = z_n1
+        vec_stor1_power_d_int = BIG_M*p_max*one_n1
+        vec_stor2_power_c_int = z_n1
+        vec_stor2_power_d_int = BIG_M*p_max*one_n1
+        vec_p_curt_stor1_int = z_n1
+        vec_p_curt_stor2_int = z_n1
+
+
 
     ## Assemble matrices
-    mat_eq = sps.vstack((mat_stor1_first_e,  mat_stor2_first_e))
-    vec_eq = sps.vstack((vec_stor1_first_e,  vec_stor2_first_e)).toarray().squeeze()
+    if formulation == 'lp_alt':
+        mat_eq = sps.vstack((mat_stor1_first_e,  mat_stor2_first_e))
+        vec_eq = sps.vstack((vec_stor1_first_e,  vec_stor2_first_e)).toarray().squeeze()
 
-    mat_ineq = sps.vstack((-1*mat_power_bound, mat_power_bound,
-                                mat_stor1_model_in, mat_stor1_model_out,
-                                mat_stor2_model_in, mat_stor2_model_out,
-                                mat_stor1_max_energy, mat_stor2_max_power,
-                                mat_stor2_min_power, mat_stor1_max_power,
-                                mat_stor1_min_power, mat_stor2_max_energy))
-    vec_ineq = sps.vstack((-1*vec_power_min, vec_power_max,
-                                vec_stor1_model_in, vec_stor1_model_out,
-                                vec_stor2_model_in, vec_stor2_model_out,
-                                vec_stor1_max_energy, vec_stor2_max_power,
-                                vec_stor2_min_power, vec_stor1_max_power,
-                                vec_stor1_min_power, vec_stor2_max_energy)).toarray().squeeze()
+        mat_ineq = sps.vstack((-1*mat_power_bound, mat_power_bound,
+                                    mat_stor1_model_in, mat_stor1_model_out,
+                                    mat_stor2_model_in, mat_stor2_model_out,
+                                    mat_stor1_min_energy, mat_stor1_max_energy, mat_stor2_max_power,
+                                    mat_stor2_min_power, mat_stor1_max_power,
+                                    mat_stor1_min_power, mat_stor2_min_energy, mat_stor2_max_energy))
+        vec_ineq = sps.vstack((-1*vec_power_min, vec_power_max,
+                                    vec_stor1_model_in, vec_stor1_model_out,
+                                    vec_stor2_model_in, vec_stor2_model_out,
+                                    vec_stor1_min_energy, vec_stor1_max_energy, vec_stor2_max_power,
+                                    vec_stor2_min_power, vec_stor1_max_power,
+                                    vec_stor1_min_power, vec_stor1_min_energy, vec_stor2_max_energy)).toarray().squeeze()
+    elif formulation == 'lp' or formulation == 'milp':
+        mat_eq_lp = sps.vstack((mat_stor1_first_e,  mat_stor2_first_e, mat_stor1_model, mat_stor2_model))
+        vec_eq = sps.vstack((vec_stor1_first_e,  vec_stor2_first_e, vec_stor1_model, vec_stor2_model)).toarray().squeeze()
+
+        mat_ineq_lp = sps.vstack((-1*mat_power_bound, mat_power_bound,
+                                    mat_stor1_min_energy, mat_stor1_max_energy, mat_stor2_max_power,
+                                    mat_stor1_max_power,
+                                    mat_stor2_min_energy, mat_stor2_max_energy))
+        vec_ineq_lp = sps.vstack((-1*vec_power_min, vec_power_max,
+                                    vec_stor1_min_energy, vec_stor1_max_energy, vec_stor2_max_power,
+                                    vec_stor1_max_power,
+                                    vec_stor2_min_energy, vec_stor2_max_energy))
+        
+        if formulation == 'milp':
+            # The equality matrix for the MILP formulation is constructed based on the LP one, as follows:
+            # mat_ineq = | mat_eq_lp  |  right_block_eq |
+            #
+            # Where the right_block is a zeros (6n+2 x 2n) matrix corresponding to the additional integer variables for the existing constraints
+            right_block_eq = sps.coo_array(( 2*n+2, 2*n))
+            mat_eq = sps.hstack((mat_eq_lp, right_block_eq))
+
+            # The inequality matrix for the MILP formulation is constructed based on the LP one, as follows:
+            # mat_ineq = | mat_ineq_lp  |  right_block |
+            #            | --------------------------- |
+            #            |        lower_block          |
+            # Where the right_block is a zeros (6n+2 x 2n) matrix corresponding to the additional integer variables for the existing constraints, and the lower block (6*n x 9n+6) corresponds to the contraints specific to the integer variables
+
+            mat_right_block = sps.coo_array((10*n+4, 2*n))
+            mat_lower_block = sps.vstack((mat_stor1_power_c_int, mat_stor1_power_d_int, mat_stor2_power_c_int, mat_stor2_power_d_int, mat_p_curt_stor1_int, mat_p_curt_stor2_int))
+            vec_lower_block = sps.vstack((vec_stor1_power_c_int, vec_stor1_power_d_int, vec_stor2_power_c_int, vec_stor2_power_d_int, vec_p_curt_stor1_int, vec_p_curt_stor2_int))
+
+            mat_ineq = sps.vstack(( sps.hstack((mat_ineq_lp, mat_right_block)), mat_lower_block))
+            vec_ineq = sps.vstack((vec_ineq_lp, vec_lower_block)).toarray().squeeze()
+
+
+        
+        else:
+            mat_eq = mat_eq_lp
+            
+            mat_ineq = mat_ineq_lp
+            vec_ineq = vec_ineq_lp.toarray().squeeze()
+
+
+
+
+    
     # BOUNDS ON DESIGN VARIABLES
-    if fixed_cap == False:
-        bounds_lower = sps.vstack((-stor1_p_cap_max * one_n1,
-                                    -stor2_p_cap_max * one_n1,
-                                    z_np1_1,
-                                    z_np1_1,
-                                    z_11,
-                                    z_11,
-                                    z_11,
-                                    z_11)).toarray().squeeze()
-    else:
-        bounds_lower = sps.vstack((-stor1_p_cap_max * one_n1,
-                                    -stor2_p_cap_max * one_n1,
-                                    z_np1_1,
-                                    z_np1_1,
+    if formulation == 'lp_alt':
+        if fixed_cap == False:
+            bounds_lower = sps.vstack((-stor1_p_cap_max * one_n1,
+                                        -stor2_p_cap_max * one_n1,
+                                        z_n1,
+                                        z_np1_1,
+                                        z_np1_1,
+                                        z_11,
+                                        z_11,
+                                        z_11,
+                                        z_11)).toarray().squeeze()
+        else:
+            bounds_lower = sps.vstack((-stor1_p_cap_max * one_n1,
+                                        -stor2_p_cap_max * one_n1,
+                                        z_n1,
+                                        z_np1_1,
+                                        z_np1_1,
+                                        stor1_p_cap_max*one_11,
+                                        stor1_e_cap_max*one_11,
+                                        stor2_p_cap_max*one_11,
+                                        stor2_e_cap_max*one_11)).toarray().squeeze()
+
+        bounds_upper = sps.vstack(( stor1_p_cap_max * one_n1,
+                                    stor2_p_cap_max * one_n1,
+                                    power[:n].reshape(n,1),
+                                    stor1_e_cap_max*one_np1_1,
+                                    stor2_e_cap_max*one_np1_1,
                                     stor1_p_cap_max*one_11,
                                     stor1_e_cap_max*one_11,
                                     stor2_p_cap_max*one_11,
                                     stor2_e_cap_max*one_11)).toarray().squeeze()
+    elif formulation == 'lp' or formulation == 'milp':
+        if fixed_cap == False:
+            bounds_lower_lp = sps.vstack((z_n1,
+                                       z_n1,
+                                       z_n1,
+                                       z_n1,
+                                       z_n1,
+                                        z_np1_1,
+                                        z_np1_1,
+                                        z_11,
+                                        z_11,
+                                        z_11,
+                                        z_11))
+        else:
+            bounds_lower_lp = sps.vstack((z_n1,
+                                       z_n1,
+                                       z_n1,
+                                       z_n1,
+                                       z_n1,
+                                        z_np1_1,
+                                        z_np1_1,
+                                        stor1_p_cap_max*one_11,
+                                        stor1_e_cap_max*one_11,
+                                        stor2_p_cap_max*one_11,
+                                        stor2_e_cap_max*one_11))
 
-    bounds_upper = sps.vstack(( stor1_p_cap_max * one_n1,
-                                stor2_p_cap_max * one_n1,
-                                stor1_e_cap_max*one_np1_1,
-                                stor2_e_cap_max*one_np1_1,
-                                stor1_p_cap_max*one_11,
-                                stor1_e_cap_max*one_11,
-                                stor2_p_cap_max*one_11,
-                                stor2_e_cap_max*one_11)).toarray().squeeze()
+        bounds_upper_lp = sps.vstack(( stor1_p_cap_max * one_n1,
+                                   stor1_p_cap_max * one_n1,
+                                    stor2_p_cap_max * one_n1,
+                                    stor2_p_cap_max * one_n1,
+                                    power[:n].reshape(n,1),
+                                    stor1_e_cap_max*one_np1_1,
+                                    stor2_e_cap_max*one_np1_1,
+                                    stor1_p_cap_max*one_11,
+                                    stor1_e_cap_max*one_11,
+                                    stor2_p_cap_max*one_11,
+                                    stor2_e_cap_max*one_11))
+
+        if formulation == 'milp':
+            bounds_lower = sps.vstack((bounds_lower_lp, z_n1, z_n1)).toarray().squeeze()
+            bounds_upper = sps.vstack((bounds_upper_lp, one_n1, one_n1)).toarray().squeeze()
+        else:
+            bounds_lower = bounds_lower_lp.toarray().squeeze()
+            bounds_upper = bounds_upper_lp.toarray().squeeze()
 
 
     return mat_eq, vec_eq, mat_ineq, vec_ineq, bounds_lower, bounds_upper
@@ -335,7 +759,7 @@ def solve_lp_sparse(price_ts: TimeSeries, prod1: Production,
                     prod2: Production, stor1: Storage, stor2: Storage,
                     discount_rate: float, n_year: int,
                     p_min, p_max: float,
-                    n: int, fixed_cap: bool = False) -> OpSchedule:
+                    n: int, options: dict = None) -> OpSchedule:
     """Build and solve the integrated dispatch optimization problem, formulated as a linear program.
 
     This function builds and solves the hybrid sizing and operation problem as a linear program. The objective is to minimize the Net Present Value of the plant. The optimization problem finds the optimal energy and power capacity of two storage systems and their optimal dispatch. In this function, the power production inputs are represented by two Production objects (e.g. one for wind and one for solar PV).
@@ -351,7 +775,13 @@ def solve_lp_sparse(price_ts: TimeSeries, prod1: Production,
         p_min (float or np.ndarray): Minimum power requirement (e.g. baseload) [MW].
         p_max (float): Maximum power requirement [MW].
         n (int): Number of time steps to consider in the optimization.
-        fixed_cap (bool): If True, the capacity of the storage is fixed.
+        options (dict): list of options for the problem formulation
+        
+            - formulation (str): Problem formulation for the storage model. Allowed values are 'lp', 'lp_alt', 'milp'. Default is lp_alt.
+            - fixed_cap (bool): True if the storage capacity is fixed during the optimization. Default is False.
+            - alpha_obj (float): penalty factor for the curtailed power in the objective function proportional to the price. Default is (1+1e-6)
+            - beta_obj (float): penalty factor for the curtailed power in the objective function. Default is 0
+            - epsilon (float): penalty factor to avoid simultaneous charge and discharge for the lp formulation. Default is 1e-3.
 
     Returns:
         OpSchedule: Object describing the optimal operational schedule and optimal storage capacities.
@@ -369,18 +799,29 @@ def solve_lp_sparse(price_ts: TimeSeries, prod1: Production,
     assert n <=  len(prod2.power.data)
     assert n <=  len(price_ts.data)
 
-    assert (stor1.dod == 1) and (stor2.dod == 1), "solve_lp_sparse is not implemented for storage depth of charge below 100%"
+    # Default values for the options
+    formulation = 'lp_alt'
+    fixed_cap = False
+
+    if options is not None:
+        if 'formulation' in options.keys():
+            formulation = options['formulation']
+            assert (formulation == 'lp_alt') or (formulation == 'lp') or (formulation == 'milp')
+        if 'fixed_cap' in options.keys():
+            fixed_cap = options['fixed_cap']
+            assert isinstance(fixed_cap, bool)
 
     power_res = prod1.power.data[:n] + prod2.power.data[:n]
 
-    stor1_eff = stor1.eff_in * stor1.eff_out
-    stor2_eff = stor2.eff_in * stor2.eff_out
 
-    # Build the vector representing the objective function 
-    vec_obj = build_lp_obj_npv(price_ts.data, n, stor1.p_cost, stor1.e_cost, stor2.p_cost, stor2.e_cost, discount_rate, n_year)
+    # Build the vector representing the objective function. If the storage capacity is fixed, the objective function is revenues, else it is NPV. 
+    if fixed_cap:
+        vec_obj = build_lp_obj_revenues(price_ts.data, n, options)
+    else:
+        vec_obj = build_lp_obj_npv(price_ts.data, n, stor1.p_cost, stor1.e_cost, stor2.p_cost, stor2.e_cost, discount_rate, n_year, options)
 
     # Build the matrices and vectors representing the constraints of the problem  
-    mat_eq, vec_eq, mat_ineq, vec_ineq, bounds_lower, bounds_upper =  build_lp_cst_sparse(power_res, dt, p_min, p_max, n, stor1_eff, stor2_eff, stor1_p_cap_max = stor1.p_cap, stor2_p_cap_max = stor2.p_cap, stor1_e_cap_max = stor1.e_cap, stor2_e_cap_max= stor2.e_cap, fixed_cap = fixed_cap)
+    mat_eq, vec_eq, mat_ineq, vec_ineq, bounds_lower, bounds_upper =  build_lp_cst_sparse(power_res, dt, p_min, p_max, n, stor1, stor2, stor1_p_cap_max = stor1.p_cap, stor2_p_cap_max = stor2.p_cap, stor1_e_cap_max = stor1.e_cap, stor2_e_cap_max= stor2.e_cap, options = options)
 
     n_var = bounds_upper.shape[0]
     n_cstr_eq = vec_eq.shape[0]
@@ -389,13 +830,21 @@ def solve_lp_sparse(price_ts: TimeSeries, prod1: Production,
     assert n_var == bounds_lower.shape[0]
     assert n_var == vec_obj.shape[0]
 
+    # Create the variable indicating integer variables
+    if formulation == 'lp_alt' or formulation == 'lp':
+        integrality = np.zeros_like(vec_obj)
+    elif formulation == 'milp':
+        integrality = np.concatenate(( np.zeros((n_var - 2*n)), np.ones((2*n))))
+
+    # Reformat the lower and upper bounds in a single variable
     bounds = []
     for x in range(0, n_var):
         bounds.append((bounds_lower[x], bounds_upper[x]))
 
+
     # Solve the problem using linprog
     try:
-        res = linprog(vec_obj, A_ub= mat_ineq.toarray(), b_ub = vec_ineq, A_eq=mat_eq.toarray(), b_eq=vec_eq, bounds=bounds, method = 'highs')
+        res = linprog(vec_obj, A_ub= mat_ineq, b_ub = vec_ineq, A_eq=mat_eq, b_eq=vec_eq, bounds=bounds, integrality = integrality, method = 'highs')
         x = res.x
     except:
         traceback.print_exc()
@@ -406,14 +855,32 @@ def solve_lp_sparse(price_ts: TimeSeries, prod1: Production,
         raise RuntimeError
     
     # Extract solution
-    stor1_p = x[0:n]
-    stor2_p = x[n:2*n]
-    stor1_e = x[2*n:3*n+1]
-    stor2_e = x[3*n+1:4*n+2]
-    stor1_p_cap = x[4*n+2]
-    stor1_e_cap = x[4*n+3]
-    stor2_p_cap = x[4*n+4]
-    stor2_e_cap = x[4*n+5]
+    if formulation == 'lp_alt':
+        stor1_p = x[0:n] 
+        stor2_p = x[n:2*n]
+        p_cur = x[2*n:3*n]
+        stor1_e = x[3*n:4*n+1]
+        stor2_e = x[4*n+1:5*n+2]
+        stor1_p_cap = x[5*n+2]
+        stor1_e_cap = x[5*n+3]
+        stor2_p_cap = x[5*n+4]
+        stor2_e_cap = x[5*n+5]
+
+    elif formulation == 'lp' or formulation == 'milp':
+        stor1_p_charge = x[0:n] 
+        stor1_p_discharge = x[n:2*n] 
+        stor2_p_charge = x[2*n:3*n]
+        stor2_p_discharge = x[3*n:4*n]
+        p_cur = x[4*n:5*n]
+        stor1_e = x[5*n:6*n+1]
+        stor2_e = x[6*n+1:7*n+2]
+        stor1_p_cap = x[7*n+2]
+        stor1_e_cap = x[7*n+3]
+        stor2_p_cap = x[7*n+4]
+        stor2_e_cap = x[7*n+5]
+
+        stor1_p = [-c + d for c, d in zip(stor1_p_charge, stor1_p_discharge)]
+        stor2_p = [-c + d for c, d in zip(stor2_p_charge, stor2_p_discharge)]
 
     power_res_new = []
     power_losses_stor1 = []
@@ -422,7 +889,7 @@ def solve_lp_sparse(price_ts: TimeSeries, prod1: Production,
 
     for i in range(n):
         # Compute the power produced by the first production asset, and remove curtailment
-        power_res_new.append(min(p_max - stor1_p[i] - stor2_p[i], power_res[i]))
+        power_res_new.append(power_res[i]- p_cur[i])
         
         # Calculate the losses in the solution
         power_losses_stor1.append(-(stor1_e[i+1] - stor1_e[i] + dt*stor1_p[i])/dt)
@@ -430,15 +897,15 @@ def solve_lp_sparse(price_ts: TimeSeries, prod1: Production,
 
     stor1_res = Storage(e_cap = stor1_e_cap,
                             p_cap = stor1_p_cap,
-                            eff_in = 1,
-                            eff_out = stor1_eff,
+                            eff_in = stor1.eff_in,
+                            eff_out = stor1.eff_out,
                             p_cost = stor1.p_cost,
                             e_cost = stor1.e_cost,
                             dod = stor1.dod)
     stor2_res = Storage(e_cap = stor2_e_cap,
                             p_cap = stor2_p_cap,
-                            eff_in = 1,
-                            eff_out = stor2_eff,
+                            eff_in = stor2.eff_in,
+                            eff_out = stor2.eff_out,
                             p_cost = stor2.p_cost,
                             e_cost = stor2.e_cost,
                             dod = stor2.dod)
@@ -458,6 +925,12 @@ def solve_lp_sparse(price_ts: TimeSeries, prod1: Production,
     os_res.get_npv_irr(discount_rate, n_year)
 
     os_res.losses = [np.array(power_losses_stor1) ,  np.array(power_losses_stor2)]
+    
+    verifiedModel = os_res.check_losses(TOL, verbose=False)
+
+    if not verifiedModel:
+            os_res.check_losses(TOL, verbose=True)
+            print('Error above tolerance in solve_lp_sparse', formulation)
 
     return os_res
 

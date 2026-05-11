@@ -40,10 +40,14 @@ $$ \forall i \in[0,n], \quad  \bar{E}^s (1 - d^s) \leq e_i^s \leq \bar{E}^s$$
 
 
 Considering a time window of $n$ time steps with a discretization $\Delta t$, the power and energy time series satisfy the charge/discharge model of the storage for $i \in [0, n[$
-$$ e^s_{i+1} - e^s_{i} = \begin{cases}
+
+
+```{math} 
+e^s_{i+1} - e^s_{i} = \begin{cases}
   - \Delta t \ \eta^s_\text{in} \  p^s_i & \text{if } p^s_i \leq 0 \\
   - \Delta t \dfrac{1}{\eta^s_\text{out}}  p^s_i & \text{else}.
-\end{cases}$$
+\end{cases}
+```
 
 This constraint is piece-wise linear and cannot be implemented directly in a linear or mixed-integer linear optimization problem. Instead, it is possible to formulate the constraint exactly using binary variables $\boldsymbol{z}$, where $z_i=0$ if $p^s_i \leq 0$ and $z_i=1$ otherwise. The storage model is then modeled using big-M constraints as
 
@@ -89,12 +93,10 @@ where $r$ is a slack variable to be minimized.
 We want to calculate the optimal dispatch strategy of the storage system, i.e., when to charge and discharge, in order to maximize revenues on the electricity markets. The objective function of the (minimization) problem is:
 
 ```{math}
- c_\text{R}(\boldsymbol{x}) = - \boldsymbol{\lambda}_\text{DAM}^T \cdot (\sum_{s} \boldsymbol{p}^s - \boldsymbol{p}^c)
+ c_\text{R}(\boldsymbol{x}) = -\boldsymbol{\lambda}_\text{DAM}^T \cdot (\sum_{s} \boldsymbol{p}^s - \boldsymbol{p}^c)
  ```
 
 where $\boldsymbol{\lambda}_\text{DAM}$ is the time series of electricity price on the day-ahead market. 
-
-
 
 ### Net Present Value
 
@@ -113,6 +115,25 @@ where $m$ is the lifetime of the project, $r$ the discount rate and $\lambda_\te
 
 ### Penalties and regularization
 
+#### In `solve_lp_sparse`
+
+The objective function includes three regularization parameters: $\alpha$, $\beta$ and $\epsilon$.
+
+For the `lp` and `milp` formulation, the objective function (for revenues maximization) of the problem is:
+
+```{math}
+  f(\boldsymbol{p}^{s+}, \boldsymbol{p}^{s-}, \boldsymbol{p}^c) = - \boldsymbol{\lambda}_\text{DAM}^T \cdot (\sum_{s} (\boldsymbol{p}^{s+} - \boldsymbol{p}^{s-}) - \alpha \boldsymbol{p}^c) + \beta \mathbf{1}\cdot \boldsymbol{p}^c + \sum_{s} \epsilon \mathbf{1}\cdot ( \boldsymbol{p}^{s+} +  \boldsymbol{p}^{s-})
+```
+where the power is divided into charge $\boldsymbol{p}^{s-}$ and discharge $\boldsymbol{p}^{s+}$.
+
+For the `lp-alt` formulation, the objective function (for revenues maximization) is:
+```{math}
+  f(\boldsymbol{p}^{s}, \boldsymbol{p}^c) = - \boldsymbol{\lambda}_\text{DAM}^T \cdot (\sum_{s} \boldsymbol{p}^{s} - \alpha \boldsymbol{p}^c) + \beta \mathbf{1}\cdot \boldsymbol{p}^c + \sum_{s} \epsilon \mathbf{1}\cdot \boldsymbol{p}^{s}
+```
+
+The parameters $\alpha$ and $\beta$ are used to regularize the curtailed power with respect to the storage power. The parameter $\epsilon$ is only relevant for the `lp` formulation and helps avoiding simulatenous charging and discharging in the storage systems.
+
+#### In `solve_dispatch`
 When using the relaxed form of the storage model, two regularization terms are added to the objective function to ensure the constraints are active at the optimum. Furthermore, a penalty on the reliability binary variables is needed to ensure the dispatch constraints are respected as much as possible. As such, the objective function becomes
 
 $$ f(\boldsymbol{x}) = c_\text{R}(\boldsymbol{x}) + \mu r - \beta \sum_s e^s_{n} - \epsilon \sum_{i=0}^{n-1}p^c_i,  $$
