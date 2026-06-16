@@ -17,7 +17,7 @@ n = 20 * 24  # number of time steps
 dt = 1 # time step duration [hour]
 percent_bl = 0.99 # reliability of the baseload constraint
 discount_rate = 0.03 # discount rate
-n_year = 20  # Project duration [years]
+n_year = 20  # Number of years of operation [years]
 p_min = 10 # Required minimum baseload power
 p_cost_res = 3000  # USD/MW # cost per installed capacity of the renewable energy source [USD/MW]
 

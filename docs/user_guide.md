@@ -19,7 +19,7 @@ The optimization problem is formulated and solved using a command of the form:
 ```python
 os = solve_lp_pyomo(price, production1, production1, storage1, storage2, discount_rate, n_year, p_min, p_max, n, name_solver)
 ```
-where the discount rate and the number of years `n_year` are used for the calculation of the NPV. The parameters `p_min` and `p_max` are used to describe the constraints for the maximum and minimum power production. The number of time steps is `n`. The parameter `name_solver` refers to a solver compatible with pyomo, for example 'mosek', 'cplex', 'gurobi'.
+where the discount rate and the number of years of operation `n_year` are used for the calculation of the NPV. The parameters `p_min` and `p_max` are used to describe the constraints for the maximum and minimum power production. The number of time steps is `n`. The parameter `name_solver` refers to a solver compatible with pyomo, for example 'mosek', 'cplex', 'gurobi'.
 
 Alternatively, the problem can be solved with the built-in solver in scipy, `scipy.optimize.linprog` with the following command:
 

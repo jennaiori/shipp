@@ -21,7 +21,7 @@ from shipp.io_functions import get_power_price_data
 n = 5*24  # number of time steps
 dt = 1 # time step duration [hour]
 discount_rate = 0.03 #discount rate
-n_year = 20  # Project duration [years]
+n_year = 20  # Number of years of operation [years]
 p_cost_res = 3000  # USD/MW
 p_min = 0 # Minimum required baseload power
 dp_lim = 6 # Power ramp limit in MW per time step
