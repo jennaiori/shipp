@@ -42,6 +42,7 @@ time = np.arange(0, n)/24
 power = mean_power*(1.0+np.sin(time * 2*np.pi * frequency_power))
 
 # The price is represented by the combinaison of a sine function of time and a random variation
+np.random.seed(0)
 price = np.random.uniform(price_low, price_high, n) + \
         10*np.sin(np.arange(0, n)/24 * 2*np.pi * frequency_price)
 
@@ -77,7 +78,7 @@ a_npv = os.get_added_npv(discount_rate, n_year)  # "Added" NPV, meaning the diff
 print('P_min [MW]\tRevenue [kUSD]\tRev. increase\tp_cap1/e_cap1\t\
       p_cap2/e_cap2\tCost BL [M.USD]\tTot NPV [M.USD]')
 print('{:.1f}\t\t{:.1f}\t\t{:.2f}%\t\t{:.2f}/{:.2f}\t\t{:.2f}/{:.2f}\
-      \t{:.2f}\t\t{:.1f}'.format(p_min, os.revenue*1e-3, 
+      \t{:.4f}\t\t{:.1f}'.format(p_min, os.revenue*1e-3, 
                                  100*(os.revenue/revenues_res_only-1),
                                  os.storage_list[0].p_cap, 
                                  os.storage_list[0].e_cap, 

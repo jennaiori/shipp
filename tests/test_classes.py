@@ -220,5 +220,54 @@ def test_opschedule_methods():
 
     
 
+def test_a_npv_curtailment():
+    '''
+    Test to check the correct implementation of a_npv in the presence of curtailment (see issue #3)
+    '''
     
+    # Initialization
+    data = [1, 1, 1, 1]
+    data_curtail = [0.1, 0.1, 0.1, 0.1]
+    dt = 1
+    ts = TimeSeries(data, dt)
+    ts_empty =TimeSeries()
+
+    prod_unit = Production(ts, p_cost = 8*1e3)
+
+    stor_unit = Storage(e_cap = 10, p_cap = 5, e_cost = 500, p_cost = 600)
+    stor_p = TimeSeries([1,1,1,1], dt)
+    stor_e = TimeSeries([0, 1, 2, 3], dt)
+
+    price = np.array([1, 0.5, 1, 1.5])
+ 
+    # Test initialization without price
+    os = OpSchedule( [prod_unit], [stor_unit], [prod_unit.power], [stor_p], 
+                    [stor_e], price)
+
+    # Check presence of class member p_curtail
+    assert hasattr(os, 'curtail_p')
+
+    # Check value of class member p_curtail
+    assert np.all(os.curtail_p.data >=0)
+    assert sum(os.power_out.data) == sum(prod_unit.power.data) + sum(stor_p.data) - sum(curtail_p.data)
+
+
+    # Check value of revenues
+    expected_revenues = sum( [d*(p + s - c) for d,p,s, c in zip(price, data, data, data_curtail)])*dt
+    expected_revenue_storage = sum( [d*(s - c) for d,s,c in zip(price, data, data_curtail)])*dt
     
+    assert os.revenue == expected_revenues
+    assert os.revenue_storage == expected_revenue_storage
+
+    # Test function for added NPV
+    discount_rate = 0
+    n_year = 1
+
+    cash_flow = [-stor_unit.get_tot_costs(), os.annual_revenue_storage]
+    os.get_added_npv(discount_rate, n_year)
+    
+    assert os.a_npv == sum(cash_flow)*1e-6
+    
+
+
+
