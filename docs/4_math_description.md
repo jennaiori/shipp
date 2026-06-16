@@ -110,7 +110,7 @@ The objective function of the (minimization) problem becomes:
  c_\text{NPV}(\boldsymbol{x}) = \sum_{s} (\lambda^s_P \bar{P}^s + \lambda_E^s \bar{E}^s) - \sum_{k=1}^m \dfrac{\boldsymbol{\lambda}_\text{DAM}^T \cdot (\sum_{s} \boldsymbol{p}^s  - \boldsymbol{p}^c)}{(1+r)^k}
  ```
 
-where $m$ is the lifetime of the project, $r$ the discount rate and $\lambda_\text{DAM}$ is the time series of electricity price on the day-ahead market. Here we assume that the revenues estimated for one year with $\lambda_\text{DAM}$ are representative of the entire lifetime of the project.
+where $m$ is the number of years of operation of the project, $r$ the discount rate and $\lambda_\text{DAM}$ is the time series of electricity price on the day-ahead market. Here we assume that the revenues estimated for one year with $\lambda_\text{DAM}$ are representative of the entire lifetime of the project, and that all capital expenditures happen at year 0.
 
 
 ### Penalties and regularization

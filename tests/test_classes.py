@@ -201,7 +201,7 @@ def test_opschedule_methods():
     
     # Test function for NPV and IRR calculation
     discount_rate = 0
-    n_year = 2
+    n_year = 1
 
     cash_flow = [-os.capex, os.annual_revenue]
     expected_irr = (os.annual_revenue/os.capex - 1)
@@ -211,7 +211,7 @@ def test_opschedule_methods():
   
     # Test function for added NPV
     discount_rate = 0
-    n_year = 2
+    n_year = 1
 
     cash_flow = [-stor_unit.get_tot_costs(), os.annual_revenue_storage]
     expected_irr = (os.annual_revenue_storage/stor_unit.get_tot_costs() - 1)

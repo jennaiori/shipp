@@ -252,7 +252,7 @@ class OpSchedule:
 
         cash_flow = [-self.capex]
 
-        for _ in range(1,n_year):
+        for _ in range(1,n_year+1):
             cash_flow.append(self.annual_revenue)
 
         npv = npf.npv(discount_rate, cash_flow) * 1e-6
@@ -285,7 +285,7 @@ class OpSchedule:
 
         cash_flow = [-capex_storage]
 
-        for _ in range(1,n_year):
+        for _ in range(1,n_year+1):
             cash_flow.append(self.annual_revenue_storage)
 
         a_npv = npf.npv(discount_rate, cash_flow) * 1e-6
