@@ -6,8 +6,6 @@ for the classes defined in shipp.
 
 Functions:
     solve_lp_pyomo: Build and solve a linear program (LP) for NPV maximization with pyomo.
-    solve_lp_alt_pyomo: Build and solve an alternative LP for NPV maximization with pyomo.
-    solve_milp_pyomo: Build and solve a MILP for NPV maximization with pyomo.
     run_storage_operation: Run a series of online dispatch optimization problems.
     solve_dispatch_pyomo: Build and solve a MILP for the dispatch optimization of storage systems considering reliability.
 """

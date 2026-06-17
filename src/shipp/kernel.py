@@ -314,8 +314,8 @@ def build_lp_cst_sparse(power: np.ndarray, dt: float, p_min, p_max: float, n: in
 
     The design variables for the linear problem are:
 
-        - Power from storage 1, shape-(n,) (lp_alt formulation) or Power from storage 1 in charge, shape-(n,) and discharge, shape-(n,) (lp_formulation) 
-        - Power from storage 2, shape-(n,) (lp_alt formulation) or Power from storage 2 in charge, shape-(n,) and discharge, shape-(n,) (lp_formulation) 
+        - Power from storage 1, shape-(n,) (lp_alt formulation) or Power from storage 1 in charge, shape-(n,) and discharge, shape-(n,) (lp and milp formulation) 
+        - Power from storage 2, shape-(n,) (lp_alt formulation) or Power from storage 2 in charge, shape-(n,) and discharge, shape-(n,) (lp and milp formulation) 
         - Curtailed power, shape-(n,)
         - State of charge (energy) of storage 1, shape-(n+1,)
         - State of charge (energy) of storage 2, shape-(n+1,)
