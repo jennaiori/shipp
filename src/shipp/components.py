@@ -29,12 +29,15 @@ class Storage:
         eff_out (float): Efficiency to discharge the storage [-]
         e_cost (float): Cost per unit of energy capacity [Currency/MWh]
         p_cost (float): Cost per unit of power capacity [Currency/MW]
-        dod (float): Depth of discharge of the storage system, expressed as a fraction of the energy capacity (between 0 and 1) [-] 
+        dod (float): Depth of discharge of the storage system, expressed as a fraction of the energy capacity (between 0 and 1) [-]
+        lifetime (int): Number of years in the lifetime of the storage (default is 8)
+        opex_fix (float): Annual OPEX of the component per unit of power capacity (Currency/MW/year)
+        opex_var (float): Annual OPEX of the component per unit of energy cycled/delivered (Currency/MWh/year)
     '''
 
     def __init__(self, e_cap: float = 0, p_cap: float = 0,
                  eff_in: float = 1, eff_out: float = 1, e_cost: float = 0,
-                 p_cost: float = 0, dod: float = 1) -> None:
+                 p_cost: float = 0, dod: float = 1, lifetime: int = 8, opex_fix: float = 0, opex_var: float = 0) -> None:
         if e_cap is not None:
             assert e_cap >=0
         if p_cap is not None:
@@ -42,6 +45,7 @@ class Storage:
         assert 1 >= dod > 0
         assert 1 >= eff_in >= 0
         assert 1 >= eff_out >= 0
+        assert lifetime > 0
         
         self.e_cap = e_cap 
         self.p_cap = p_cap
@@ -50,6 +54,9 @@ class Storage:
         self.e_cost = e_cost
         self.p_cost = p_cost
         self.dod = dod
+        self.lifetime = lifetime
+        self.opex_fix = opex_fix
+        self.opex_var = opex_var
 
     def get_av_eff(self) -> float:
         '''Returns the average efficiency'''
@@ -80,12 +87,15 @@ class Storage:
             eff_out=self.eff_out,
             e_cost=self.e_cost,
             p_cost=self.p_cost,
-            dod=self.dod
+            dod=self.dod,
+            lifetime = self.lifetime,
+            opex_fix = self.opex_fix,
+            opex_var = self.opex_var
         )
 
     def __repr__(self) -> str:
         return (f"Storage(e_cap={self.e_cap}, p_cap={self.p_cap}, eff_in={self.eff_in}, "
-                f"eff_out={self.eff_out}, e_cost={self.e_cost}, p_cost={self.p_cost}, dod={self.dod})")
+                f"eff_out={self.eff_out}, e_cost={self.e_cost}, p_cost={self.p_cost}, dod={self.dod}, lifetime={self.lifetime}, opex_fix={self.opex_fix}, opex_var={self.opex_var})")
 
 
 class Production:
@@ -96,18 +106,34 @@ class Production:
         power_ts (TimeSeries): time series of power production [MW]
         p_max (float): Maximum power [MW]
         p_cost (float): cost per unit of power capacity [Currency/MW]
+        p_max (float): rated capacity [MW]
+        opex_fix (float): Annual OPEX of the component per unit of power capacity (Currency/MW/year)
+        opex_var (float): Annual OPEX of the component per unit of energy produced (Currency/MWh/year)
     '''
-    def __init__(self, power_ts: TimeSeries, p_cost: float = 0) -> None:
+    def __init__(self, power_ts: TimeSeries, p_cost: float = 0, p_max: float = None, opex_fix: float = 0, opex_var: float = 0) -> None:
         self.power = power_ts
-        self.p_max = max(self.power.data)
+        if p_max is not None:
+            self.p_max = p_max
+        else:
+            self.p_max = max(self.power.data)
         self.p_cost = p_cost
+        self.opex_fix = opex_fix
+        self.opex_var = opex_var
 
     def get_tot_costs(self) -> float:
         '''Returns total costs for the production'''
         return self.p_max * self.p_cost
     
+    def curtail(self, p_curtail: np.ndarray) -> "Production":
+        curtailed_power_ts = TimeSeries(self.power.data - p_curtail, self.power.dt)
+        return Production(power_ts = curtailed_power_ts,
+                          p_cost = self.p_cost,
+                          p_max = self.p_max,
+                          opex_fix = self.opex_fix,
+                          opex_var = self.opex_var)
+    
     def __repr__(self) -> str:
-        return (f"Production(p_cost={self.p_cost}, p_max={self.p_max}, "
+        return (f"Production(p_cost={self.p_cost}, p_max={self.p_max}, opex_fix={self.opex_fix}, opex_var={self.opex_var},"
                 f"power={self.power})")
 
 class OpSchedule:
@@ -139,7 +165,8 @@ class OpSchedule:
                  production_p: list[TimeSeries],
                  storage_p: list[TimeSeries],
                  storage_e: list[TimeSeries],
-                 price: np.ndarray = None) -> None:
+                 price: np.ndarray = None,
+                 p_curtail: TimeSeries = None) -> None:
         '''
         Initialization function for OpSchedule
         '''
@@ -157,6 +184,9 @@ class OpSchedule:
         if price is not None:
             assert isinstance(price, np.ndarray) and all(isinstance(p, (int, float)) for p in price), \
             "price must be a list of numeric values."
+        if p_curtail is not None:
+            assert isinstance(p_curtail, TimeSeries), \
+            "p_curtail must be a TimeSeries object."
         assert len(production_list) == len(production_p), \
              "the number of Production objects must match the number of power production time series."
         assert len(storage_list) == len(storage_p) and len(storage_list) == len(storage_e), \
@@ -168,10 +198,17 @@ class OpSchedule:
         self.production_p = production_p
         self.storage_p = storage_p
         self.storage_e = storage_e
+        
+        if p_curtail is None:
+            self.p_curtail = TimeSeries(np.zeros_like(production_p[0].data), production_p[0].dt)
+        else:
+            self.p_curtail = p_curtail
 
         # Calculation of the power to the grid (power_out)
         power_out_data = np.zeros_like(production_p[0].data, dtype=float)
         power_out_dt = self.production_p[0].dt
+
+        power_out_data -= self.p_curtail.data
 
         for item in self.production_p:
             assert power_out_dt == item.dt

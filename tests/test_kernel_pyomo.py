@@ -95,6 +95,29 @@ def test_solve_lp_pyomo():
     assert min(os.storage_e[1].data) >= stor_batt_dod.e_cap*(1 - stor_batt_dod.dod)-tol
     assert os.storage_list[1].dod == 0.9
 
+    # Check energy balance
+    os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                        discount_rate, n_year, 0, p_max, n,  fixed_cap=True)
+    
+    energy_in = dt*(sum(prod_wind.power.data) + sum(prod_pv.power.data))
+    energy_delivered= dt*(sum(os.power_out.data))
+    energy_lost = dt*(sum(os.losses[0])+ sum(os.losses[1]))
+    assert (energy_in - (energy_delivered + energy_lost)) <= tol
+
+    # Check energy balance in case of curtailment
+    
+    os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                        discount_rate, n_year, 0, p_max_curt, n,  fixed_cap=True)
+    
+    energy_in = dt*(sum(prod_wind.power.data) + sum(prod_pv.power.data))
+    energy_delivered= dt*(sum(os.power_out.data))
+    energy_lost = dt*(sum(os.losses[0])+ sum(os.losses[1]))
+    assert energy_in >= energy_delivered + energy_lost
+    
+    p_curtail = prod_wind.power.data - os.production_p[0].data
+
+    assert (energy_in -(energy_delivered + energy_lost + dt*sum(p_curtail))) <= tol
+
 
 def test_run_storage_operation():
     power = [2, 1, 2, 2, 3, 5]

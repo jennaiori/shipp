@@ -1,26 +1,34 @@
 # Implementation
 
+```{note}
 SHIPP currently implements the analysis of two storage system components and two power generation components. 
-The code has so far only be used for an hourly time step.
+The code has so far only be used for an hourly time step ($\Delta t = 1$), and has not been verified for other time increments.
+```
 
 ## Formulation of the storage system model
 
 The storage system model linking power to stored energy is a piece-wise linear function (see [](storage_system_model)) and cannot be implemented directly in a linear or mixed-integer linear optimization problem. In SHIPP, three alternative formulations of the storage system model constraints are implemented:
 - a mixed-integer linear (`milp`) formulation where integer variables are used to indicate if the storage is charging or discharging. Since the equations are enforced exactly, any feasible point of the optimization validates the model.
-- a linear formulation using a relaxed form of the MILP (`lp-alt`). In this case, the storage system is only valid at the optimum. Feasible points for the optimization problem do not necessarily validate the storage model.
+- a linear formulation using a relaxed form of the MILP (`lp-alt`). In this case, the storage system model is only valid at the optimum. Feasible points for the optimization problem do not necessarily validate the storage model.
 - a linear formulation (`lp`) where the storage power is divded into a charging and discharging terms. Here as well, the validity of the storage model is not guaranteed due to the possibility of simultaneous charge and discharge.
 
 
 ### MILP
 The storage system model is enforced using a binary variable at each time step $i$, denoted by $z_i$. The storage power is divided into two components: $p^{s+}$ in dischage and $p^{s-}$. The constraints are implemented using a big-M form,
 
-$$ e^s_{i+1} - e^s_{i} =  \Delta t \ \eta^s_\text{in} \  p^{s-}_i - \Delta t \dfrac{1}{\eta^s_\text{out}}  p^{s+}_i  $$
-$$ 0 \leq p^{s-}_i \leq M z^s_i $$
-$$ 0 \leq p^{s+}_i \leq M (1 - z^s_i) $$
+```{math}
+ & e^s_{i+1} - e^s_{i} =  \Delta t \ \eta^s_\text{in} \  p^{s-}_i - \Delta t \dfrac{1}{\eta^s_\text{out}}  p^{s+}_i \\ 
+ & 0 \leq p^{s-}_i \leq M z^s_i \\
+ & 0 \leq p^{s+}_i \leq M (1 - z^s_i) 
+```
+
+
 
 We use the convention $z^s_i=0$ for charge and $z^s_i=1$ for discharge. In addition, the following bounds are imposed on the storage power, 
-$$ 0 \leq p^{s-}_i \leq \bar{P}^s $$
-$$ 0 \leq p^{s+}_i \leq \bar{P}^s $$
+```{math}
+ & 0 \leq p^{s-}_i \leq \bar{P}^s \\
+ & 0 \leq p^{s+}_i \leq \bar{P}^s 
+```
 
 <!-- It is also possible to do this implementation without separating the power into two components, with
 
@@ -31,10 +39,11 @@ $$ -M(1-z^s_i)  \leq p^s_i \leq M z^s_i. $$ -->
 
 
 ### LP-alt
-In the LP-alt formulation, the storage system model is represented by two inequality constraints,
-
-$$ e^s_{i+1} - e^s_{i} \leq  - \Delta t \ \eta^s_\text{in} \  p^s_i, $$
-$$ e^s_{i+1} - e^s_{i} \leq - \Delta t \dfrac{1}{\eta^s_\text{out}}  p^s_i. $$
+This is the default formulation in SHIPP. Here, the storage system model is represented by two inequality constraints,
+```{math}
+& e^s_{i+1} - e^s_{i} \leq  - \Delta t \ \eta^s_\text{in} \  p^s_i, \\
+& e^s_{i+1} - e^s_{i} \leq - \Delta t \dfrac{1}{\eta^s_\text{out}}  p^s_i. 
+```
 
 For this implementation to be representative, one of the inequality constraint must always be active at the optimum. As a result, the objective function must maximize the power at all time steps ($p^s_i$). This means that negative prices should not be used.
 
@@ -45,13 +54,23 @@ The LP formulation is very similar to the MILP one. It consists of the same boun
 
 $$ e^s_{i+1} - e^s_{i} =  \Delta t \ \eta^s_\text{in} \  p^{s-}_i - \Delta t \dfrac{1}{\eta^s_\text{out}}  p^{s+}_i  $$
 
-Without integer variables, it is possible to have simultaneous charge and discharge at the optimum, $p^{s-}_i p^{s+}_i != 0$. In this case, there is a risk that the storage model is not respected. A regularization term in the objective function should be used as a mitigation measure.
+Without integer variables, it is possible to have simultaneous charge and discharge at the optimum, $p^{s-}_i p^{s+}_i \neq 0$. In this case, there is a risk that the storage model is not respected. A regularization term in the objective function should be used as a mitigation measure.
 
 ## Perfect foresight optimization
 
-The functions `solve_lp_sparse` and `solve_lp_pyomo` implement a dispatch optimization where information about power and price is known perfectly for the entire simulation horizon. They implement an integrated design problem, where design and operation are found simulatenously. It is also possible to solve the problem for dispatch only by setting the parameter `fixed_cap` to `True`.
+The functions `solve_lp_sparse` and `solve_lp_pyomo` implement a dispatch optimization problem where information about power and price is known perfectly for the entire simulation horizon. It is an integrated design problem, where design and operation are found simulatenously. It is also possible to solve the problem for dispatch only by setting the parameter `fixed_cap` to `True`.
 
-The design variables of the problem $\boldsymbol{x}$ are the storage system components energy and power capacities, the time series of storage power and energy, and the time series of curtailed power. If `fixed_cap = True`, the storage capacities are either removed from the list of design variables or fixed to their initial values. Depending on the problem formulation, the storage system power is represented by one single variable ($\boldsymbol{p}^s$) or by its components in charge and discharge.
+The design variables of the problem $\boldsymbol{x}$ are the storage system components energy and power capacities, the time series of storage power and energy, and the time series of curtailed power. If `fixed_cap = True`, the storage capacities are either removed from the list of design variables or fixed to their initial values. Depending on the problem formulation, the storage system power is represented by one single variable ($\boldsymbol{p}^s$) or by its components in charge and discharge, and integer variables may be added. Thus, the vector of design variable changes depending on the problem formulation and the parameter `fixed_cap`, as reported in the table below.
+
+| Formulation | Objective function | `fixed_cap`| Design variables $\boldsymbol{x}$ |
+| ----------- | ------------------ |----------- | ---------------- |
+|  `milp`     | $f_\text{NPV}$      | False  |$\boldsymbol{p}^c, (\bar{P}^s, \bar{E}^s, \boldsymbol{p}^{s+}, \boldsymbol{p}^{s-}, \boldsymbol{e}^s, \boldsymbol{z}^s_i)_{s\in{1,2}}$  |
+| `milp`     | $f_R$        | True  |$\boldsymbol{p}^c, (\boldsymbol{p}^{s+}, \boldsymbol{p}^{s-}, \boldsymbol{e}^s, \boldsymbol{z}^s_i)_{s\in{1,2}}$ |
+|  `lp-alt`     | $f_{\text{NPV}, \text{alt}}$      | False  |$\boldsymbol{p}^c, (\bar{P}^s, \bar{E}^s, \boldsymbol{p}^s, \boldsymbol{e}^s)_{s\in{1,2}}$  |
+| `lp-alt`     | $f_{R, \text{alt}}$        | True  |$\boldsymbol{p}^c, (\boldsymbol{p}^s, \boldsymbol{e}^s)_{s\in{1,2}}$ |
+|  `lp`     | $f_\text{NPV}$      | False  |$\boldsymbol{p}^c, (\bar{P}^s, \bar{E}^s, \boldsymbol{p}^{s+}, \boldsymbol{p}^{s-}, \boldsymbol{e}^s)_{s\in{1,2}}$  |
+| `lp`     | $f_R$        | True  |$\boldsymbol{p}^c, (\boldsymbol{p}^{s+}, \boldsymbol{p}^{s-}, \boldsymbol{e}^s)_{s\in{1,2}}$ |
+
 
 
 #### In `solve_lp_sparse`
@@ -130,20 +149,10 @@ For the `lp-alt` formulation, the objective function is:
   f_{R, \text{alt}}(\boldsymbol{x}) = - \boldsymbol{\lambda}^T \cdot (\sum_{s} \boldsymbol{p}^{s} - \alpha \boldsymbol{p}^c) + \beta \mathbb{1}^T\cdot \boldsymbol{p}^c
 ```
 
-The vector of design variable changes depending on the problem formulation and the parameter `fixed_cap`, as reported in the table below.
-
-| Formulation | Objective function | `fixed_cap`| Design variables $\boldsymbol{x}$ |
-| ----------- | ------------------ |----------- | ---------------- |
-|  `milp`     | $f_\text{NPV}$      | False  |$\boldsymbol{p}^c, (\bar{P}^s, \bar{E}^s, \boldsymbol{p}^{s+}, \boldsymbol{p}^{s-}, \boldsymbol{e}^s, \boldsymbol{z}^s_i)_{s\in{1,2}}$  |
-| `milp`     | $f_R$        | True  |$\boldsymbol{p}^c, (\boldsymbol{p}^{s+}, \boldsymbol{p}^{s-}, \boldsymbol{e}^s, \boldsymbol{z}^s_i)_{s\in{1,2}}$ |
-|  `lp-alt`     | $f_{\text{NPV}, \text{alt}}$      | False  |$\boldsymbol{p}^c, (\bar{P}^s, \bar{E}^s, \boldsymbol{p}^s, \boldsymbol{e}^s)_{s\in{1,2}}$  |
-| `lp-alt`     | $f_{R, \text{alt}}$        | True  |$\boldsymbol{p}^c, (\boldsymbol{p}^s, \boldsymbol{e}^s)_{s\in{1,2}}$ |
-|  `lp`     | $f_\text{NPV}$      | False  |$\boldsymbol{p}^c, (\bar{P}^s, \bar{E}^s, \boldsymbol{p}^{s+}, \boldsymbol{p}^{s-}, \boldsymbol{e}^s)_{s\in{1,2}}$  |
-| `lp`     | $f_R$        | True  |$\boldsymbol{p}^c, (\boldsymbol{p}^{s+}, \boldsymbol{p}^{s-}, \boldsymbol{e}^s)_{s\in{1,2}}$ |
 
 
 ### In `solve_lp_pyomo`
-The dispatch optimization in `solve_lp_pyomo` is currently only implemented using the `lp-alt` formulation. The design variables of the problem are the storage system components energy and power capacities, the time series of storage power and energy, and the time series of curtailed power, i.e., $\boldsymbol{x} = [\boldsymbol{p}^c, (\bar{P}^s, \bar{E}^s, \boldsymbol{p}^s, \boldsymbol{e}^s)_{s\in{1,2}}]$  If `fixed_cap = True`, the storage capacities are either removed from the list of design variables or fixed to their initial values, i.e., $\boldsymbol{x} = [\boldsymbol{p}^c, (\boldsymbol{p}^s, \boldsymbol{e}^s)_{s\in{1,2}}]$.
+The dispatch optimization in `solve_lp_pyomo` is currently only implemented using the `lp-alt` formulation. The design variables of the problem are the storage system components energy and power capacities, the time series of storage power and energy, and the time series of curtailed power, i.e., $\boldsymbol{x} = [\boldsymbol{p}^c, (\bar{P}^s, \bar{E}^s, \boldsymbol{p}^s, \boldsymbol{e}^s)_{s\in{1,2}}]$.  If `fixed_cap = True`, the storage capacities are either removed from the list of design variables or fixed to their initial values, i.e., $\boldsymbol{x} = [\boldsymbol{p}^c, (\boldsymbol{p}^s, \boldsymbol{e}^s)_{s\in{1,2}}]$.
 
 The objective function of the problem aims to maximize the added NPV, i.e., the contribution of the storage system components to the total NPV,
 
@@ -162,7 +171,7 @@ The problem is expressed mathematically as
   &&& (1-d)\bar{E} \leq e^{s}_i \leq \bar{E}^s &&& i = 0,..., n \\
   &&& 0 \leq p^c_i \leq \sum_g p_i^g &&& i = 0,..., n-1 \\
   &&& \text{Ramp limit constraints} \\
-  &&& \text{Storage model LP-alt} \\
+  &&& \text{Storage model (LP-alt)} \\
   &&& \text{Storage capacity bounds} 
 \end{align}
 ```
@@ -171,7 +180,7 @@ The baseload constraint is described here with a vector $ \boldsymbol{P}_\text{b
 
 $$ -\delta P_\text{lim}  \leq p^{i+1} - p^{i} \leq    \delta P_\text{lim}, \ i = 0, ..., n-2 $$
 
-The optimization problem is described implicitely using the pyomo interface. 
+The optimization problem is described implicitely using the (pyomo)[https://pyomo.readthedocs.io/] interface. 
 
 
 
@@ -179,7 +188,7 @@ The optimization problem is described implicitely using the pyomo interface.
 
 The function `solve_dispatch` is used for rolling horizon dispatch to simulate the operation of the power plant with imperfect forecast. The goal of this optimization problem is to maximize revenues from electricity sales, while at the same time reducing as much as possible deviations from the required baseload or ramp-limit constraints. In addition, the dispatch problem can be solved to find the best operation considering several scenarios for the power forecast $p^{g,j}, j =1,..., m$.. For simplicity, only one generation component is considered here.
 
-The design variables of the problem are the time series of storage power and energy calculated for each forecast scenario, the time series of curtailed power for each forecast scenario, binary variables indicating if the dispatch constraints are satisfied, and two slack variables $r$ and $r_p$. One has $\boldsymbol{x} = [(\boldsymbol{p}^{c,j})_{j=1,...,m}, (\boldsymbol{p}^{s,j}, \boldsymbol{e}^{s,j})_{s\in{1,2}, j=1,...,m}, \boldsymbol{y}, r, r_p]$ 
+The design variables of the problem are the time series of storage power and energy calculated for each forecast scenario, the time series of curtailed power for each forecast scenario, binary variables indicating if the dispatch constraints are satisfied, and two slack variables $r$ and $r_p$. One has $\boldsymbol{x} = [(\boldsymbol{p}^{c,j})_{j=1,...,m}, (\boldsymbol{p}^{s,j}, \boldsymbol{e}^{s,j})_{s\in{1,2}, j=1,...,m}, \boldsymbol{y}, r, r_p]$. 
 
 
 The objective function of the problem combines a revenue term, a reliability term using the slack variables and two regularization terms,
@@ -204,12 +213,13 @@ The optimization problem can be written mathematically as
   &&& r_p\geq 0\\
   &&& \text{Reliability constraint} \\
   &&& \text{Ramp limit constraints} \\
-  &&& \text{Storage model LP-alt} 
+  &&& \text{Storage model (LP-alt)} \\
+  &&& \text{Bounds on binary variables} 
 \end{align}
 ```
 where $e^s_\text{init}$ is the initial state-of-charge of storage system $s$ and should match the operation decided at the previous time step.
 
-The reliability constraint enforces a target reliability $r_\text{th}$ based on the number of times where the dispatch constraints (baseload and ramp limit) are satisfied. This calculation is done for the time window of the forecast in addition to a window of past operation of length $n_h$. This enables to keep a *memory* of previous operation. One has
+The reliability constraint enforces a target reliability $r_\text{th}$ based on the number of times where the dispatch constraints (baseload and ramp limit) are satisfied. This calculation is done for the time window of the forecast in addition to a window of past operation of length $n_h$. This enables the problem to keep a *memory* of previous operation. The constraint is expressed as
 
 $$ \sum_{i=0}^{n-1} y_i \geq (r_\text{th} - r)(n + n_h) - k_h $$
 
@@ -244,6 +254,6 @@ The code implement different dispatch optimization problems through three routin
 
 | Routine name | Formulation | Objective function | Constraints| Optimization algorithm |
 | ------------ | ----------- |------------------- |----------- |----------------- |
-| `solve_lp_sparse` | lp, lp-alp, milp | NPV or R      | Baseload  | `scipy.linprog` |
-| `solve_lp_pyomo`| lp-alt | NPV  or R      | Baseload, Ramp-limit  | pyomo-compatible (mosek, cplex, gurobi, etc.) |
+| `solve_lp_sparse` | lp, lp-alp, milp | NPV or Revenues      | Baseload  | `scipy.linprog` |
+| `solve_lp_pyomo`| lp-alt | NPV  or Revenues      | Baseload, Ramp-limit  | pyomo-compatible (mosek, cplex, gurobi, etc.) |
 | `solve_dispatch_pyomo`| lp-alt | Trade off between revenues and reliability | Baseload, Ramp-limit      | pyomo-compatible (mosek, cplex, gurobi, etc.) |

@@ -108,13 +108,13 @@ The discount rate and number of years are required because the underlying object
 The dispatch optimization problem can be solved with the built-in solver in scipy, `scipy.optimize.linprog` with the following command:
 
 ```python
-os = solve_lp_sparse(price_ts, prod, prod_null, stor, stor_null, discount_rate, n_year, p_min, p_max, n, fixed_cap = True)
+os = solve_lp_sparse(price_ts, prod, prod_null, stor, stor_null, discount_rate, n_year, p_min, p_max, n, options=dict(fixed_cap = True))
 ```
 
 However, this solver performs poorly with large problems. Instead, it is recommended to use off-the-shelf solvers throught the pyomo interface with the following command, where the parameter `name_solver` refers to a solver compatible with pyomo, for example 'mosek', 'cplex', 'gurobi'.
 
 ```python
-os = solve_lp_pyomo(price_ts, prod, prod_null, stor, stor_null, discount_rate, n_year, p_min, p_max, n, name_solver, fixed_cap = True)
+os = solve_lp_pyomo(price_ts, prod, prod_null, stor, stor_null, discount_rate, n_year, p_min, p_max, n, name_solver, options=dict(fixed_cap = True))
 ```
 
 

@@ -281,21 +281,29 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod1: Production, prod2: Production, s
                         eff_out = eta1_out,
                         p_cost = stor1.p_cost,
                         e_cost = stor1.e_cost,
-                        dod = stor1.dod)
+                        dod = stor1.dod,
+                        lifetime= stor1.lifetime,
+                        opex_fix= stor1.opex_fix,
+                        opex_var=stor1.opex_var)
     stor2_res = Storage(e_cap = e_cap2,
                         p_cap = p_cap2,
                         eff_in = eta2_in,
                         eff_out = eta2_out,
                         p_cost = stor2.p_cost,
                         e_cost = stor2.e_cost,
-                        dod = stor2.dod)
+                        dod = stor2.dod,
+                        lifetime= stor2.lifetime,
+                        opex_fix= stor2.opex_fix,
+                        opex_var=stor2.opex_var)
 
-    prod_wind_res = Production(power_ts = TimeSeries(np.array(power_res_new)
-                    - prod2.power.data[:n], dt), p_cost= prod1.p_cost)
+    p_curtail = prod2.power.data[:n] + prod1.power.data[:n] - np.array(power_res_new)
+    # prod1_res = Production(power_ts = TimeSeries(np.array(power_res_new)
+    #                 - prod2.power.data[:n], dt), p_cost= prod1.p_cost)
+    prod1_res = prod1.curtail(p_curtail)
 
-    os_res = OpSchedule(production_list = [prod_wind_res, prod2],
+    os_res = OpSchedule(production_list = [prod1_res, prod2],
                 storage_list = [stor1_res, stor2_res],
-                production_p = [TimeSeries(prod_wind_res.power.data[:n], dt),
+                production_p = [TimeSeries(prod1_res.power.data[:n], dt),
                                 TimeSeries(prod2.power.data[:n], dt)],
                 storage_p = [TimeSeries(p_vec1, dt),
                              TimeSeries(p_vec2, dt)],

@@ -7,6 +7,7 @@ Functions:
     - build_lp_cst_sparse: Build sparse constraints for a LP.
     - solve_lp_sparse: Build and solve a LP for NPV maximization.
     - os_rule_based: Build the operation schedule with a rule-based EMS
+    - financial_metrics: Calculate financial metrics for a given hybrid power plant
 """
 
 import traceback
@@ -901,16 +902,26 @@ def solve_lp_sparse(price_ts: TimeSeries, prod1: Production,
                             eff_out = stor1.eff_out,
                             p_cost = stor1.p_cost,
                             e_cost = stor1.e_cost,
-                            dod = stor1.dod)
+                            dod = stor1.dod,
+                            lifetime= stor1.lifetime,
+                            opex_fix= stor1.opex_fix,
+                            opex_var=stor1.opex_var)
     stor2_res = Storage(e_cap = stor2_e_cap,
                             p_cap = stor2_p_cap,
                             eff_in = stor2.eff_in,
                             eff_out = stor2.eff_out,
                             p_cost = stor2.p_cost,
                             e_cost = stor2.e_cost,
-                            dod = stor2.dod)
+                            dod = stor2.dod,
+                            lifetime= stor2.lifetime,
+                            opex_fix= stor2.opex_fix,
+                            opex_var=stor2.opex_var)
 
-    prod1_res = Production(power_ts = TimeSeries(np.array(power_res_new) - prod2.power.data[:n], dt), p_cost= prod1.p_cost)
+    
+    p_curtail = prod2.power.data[:n] + prod1.power.data[:n] - np.array(power_res_new)
+    # prod1_res = Production(power_ts = TimeSeries(p_curtail, dt), p_cost= prod1.p_cost)
+    prod1_res = prod1.curtail(p_curtail)
+    
 
     os_res = OpSchedule(production_list = [prod1_res, prod2],
                         storage_list = [stor1_res, stor2_res],
@@ -1082,3 +1093,117 @@ def os_rule_based(price_ts: TimeSeries, prod1: Production, prod2: Production, st
     os_res.get_npv_irr(discount_rate, n_year)
 
     return os_res
+
+def financial_metrics(production_list: list[Production], storage_list: list[Storage], production_p: list[TimeSeries],
+                 storage_p: list[TimeSeries], p_max_hpp: float, p_cost_shared: float, price: TimeSeries, m:int, discount_rate: float, added_price: float = 0) -> tuple[float, float, float, float, list[float]]:
+    """Calculate financial metrics for a given hybrid power plant
+    
+    Five metrics are calculated: LCOE, NPV, IRR, Total CAPEX, and the vector of cashflow during the project.
+    
+    Args:
+        production_list (list[Production]): List of power generation components (wind farm, solar PV, etc.)
+        storage_list (list[Storage]): List of storage system components
+        production_p (list[TimeSeries]): List of power production time series, corresponding to the components in production_list
+        storage_p (list[TimeSeries]): List of storage power time series, corresponding to the components in storage_list
+        p_max_hpp (float): Grid connection capacity of the hybrid power plant (MW)
+        p_cost_shared (float): Shared CAPEX of the hybrid power plant (e.g., balance of plant), proportional to the grid connection capacity (Currency/MW)
+        price (TimeSeries): Time series of electricity price to calculate the revenue (currency/MWh)
+        m (int): number of years of operation of the project (-))
+        discount_rate (float): discount rate for the calculation of discounted cashflows (-)
+        added_price (float, optional): Value of electricity price added to the price timeseries, similar to a subsidy premium (currency/MWh).  
+    
+    Returns:
+        tuple[float, float, float, float, list[float]]: [lcoe, npv, irr, capex_tot, cashflow]
+
+    Raises:
+        AssertionError: if any argument is of incorrect type, if the length of production or storage objects does not match the list of power timeseries, if the time increment is inconsistent.
+    
+    
+    
+    """
+    # Check validity of inputs
+    assert isinstance(production_list, list) and all(isinstance(p, Production) for p in production_list), \
+        "production_list must be a list of Production objects."
+    assert isinstance(storage_list, list) and all(isinstance(s, Storage) for s in storage_list), \
+        "storage_list must be a list of Storage objects."
+    assert isinstance(production_p, list) and all(isinstance(ts, TimeSeries) for ts in production_p), \
+        "production_p must be a list of TimeSeries objects."
+    assert isinstance(storage_p, list) and all(isinstance(ts, TimeSeries) for ts in storage_p), \
+        "storage_p must be a list of TimeSeries objects."
+    assert isinstance(p_max_hpp, (int, float)) and (p_max_hpp > 0), "p_max_hpp must be a positive numeric value."
+    assert isinstance(p_cost_shared, (int, float)) and (p_cost_shared >= 0), "p_cost_shared must be a positive numeric value."
+    assert isinstance(price, TimeSeries), "price must be a TimeSeries object."
+    assert isinstance(m, int) and (m>0), "m must be a positive integer."
+    assert isinstance(discount_rate, (float, int)) and (0 <= discount_rate <=1), "discount_rate must be a numeric value between 0 and 1."
+    if added_price is not None:
+        assert isinstance(added_price, (float, int)) and (0 <= added_price), "added_price must be a positive numeric value."
+
+    assert len(production_p) == len(production_list), "the number of production object in production_list must match the number of power timeseries in production_p"
+    assert len(storage_p) == len(storage_list), "the number of storage object in storage_list must match the number of power timeseries in storage_p"
+
+    dt = production_p[0].dt
+    assert all(power.dt == dt for power in production_p+storage_p), "the time increment dt should be consistent accross timeseries in production_p and storage_p"
+
+    # Calculate AEP, CAPEX, OPEX and Revenues for all production and storage objects
+    aep_production = [  sum(prod.data)*dt for prod in production_p]
+    aep_storage_discharge = [  sum(np.maximum(stor.data, 0))*dt for stor in storage_p] # Sum of energy in discharge only - for the calculation of the variable OPEX
+    aep_storage_tot = [  sum(stor.data)*dt for stor in storage_p]
+
+    capex_production =  [ prod.get_tot_costs() for prod in production_list ] 
+    capex_storage =  [ stor.get_tot_costs() for stor in storage_list ] 
+    capex_shared = p_max_hpp*p_cost_shared # Shared CAPEX of Balance of plant (BOP)
+
+    opex_production =  [ prod.opex_fix * prod.p_max + prod.opex_var * aep_prod for prod, aep_prod in zip(production_list, aep_production) ] 
+    opex_storage =  [ stor.opex_fix * stor.p_cap + stor.opex_var * aep_stor for stor, aep_stor in zip(storage_list, aep_storage_discharge) ] 
+
+    revenues_production =  [ sum([(p) *(l + added_price) for p, l in zip(prod.data, price.data)]) for prod in production_p] 
+    revenues_storage =  [sum([(p) *(l + added_price) for p, l in zip(stor.data, price.data)]) for stor in storage_p] 
+
+    # Expenses are recorded in tuple objects, where the first element is the year where the expense occurs
+    # The CAPEX for the production objects and for the balance of plant occur on year 0.    
+    capex_tuples = [(0, capex_shared)] + [(0, capex_prod) for capex_prod in capex_production]
+
+    # The OPEX of production objects occurs every year except year 0.
+    opex_tuples  = [(i, opex_prod) for i in range(1, m+1) for opex_prod in opex_production]
+
+    # The CAPEX and OPEX for the storage systems takes into account the year of replacement
+    # Here, we assume that the storage is not replaced if its lifetime is longer than the remaining lifetime of the project. For example, for a 25 year project, a storage system with a 8 year lifetime is replaced 3 times.
+    capex_batt_tuples = []
+    opex_batt_tuples = []
+    for stor, capex, opex in zip(storage_list, capex_storage, opex_storage): 
+        for i in range(m//stor.lifetime): # Looping over the number of batteries during the project lifetime
+            capex_batt_tuples.append((i*stor.lifetime, capex)) # Adding CAPEX at each replacement year
+            for j in range(stor.lifetime):
+                opex_batt_tuples.append((i*stor.lifetime+j, opex)) # Adding OPEX at each year of operation
+    
+    # Combine all expense tuples into a single vector of costs indexed by year, where costs_vec[i] is the total expenses in year i
+    costs_vec = [0 for _ in range(m+1)]
+    for tuple in capex_tuples + opex_tuples + capex_batt_tuples + opex_batt_tuples:
+        index_year = tuple[0]
+        costs_vec[index_year] += tuple[1]
+
+    # Represent the electricity production and revenues into a vector indexed by year    
+    aep_vec = [sum(aep_production)+sum(aep_storage_tot) if i>0 else 0 for i in range(0, m+1)]
+    revenues_vec = [sum(revenues_production)+ sum(revenues_storage) if i>0 else 0 for i in range(0, m+1)]
+    
+    # Combine costs and revenues into a vector of cashflow over the project lifetime
+    cashflow = [(rev-cost) for rev, cost in zip(revenues_vec, costs_vec)]
+    
+    # Calculate the LCOE as the ratio between levelized costs and levelized AEP
+    levelized_aep_bis = npf.npv(discount_rate, aep_vec)
+    levelized_costs_bis = npf.npv(discount_rate, costs_vec)
+    
+    lcoe = levelized_costs_bis/levelized_aep_bis
+
+    # Calculate NPV and IRR
+    npv = npf.npv(discount_rate, [(rev-cost) for rev, cost in zip(revenues_vec, costs_vec)])
+
+    irr = npf.irr([(rev-cost) for rev, cost in zip(revenues_vec, costs_vec)])
+   
+    # Calculate the total CAPEX, included the discounted cost of storage system replacement.
+    capex_tot = sum(capex_production)+capex_shared
+
+    for tuple in capex_batt_tuples:
+        capex_tot+=tuple[1]/(1+discount_rate)**tuple[0]
+
+    return lcoe, npv, irr, capex_tot, cashflow
