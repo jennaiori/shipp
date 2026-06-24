@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="violet" data-content_root="./">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Mathematical background - SHIPP</title><link rel="shortcut icon" href="_static/shipp_logo_small_dark.png"/><link rel="index" title="Index" href="genindex.html" /><link rel="search" title="Search" href="search.html" /><link rel="next" title="Implementation" href="3_implementation.html" /><link rel="prev" title="Quick start" href="1_quick_start.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d1c6635e" />
+    <link rel="stylesheet" type="text/css" href="_static/shibuya.css?v=9454f7d5" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link media="print" rel="stylesheet" type="text/css" href="_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="Mathematical background"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="index.html">
+      <img class="light-logo" src="_static/shipp_logo_small.png" alt="shipp" height="28" loading="lazy" />
+      <img class="dark-logo" src="_static/shipp_logo_small_dark.png" alt="shipp" height="28" loading="lazy" />
+      <strong>shipp</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials"></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="1_quick_start.html">Quick start</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Mathematical background</a></li>
+<li class="toctree-l1"><a class="reference internal" href="3_implementation.html">Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="5_publications.html">Publications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="apidocs/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="apidocs/components/components.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">components</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="apidocs/kernel/kernel.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">kernel</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="apidocs/kernel_pyomo/kernel_pyomo.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">kernel_pyomo</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="apidocs/io_functions/io_functions.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">io_functions</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="apidocs/timeseries/timeseries.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">timeseries</span></code></a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
+<li><a class="reference internal" href="#hybrid-power-plant-modelling">Hybrid power plant modelling</a><ul>
+<li><a class="reference internal" href="#components-and-characteristics">Components and characteristics</a></li>
+<li><a class="reference internal" href="#power-delivery-model">Power delivery model</a></li>
+<li><a class="reference internal" href="#storage-system-model">Storage system model</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#performance-metrics">Performance metrics</a><ul>
+<li><a class="reference internal" href="#energy-and-losses">Energy and losses</a></li>
+<li><a class="reference internal" href="#revenues">Revenues</a></li>
+<li><a class="reference internal" href="#net-present-value">Net Present Value</a></li>
+<li><a class="reference internal" href="#lcoe">LCOE</a></li>
+<li><a class="reference internal" href="#reliabity">Reliabity</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#dispatch-constraints">Dispatch constraints</a></li>
+</ul>
+</div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="index.html"><span itemprop="name">shipp</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">Mathematical background</strong>
+        <meta itemprop="position" content="2" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <article class="yue" role="main">
+          <section class="tex2jax_ignore mathjax_ignore" id="mathematical-background">
+<h1>Mathematical background<a class="headerlink" href="#mathematical-background" title="Link to this heading">¶</a></h1>
+<section id="hybrid-power-plant-modelling">
+<h2>Hybrid power plant modelling<a class="headerlink" href="#hybrid-power-plant-modelling" title="Link to this heading">¶</a></h2>
+<p>A hybrid power plant can be defined as the “combination of two or more electricity generation and/or storage technologies, providing coordinated electrical power services that are connected at a single point.” (<a class="reference external" href="https://iea-wind.org/task50/t50-wp1/">IEA Task 50 - WP1</a>).</p>
+<section id="components-and-characteristics">
+<h3>Components and characteristics<a class="headerlink" href="#components-and-characteristics" title="Link to this heading">¶</a></h3>
+<p>In SHIPP, the components of the hybrid power plant are divided in power generation components (wind farm, solar farm, etc.) and storage systems components (battery, etc.).</p>
+<p>Each power generation component <span class="math notranslate nohighlight">\(g\)</span> is characterized by:</p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(\boldsymbol{p}^g\)</span>: the time series of power generation during the considered time window</p></li>
+<li><p><span class="math notranslate nohighlight">\(\bar{P}^g\)</span>: its rated power</p></li>
+<li><p><span class="math notranslate nohighlight">\(\lambda_p^g\)</span>: its cost per MW of rated power</p></li>
+</ul>
+<p>Each storage compoment <span class="math notranslate nohighlight">\(s\)</span> is characterised by:</p>
+<ul class="simple">
+<li><p><span class="math notranslate nohighlight">\(\bar{P}^s\)</span>: its power capacity</p></li>
+<li><p><span class="math notranslate nohighlight">\(\bar{E}^s\)</span>: its energy capacity</p></li>
+<li><p><span class="math notranslate nohighlight">\(\eta_\text{in}^s\)</span>, <span class="math notranslate nohighlight">\(\eta_\text{out}^s\)</span>: its efficiency in charge and discharge</p></li>
+<li><p><span class="math notranslate nohighlight">\(d^s\)</span>: its depth of discharge</p></li>
+<li><p><span class="math notranslate nohighlight">\(\lambda_p^s\)</span>: its cost per MW of power capacity</p></li>
+<li><p><span class="math notranslate nohighlight">\(\lambda_e^s\)</span>: its cost per MWh of energy capacity</p></li>
+<li><p><span class="math notranslate nohighlight">\(\boldsymbol{p}^s\)</span>: the time series of its power (in charge and discharge)</p></li>
+<li><p><span class="math notranslate nohighlight">\(\boldsymbol{e}^s\)</span>: the time series of its state of charge</p></li>
+</ul>
+<p>The hybrid power plant is characterized by:</p>
+<ul class="simple">
+<li><p>the number and type of each component</p></li>
+<li><p><span class="math notranslate nohighlight">\(\bar{P}\)</span>: its rated power (corresponding to the capacity of the point of connection)</p></li>
+<li><p><span class="math notranslate nohighlight">\(\boldsymbol{p}\)</span>: the time series of power sent to the grid</p></li>
+<li><p><span class="math notranslate nohighlight">\(\boldsymbol{p}^c\)</span>: the time series of curtailed power</p></li>
+</ul>
+</section>
+<section id="power-delivery-model">
+<h3>Power delivery model<a class="headerlink" href="#power-delivery-model" title="Link to this heading">¶</a></h3>
+<p>SHIPP models the power delivered to the grid as the sum of the power produced by the generation components, the power in charge/discharge of the storage components, minus the curtailed power,</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[ \boldsymbol{p} = \sum_{g} \boldsymbol{p}^g +  \sum_{s} \boldsymbol{p}^s - \boldsymbol{p}^c  \]</div>
+</div>
+<p>We assume that the time increment <span class="math notranslate nohighlight">\(\Delta t\)</span> is sufficiently large to neglect transient effects. Here, the power of each storage system is described by one variable <span class="math notranslate nohighlight">\(\boldsymbol{p}^s\)</span>. However, the storage power can also be described by its power in charge and discharge separetly, depending on the problem formulation.</p>
+</section>
+<section id="storage-system-model">
+<span id="id1"></span><h3>Storage system model<a class="headerlink" href="#storage-system-model" title="Link to this heading">¶</a></h3>
+<p>The operation of the storage systemm is described with the power <span class="math notranslate nohighlight">\(\boldsymbol{p}^s\)</span> and energy <span class="math notranslate nohighlight">\(\boldsymbol{e}^s\)</span> time series. The following convention is used: the power is negative during charge (<em>in</em>) and positive during discharge (<em>out</em>).
+The power and energy time series are bounded by the power and energy capacities of the component:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[ \forall i \in[0,n[, \quad  -\bar{P}^s \leq p_i^s \leq \bar{P}^s\]</div>
+</div>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[ \forall i \in[0,n], \quad  \bar{E}^s (1 - d^s) \leq e_i^s \leq \bar{E}^s\]</div>
+</div>
+<p>Considering a time window of <span class="math notranslate nohighlight">\(n\)</span> time steps with a discretization <span class="math notranslate nohighlight">\(\Delta t\)</span>, the power and energy time series satisfy the charge/discharge model of the storage for <span class="math notranslate nohighlight">\(i \in [0, n[\)</span></p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\begin{split}e^s_{i+1} - e^s_{i} = \begin{cases}
+  - \Delta t \ \eta^s_\text{in} \  p^s_i &amp; \text{if } p^s_i \leq 0 \\
+  - \Delta t \dfrac{1}{\eta^s_\text{out}}  p^s_i &amp; \text{else}.
+\end{cases}\end{split}\]</div>
+</div>
+<p>Considering realistic storage system efficiency (<span class="math notranslate nohighlight">\(\eta_\text{in}^s \eta_\text{out}^s &lt;1\)</span>), energy losses occur during cycles. The total can be calculated as</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[L^s = -\Delta t \sum_{i=0}^{n-1} e^s_{i+1} - e^s_{i} + \Delta t p^s_i\]</div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Degradation is not currently implemented in the code.</p>
+</div>
+</section>
+</section>
+<section id="performance-metrics">
+<h2>Performance metrics<a class="headerlink" href="#performance-metrics" title="Link to this heading">¶</a></h2>
+<p>The design and operation of the hybrid power plant can be assessed using different performance metrics, covering revenues, costs and reliability.</p>
+<section id="energy-and-losses">
+<h3>Energy and losses<a class="headerlink" href="#energy-and-losses" title="Link to this heading">¶</a></h3>
+<p>The hybrid power plant is characterised by its annual energy production (AEP) and grid utilization factor (GUF)</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[ \text{AEP} = \dfrac{8760 \Delta t}{n} \mathbb{1}^T \cdot \boldsymbol{p} \Delta t \]</div>
+</div>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[ \text{GUF} = \dfrac{1}{n} \dfrac{\mathbb{1}^T \cdot \boldsymbol{p}}{\bar{P}} \]</div>
+</div>
+<p>The energy losses in the power plant come from curtailment and from the inefficiency of the charge/discharge cycle in the storage system.</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[ L_\text{tot} = \mathbb{1}^T \cdot (\sum_{g} \boldsymbol{p}^g - \boldsymbol{p}) \Delta t  = L^c + \sum_{s} L^s\]</div>
+</div>
+<p>with <span class="math notranslate nohighlight">\(L^c = \mathbb{1}^T \cdot \boldsymbol{p}^c \Delta t\)</span>.</p>
+</section>
+<section id="revenues">
+<h3>Revenues<a class="headerlink" href="#revenues" title="Link to this heading">¶</a></h3>
+<p>The revenues of the hybrid power plant are calculated as the dot product between a time series of electricity price <span class="math notranslate nohighlight">\(\boldsymbol{\lambda}\)</span> and the time series of power delivered to the grid,</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\text{R} = \boldsymbol{\lambda}^T \cdot \boldsymbol{p}\]</div>
+</div>
+<p>This simple revenue model does not account for the different bidding stages in the electricity markets. It only captures the variability of electricity price in time and its correlation with renewable energy production. The time series of day-ahead market price can be used for <span class="math notranslate nohighlight">\(\boldsymbol{\lambda}\)</span>, as first-order estimation of how the value of electricity varies in time.</p>
+<p>For studying the performance of the storage system specifically, it is relevant to calculate the difference between revenues with and without storage,</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[ \Delta \text{R} = \boldsymbol{\lambda}^T \cdot ( \text{min}(\bar{P}, \sum_{g} \boldsymbol{p}^g) - \boldsymbol{p})\]</div>
+</div>
+<p>When the grid connection capacity is above or equal the installed power capacity (i.e., no overplanting), the added revenues can be simplified as</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\Delta \text{R} = \boldsymbol{\lambda}^T \cdot (\sum_{s} \boldsymbol{p}^s - \boldsymbol{p}^c)\]</div>
+</div>
+<p>Finally, arbitrage revenues generated by the storage system components are calculated as</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\text{R}_a = \boldsymbol{\lambda}^T \cdot (\sum_{s} \boldsymbol{p}^s)\]</div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The class member <a class="reference internal" href="apidocs/components/components.html#components.OpSchedule.revenue_storage" title="components.OpSchedule.revenue_storage"><code class="xref py py-obj docutils literal notranslate"><span class="pre">OpSchedule.revenue_storage</span></code></a> and <a class="reference internal" href="apidocs/components/components.html#components.OpSchedule.annual_revenue_storage" title="components.OpSchedule.annual_revenue_storage"><code class="xref py py-obj docutils literal notranslate"><span class="pre">OpSchedule.annual_revenue_storage</span></code></a> represent arbitrage revenues, not added revenues.</p>
+</div>
+</section>
+<section id="net-present-value">
+<h3>Net Present Value<a class="headerlink" href="#net-present-value" title="Link to this heading">¶</a></h3>
+<p>Profitability of the hybrid power plant can be estimated using the net present value (NPV) and internal rate of return (IRR). These two metrics take into account the capital expenditures of each component, the project lifetime and discounts revenues. The NPV can be estimated with</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\text{NPV} = -\sum_{g} \lambda^g_P \bar{P}^g - \sum_{s} (\lambda^s_P \bar{P}^s + \lambda_E^s \bar{E}^s) + \sum_{k=1}^m \dfrac{\text{R}}{(1+r)^k}\]</div>
+</div>
+<p>where <span class="math notranslate nohighlight">\(m\)</span> is the number of years of operation of the project and <span class="math notranslate nohighlight">\(r\)</span> the discount rate. Here we assume that the revenues <span class="math notranslate nohighlight">\(R\)</span> estimated for one year are representative of the entire lifetime of the project, and that all capital expenditures happen at year 0.</p>
+<p>The internal rate of return is the discount rate for which <span class="math notranslate nohighlight">\(\text{NPV} = 0\)</span>.</p>
+<p>In the presence of storage system components, it is relevant to calculate the <em>added NPV</em>, i.e., the contribution of storage system to the total NPV. It is calculated as</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\Delta \text{NPV} = -\sum_{s} (\lambda^s_P \bar{P}^s + \lambda_E^s \bar{E}^s) + \sum_{k=1}^m \dfrac{\Delta \text{R}}{(1+r)^k}\]</div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The class member <a class="reference internal" href="apidocs/components/components.html#components.OpSchedule.a_npv" title="components.OpSchedule.a_npv"><code class="xref py py-obj docutils literal notranslate"><span class="pre">OpSchedule.a_npv</span></code></a> models the NPV using arbitrage revenues, and thus does not take into account the contribution of storage to curtailment reduction.</p>
+</div>
+<p>It is possible to use a more precise formula of the NPV, with the function <a class="reference internal" href="apidocs/kernel/kernel.html#kernel.financial_metrics" title="kernel.financial_metrics"><code class="xref py py-obj docutils literal notranslate"><span class="pre">financial_metrics</span></code></a>, taking into account the operational expenditures and the timing of the storage system replacement.
+In this case, the total capital expenditures is made of shared costs (represented by <span class="math notranslate nohighlight">\(\lambda^\text{shared}_P\)</span> and proportional to the grid connection capacity <span class="math notranslate nohighlight">\(\bar{P}\)</span>), the capital expenditures of the production and storage components, as</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\text{CAPEX} = \lambda^\text{shared}_P \bar{P} + \sum_{g} \lambda^g_P \bar{P}^g  +  \sum_{s} (\lambda^s_P \bar{P}^s + \lambda_E^s \bar{E}^s) \sum_{k=0}^{\lfloor m/m_s \rfloor} \dfrac{1}{(1+r)^{k m_\text{s}}}.\]</div>
+</div>
+<p>Each storage system is replaced at the end of its lifetime, as long as it is equal or shorter than the remaining lifetime of the project. In this formula, the replacement costs are discounted.</p>
+<p>The operational expenditure of the project are made of fixed (<span class="math notranslate nohighlight">\(\lambda_\text{O,fix}^\Box\)</span>) and variable (<span class="math notranslate nohighlight">\(\lambda_\text{O,var}^\Box\)</span>) parts, proportional to the rated power and energy delivered of the component, respectively,</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\text{OPEX} = \sum_{g} \lambda_\text{O,fix}^g \bar{P}^g + \lambda_\text{O,var}^g \mathbb{1}^T\cdot\boldsymbol{p}^g + \sum_{s} \lambda_\text{O,fix}^s \bar{P}^s + \lambda_\text{O,var}^s \mathbb{1}^T\cdot \text{max}(0, \boldsymbol{p}^g). \]</div>
+</div>
+<p>For the storage system, the variable operational expenditures are assumed to be proportional to the energy delivered (i.e. <span class="math notranslate nohighlight">\(\boldsymbol{p}^s \geq 0\)</span>), not the total energy cycled. Then, the NPV can be calculated as</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\text{NPV} = - \text{CAPEX} + \sum_{k=1}^{m} \dfrac{ \text{R} - \text{OPEX}}{(1+r)^k}\]</div>
+</div>
+<p>Note that decommissioning costs are not taken into account.</p>
+</section>
+<section id="lcoe">
+<h3>LCOE<a class="headerlink" href="#lcoe" title="Link to this heading">¶</a></h3>
+<p>The function <a class="reference internal" href="apidocs/kernel/kernel.html#kernel.financial_metrics" title="kernel.financial_metrics"><code class="xref py py-obj docutils literal notranslate"><span class="pre">financial_metrics</span></code></a> computes the levelized cost of energy (LCOE) using the following formula,</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\text{LCOE} = \dfrac{ \sum_{k=1}^{m} \dfrac{\mathbb{1}^T \cdot \boldsymbol{p} \Delta t}{(1+r)^k }}{\text{CAPEX} + \sum_{k=1}^{m} \dfrac{\text{OPEX}}{(1+r)^k}}.\]</div>
+</div>
+</section>
+<section id="reliabity">
+<h3>Reliabity<a class="headerlink" href="#reliabity" title="Link to this heading">¶</a></h3>
+<p>In SHIPP, the term reliability refers to the percentage of time where a specific dispatch constraint  is satified (see below). A dispatch constraint can be expressed as a non-linear equation of the delivered power at each time step,  <span class="math notranslate nohighlight">\(g(p_i) \leq 0\)</span>. Then, the associated reliability <span class="math notranslate nohighlight">\(r\)</span> is expressed as</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\begin{split}r = \dfrac{1}{n}\sum_{i=0}^{n-1} z_i, \text{   where  } z_i = \begin{cases}
+  1 &amp; \text{if } g(p_i) \leq 0, \\
+  0 &amp; \text{else}.
+\end{cases}
+\end{split}\]</div>
+</div>
+</section>
+</section>
+<section id="dispatch-constraints">
+<h2>Dispatch constraints<a class="headerlink" href="#dispatch-constraints" title="Link to this heading">¶</a></h2>
+<p>The power delivered should respect bounds dictated by the grid connection (assuming the storage systems cannot charge from the grid):</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[ \forall i, \ 0 \leq\sum_{g} p^g_i + \sum_{s} p^s_i - p^c_i \leq \bar{P}  \]</div>
+</div>
+<p>SHIPP allows additional dispatch constraints to be enforced on the delivered power:</p>
+<ul class="simple">
+<li><p>A minimum baseload power <span class="math notranslate nohighlight">\(P_\text{bl}\)</span></p></li>
+<li><p>A maximum power ramp <span class="math notranslate nohighlight">\(\delta P_\text{rl}\)</span></p></li>
+</ul>
+<p>The baseload constraint is expressed as a lower bound on the delivered power,</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[ \forall i, \ P_\text{bl} \leq\sum_{g} p^g_i + \sum_{s} p^s_i - p^c_i. \]</div>
+</div>
+<p>In the presence of a ramp limit, the constraint is applied to the difference of power between two time steps</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[ \forall i, \ - \delta P_\text{rl} \leq\sum_{g} (p^g_{i+1} - p^g_i ) + \sum_{s} (p^s_{i+1} - p^s_i) - (p^c_{i+1} - p^c_i)  \leq \delta P_\text{rl} \]</div>
+</div>
+</section>
+</section>
+
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"><div class="navigation-prev">
+    <a href="1_quick_start.html">
+      <i class="i-lucide chevron-left"></i>
+      <div class="page-info">
+        <span>Previous</span><div class="title">Quick start</div></div>
+    </a>
+  </div><div class="navigation-next">
+    <a href="3_implementation.html">
+      <div class="page-info">
+        <span>Next</span>
+        <div class="title">Implementation</div>
+      </div>
+      <i class="i-lucide chevron-right"></i>
+    </a>
+  </div></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2026, Jenna Iori</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials"></div>
+    </div>
+  </div>
+</footer>
+      <script src="_static/documentation_options.js?v=2709fde1"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="_static/copybutton.js?v=f281be69"></script>
+      <script src="_static/shibuya.js?v=50760d75"></script>
+      <script>window.MathJax = {"options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script></body>
+</html>

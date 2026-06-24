@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="violet" data-content_root="./">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Implementation - SHIPP</title><link rel="shortcut icon" href="_static/shipp_logo_small_dark.png"/><link rel="index" title="Index" href="genindex.html" /><link rel="search" title="Search" href="search.html" /><link rel="next" title="Publications" href="5_publications.html" /><link rel="prev" title="Mathematical background" href="2_background.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d1c6635e" />
+    <link rel="stylesheet" type="text/css" href="_static/shibuya.css?v=9454f7d5" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link media="print" rel="stylesheet" type="text/css" href="_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="Implementation"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="index.html">
+      <img class="light-logo" src="_static/shipp_logo_small.png" alt="shipp" height="28" loading="lazy" />
+      <img class="dark-logo" src="_static/shipp_logo_small_dark.png" alt="shipp" height="28" loading="lazy" />
+      <strong>shipp</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials"></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="1_quick_start.html">Quick start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="2_background.html">Mathematical background</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="5_publications.html">Publications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="apidocs/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="apidocs/components/components.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">components</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="apidocs/kernel/kernel.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">kernel</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="apidocs/kernel_pyomo/kernel_pyomo.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">kernel_pyomo</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="apidocs/io_functions/io_functions.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">io_functions</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="apidocs/timeseries/timeseries.html"><code class="xref py py-mod docutils literal notranslate"><span class="pre">timeseries</span></code></a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
+<li><a class="reference internal" href="#formulation-of-the-storage-system-model">Formulation of the storage system model</a><ul>
+<li><a class="reference internal" href="#milp">MILP</a></li>
+<li><a class="reference internal" href="#lp-alt">LP alt</a></li>
+<li><a class="reference internal" href="#lp">LP</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#perfect-foresight-optimization">Perfect foresight optimization</a><ul>
+<li><a class="reference internal" href="#in-solve-lp-sparse">In <code class="docutils literal notranslate"><span class="pre">solve_lp_sparse</span></code></a></li>
+<li><a class="reference internal" href="#in-solve-lp-pyomo">In <code class="docutils literal notranslate"><span class="pre">solve_lp_pyomo</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#rolling-horizon-dispatch">Rolling horizon dispatch</a></li>
+<li><a class="reference internal" href="#implementation-status">Implementation status</a></li>
+</ul>
+</div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="index.html"><span itemprop="name">shipp</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">Implementation</strong>
+        <meta itemprop="position" content="2" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <article class="yue" role="main">
+          <section class="tex2jax_ignore mathjax_ignore" id="implementation">
+<h1>Implementation<a class="headerlink" href="#implementation" title="Link to this heading">¶</a></h1>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>SHIPP currently implements the analysis of two storage system components and two power generation components.
+The code has so far only be used for an hourly time step (<span class="math notranslate nohighlight">\(\Delta t = 1\)</span>), and has not been verified for other time increments.</p>
+</div>
+<section id="formulation-of-the-storage-system-model">
+<h2>Formulation of the storage system model<a class="headerlink" href="#formulation-of-the-storage-system-model" title="Link to this heading">¶</a></h2>
+<p>The storage system model linking power to stored energy is a piece-wise linear function (see <a class="reference internal" href="2_background.html#storage-system-model"><span class="std std-ref">Storage system model</span></a>) and cannot be implemented directly in a linear or mixed-integer linear optimization problem. In SHIPP, three alternative formulations of the storage system model constraints are implemented:</p>
+<ul class="simple">
+<li><p>a mixed-integer linear (<code class="docutils literal notranslate"><span class="pre">milp</span></code>) formulation where integer variables are used to indicate if the storage is charging or discharging. Since the equations are enforced exactly, any feasible point of the optimization validates the model.</p></li>
+<li><p>a linear formulation using a relaxed form of the MILP (<code class="docutils literal notranslate"><span class="pre">lp_alt</span></code>). In this case, the storage system model is only valid at the optimum. Feasible points for the optimization problem do not necessarily validate the storage model.</p></li>
+<li><p>a linear formulation (<code class="docutils literal notranslate"><span class="pre">lp</span></code>) where the storage power is divded into a charging and discharging terms. Here as well, the validity of the storage model is not guaranteed due to the possibility of simultaneous charge and discharge.</p></li>
+</ul>
+<section id="milp">
+<h3>MILP<a class="headerlink" href="#milp" title="Link to this heading">¶</a></h3>
+<p>The storage system model is enforced using a binary variable at each time step <span class="math notranslate nohighlight">\(i\)</span>, denoted by <span class="math notranslate nohighlight">\(z_i\)</span>. The storage power is divided into two components: <span class="math notranslate nohighlight">\(p^{s+}\)</span> in dischage and <span class="math notranslate nohighlight">\(p^{s-}\)</span>. The constraints are implemented using a big-M form,</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\begin{split} &amp; e^s_{i+1} - e^s_{i} =  \Delta t \ \eta^s_\text{in} \  p^{s-}_i - \Delta t \dfrac{1}{\eta^s_\text{out}}  p^{s+}_i \\ 
+ &amp; 0 \leq p^{s-}_i \leq M z^s_i \\
+ &amp; 0 \leq p^{s+}_i \leq M (1 - z^s_i) \end{split}\]</div>
+</div>
+<p>We use the convention <span class="math notranslate nohighlight">\(z^s_i=0\)</span> for charge and <span class="math notranslate nohighlight">\(z^s_i=1\)</span> for discharge. In addition, the following bounds are imposed on the storage power,</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\begin{split} &amp; 0 \leq p^{s-}_i \leq \bar{P}^s \\
+ &amp; 0 \leq p^{s+}_i \leq \bar{P}^s \end{split}\]</div>
+</div>
+<!-- It is also possible to do this implementation without separating the power into two components, with
+
+$$ -M z^s_i \leq  e^s_{i+1} - e^s_{i} + \Delta t \ \eta^s_\text{in} \  p^s_i \leq M z^s_i,$$
+$$ -M(1-z^s_i) \leq e^s_{i+1} - e^s_{i} + \Delta t \dfrac{1}{\eta^s_\text{out}}  p^s_i  \leq M(1-z^s_i), $$
+$$ -M(1-z^s_i)  \leq p^s_i \leq M z^s_i. $$ -->
+</section>
+<section id="lp-alt">
+<h3>LP alt<a class="headerlink" href="#lp-alt" title="Link to this heading">¶</a></h3>
+<p>This is the default formulation in SHIPP. Here, the storage system model is represented by two inequality constraints,</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\begin{split}&amp; e^s_{i+1} - e^s_{i} \leq  - \Delta t \ \eta^s_\text{in} \  p^s_i, \\
+&amp; e^s_{i+1} - e^s_{i} \leq - \Delta t \dfrac{1}{\eta^s_\text{out}}  p^s_i. \end{split}\]</div>
+</div>
+<p>For this implementation to be representative, one of the inequality constraint must always be active at the optimum. As a result, the objective function must maximize the power at all time steps (<span class="math notranslate nohighlight">\(p^s_i\)</span>). This means that negative prices should not be used.</p>
+<p>The bounds on the storage power are set as <span class="math notranslate nohighlight">\( -\bar{P}^s \leq p^{s-}_i \leq \bar{P}^s\)</span>.</p>
+</section>
+<section id="lp">
+<h3>LP<a class="headerlink" href="#lp" title="Link to this heading">¶</a></h3>
+<p>The LP formulation is very similar to the MILP one. It consists of the same bounds on the power time series and the same equality constraint,</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[ e^s_{i+1} - e^s_{i} =  \Delta t \ \eta^s_\text{in} \  p^{s-}_i - \Delta t \dfrac{1}{\eta^s_\text{out}}  p^{s+}_i  \]</div>
+</div>
+<p>Without integer variables, it is possible to have simultaneous charge and discharge at the optimum, <span class="math notranslate nohighlight">\(p^{s-}_i p^{s+}_i \neq 0\)</span>. In this case, there is a risk that the storage model is not respected. A regularization term in the objective function should be used as a mitigation measure.</p>
+</section>
+</section>
+<section id="perfect-foresight-optimization">
+<h2>Perfect foresight optimization<a class="headerlink" href="#perfect-foresight-optimization" title="Link to this heading">¶</a></h2>
+<p>The functions <code class="docutils literal notranslate"><span class="pre">solve_lp_sparse</span></code> and <code class="docutils literal notranslate"><span class="pre">solve_lp_pyomo</span></code> implement a dispatch optimization problem where information about power and price is known perfectly for the entire simulation horizon. It is an integrated design problem, where design and operation are found simulatenously. It is also possible to solve the problem for dispatch only by setting the parameter <code class="docutils literal notranslate"><span class="pre">fixed_cap</span></code> to <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p>
+<p>The design variables of the problem <span class="math notranslate nohighlight">\(\boldsymbol{x}\)</span> are the storage system components energy and power capacities, the time series of storage power and energy, and the time series of curtailed power. If <code class="docutils literal notranslate"><span class="pre">fixed_cap</span> <span class="pre">=</span> <span class="pre">True</span></code>, the storage capacities are either removed from the list of design variables or fixed to their initial values. Depending on the problem formulation, the storage system power is represented by one single variable (<span class="math notranslate nohighlight">\(\boldsymbol{p}^s\)</span>) or by its components in charge and discharge, and integer variables may be added. Thus, the vector of design variable changes depending on the problem formulation and the parameter <code class="docutils literal notranslate"><span class="pre">fixed_cap</span></code>, as reported in the table below.</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Formulation</p></th>
+<th class="head"><p>Objective function</p></th>
+<th class="head"><p><code class="docutils literal notranslate"><span class="pre">fixed_cap</span></code></p></th>
+<th class="head"><p>Design variables <span class="math notranslate nohighlight">\(\boldsymbol{x}\)</span></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">milp</span></code></p></td>
+<td><p><span class="math notranslate nohighlight">\(f_\text{NPV}\)</span></p></td>
+<td><p>False</p></td>
+<td><p><span class="math notranslate nohighlight">\(\boldsymbol{p}^c, (\bar{P}^s, \bar{E}^s, \boldsymbol{p}^{s+}, \boldsymbol{p}^{s-}, \boldsymbol{e}^s, \boldsymbol{z}^s_i)_{s\in{1,2}}\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">milp</span></code></p></td>
+<td><p><span class="math notranslate nohighlight">\(f_R\)</span></p></td>
+<td><p>True</p></td>
+<td><p><span class="math notranslate nohighlight">\(\boldsymbol{p}^c, (\boldsymbol{p}^{s+}, \boldsymbol{p}^{s-}, \boldsymbol{e}^s, \boldsymbol{z}^s_i)_{s\in{1,2}}\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lp_alt</span></code></p></td>
+<td><p><span class="math notranslate nohighlight">\(f_{\text{NPV}, \text{alt}}\)</span></p></td>
+<td><p>False</p></td>
+<td><p><span class="math notranslate nohighlight">\(\boldsymbol{p}^c, (\bar{P}^s, \bar{E}^s, \boldsymbol{p}^s, \boldsymbol{e}^s)_{s\in{1,2}}\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lp_alt</span></code></p></td>
+<td><p><span class="math notranslate nohighlight">\(f_{R, \text{alt}}\)</span></p></td>
+<td><p>True</p></td>
+<td><p><span class="math notranslate nohighlight">\(\boldsymbol{p}^c, (\boldsymbol{p}^s, \boldsymbol{e}^s)_{s\in{1,2}}\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lp</span></code></p></td>
+<td><p><span class="math notranslate nohighlight">\(f_\text{NPV}\)</span></p></td>
+<td><p>False</p></td>
+<td><p><span class="math notranslate nohighlight">\(\boldsymbol{p}^c, (\bar{P}^s, \bar{E}^s, \boldsymbol{p}^{s+}, \boldsymbol{p}^{s-}, \boldsymbol{e}^s)_{s\in{1,2}}\)</span></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lp</span></code></p></td>
+<td><p><span class="math notranslate nohighlight">\(f_R\)</span></p></td>
+<td><p>True</p></td>
+<td><p><span class="math notranslate nohighlight">\(\boldsymbol{p}^c, (\boldsymbol{p}^{s+}, \boldsymbol{p}^{s-}, \boldsymbol{e}^s)_{s\in{1,2}}\)</span></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<section id="in-solve-lp-sparse">
+<h3>In <code class="docutils literal notranslate"><span class="pre">solve_lp_sparse</span></code><a class="headerlink" href="#in-solve-lp-sparse" title="Link to this heading">¶</a></h3>
+<p>In <code class="docutils literal notranslate"><span class="pre">solve_lp_sparse</span></code>, the implemented optimization problem is</p>
+<div class="math-wrapper amsmath docutils container">
+<div class="amsmath math notranslate nohighlight">
+\[\begin{align*}
+\text{min} &amp;&amp;&amp;  f(\boldsymbol{x}) \\
+\text{s.t.} &amp;&amp;&amp;  P_\text{bl} \leq  p_i \leq \bar{P} &amp;&amp; i = 0,..., n-1 \\
+  &amp;&amp;&amp; p^1_i + p^2_i \leq \text{max}(\bar{P} - \sum_g p^g_i, 0) &amp;&amp; i = 0,..., n-1 \\
+  &amp;&amp;&amp; e^s_0 \leq e^s_n, &amp;&amp; s \in \{1,2\} \\
+  &amp;&amp;&amp; (1-d)\bar{E} \leq e^{s}_i \leq \bar{E}^s &amp;&amp; i = 0,..., n \\
+  &amp;&amp;&amp; 0 \leq p^c_i \leq \sum_g p_i^g &amp;&amp; i = 0,..., n-1 \\
+  &amp;&amp;&amp;  \text{Storage model} \\
+  &amp;&amp;&amp; \text{Storage capacity bounds} 
+\end{align*}\]</div>
+</div>
+<p>where the storage model constraints depend on the formulation, as described above. The storage capacity bounds depend on the parameter <code class="docutils literal notranslate"><span class="pre">fixed_cap</span></code>. If <code class="docutils literal notranslate"><span class="pre">fixed_cap</span> <span class="pre">=</span> <span class="pre">False</span></code>, one has</p>
+<div class="math-wrapper amsmath docutils container">
+<div class="amsmath math notranslate nohighlight">
+\[\begin{align*}
+0 \leq \bar{P}^s \leq \bar{P}^s_\text{max}, &amp;&amp;&amp; s \in \{1,2\} \\
+0 \leq \bar{E}^s \leq \bar{E}^s_\text{max}, &amp;&amp;&amp; s \in \{1,2\}
+\end{align*}\]</div>
+</div>
+<p>where <span class="math notranslate nohighlight">\( \bar{P}^s_\text{max}\)</span> and <span class="math notranslate nohighlight">\(\bar{E}^s_\text{max}\)</span> are either equal to the initial capacities of the storage system ( <span class="math notranslate nohighlight">\(\bar{P}^s_\text{init}, \bar{E}^s_\text{init}\)</span>) or to an arbitrary large value if a capacity is set to <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">fixed_cap</span> <span class="pre">=</span> <span class="pre">True</span></code>, one has instead</p>
+<div class="math-wrapper amsmath docutils container">
+<div class="amsmath math notranslate nohighlight">
+\[\begin{align*}
+ \bar{P}^s = \bar{P}^s_\text{init}, &amp;&amp;&amp; s \in \{1,2\} \\
+\bar{E}^s = \bar{E}^s_\text{init}, &amp;&amp;&amp; s \in \{1,2\} 
+\end{align*}\]</div>
+</div>
+<p>The problem can be represented in standard form, as</p>
+<div class="math-wrapper amsmath docutils container">
+<div class="amsmath math notranslate nohighlight">
+\[\begin{align*}
+\text{min} &amp;&amp;&amp;  \boldsymbol{c}_\text{obj}^T \boldsymbol{x} \\
+\text{s.t.} &amp;&amp;&amp;  \mathbf{A}_\text{eq} \boldsymbol{x} = \boldsymbol{b}_\text{eq} \\
+            &amp;&amp;&amp;  \mathbf{A}_\text{ineq} \boldsymbol{x} \leq \boldsymbol{b}_\text{ineq} \\
+            &amp;&amp;&amp;   \boldsymbol{x}_\text{lb} \leq \boldsymbol{x} \leq \boldsymbol{x}_\text{ub} 
+\end{align*}\]</div>
+</div>
+<p>The terms <span class="math notranslate nohighlight">\(\boldsymbol{c}_\text{obj}, \mathbf{A}_\text{eq}, \boldsymbol{b}_\text{eq}, \mathbf{A}_\text{ineq}, \boldsymbol{b}_{ineq}, \boldsymbol{x}_\text{lb}, \boldsymbol{x}_\text{ub}\)</span> are constructed with the routines <code class="docutils literal notranslate"><span class="pre">build_lp_obj_npv</span></code>, <code class="docutils literal notranslate"><span class="pre">build_lp_obj_revenues</span></code> and <code class="docutils literal notranslate"><span class="pre">build_lp_cst_sparse</span></code> and used as input in the solver <code class="docutils literal notranslate"><span class="pre">scipy.linprog</span></code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>To reduce memory use and due to the large size of the problem, all matrices are stored in a sparse format.</p>
+</div>
+<p>The objective function aims to either maximize the added NPV or added revenues from the storage components. It includes three regularization parameters: <span class="math notranslate nohighlight">\(\alpha\)</span>, <span class="math notranslate nohighlight">\(\beta\)</span> and <span class="math notranslate nohighlight">\(\epsilon\)</span>. The parameters <span class="math notranslate nohighlight">\(\alpha\)</span> and <span class="math notranslate nohighlight">\(\beta\)</span> are used to regularize the curtailed power with respect to the storage power. The parameter <span class="math notranslate nohighlight">\(\epsilon\)</span> is only relevant for the <code class="docutils literal notranslate"><span class="pre">lp</span></code> formulation and helps avoiding simulatenous charging and discharging in the storage systems.</p>
+<p>For the <code class="docutils literal notranslate"><span class="pre">lp</span></code> and <code class="docutils literal notranslate"><span class="pre">milp</span></code> formulation, the storage power is divided into charge <span class="math notranslate nohighlight">\(\boldsymbol{p}^{s-}\)</span> and discharge <span class="math notranslate nohighlight">\(\boldsymbol{p}^{s+}\)</span>. The objective function of the problem is:</p>
+<ul class="simple">
+<li><p>For the integrated design problem:</p></li>
+</ul>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[  f_\text{NPV}(\boldsymbol{x}) = \sum_{s} (\lambda^s_P \bar{P}^s + \lambda_E^s \bar{E}^s) - \dfrac{8760}{n}\sum_{k=1}^m \dfrac{\boldsymbol{\lambda}^T \cdot (\sum_{s} (\boldsymbol{p}^{s+} - \boldsymbol{p}^{s-}) - \alpha \boldsymbol{p}^c)}{(1+r)^k}  + \beta \mathbb{1}^T\cdot \boldsymbol{p}^c + \sum_{s} \epsilon \mathbb{1}^T\cdot ( \boldsymbol{p}^{s+} +  \boldsymbol{p}^{s-})\]</div>
+</div>
+<ul class="simple">
+<li><p>For the dispatch only problem:</p></li>
+</ul>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[  f_R(\boldsymbol{x}) = - \boldsymbol{\lambda}^T \cdot (\sum_{s} (\boldsymbol{p}^{s+} - \boldsymbol{p}^{s-}) - \alpha \boldsymbol{p}^c) + \beta \mathbb{1}^T\cdot \boldsymbol{p}^c + \sum_{s} \epsilon \mathbb{1}^T\cdot ( \boldsymbol{p}^{s+} +  \boldsymbol{p}^{s-})\]</div>
+</div>
+<p>For the <code class="docutils literal notranslate"><span class="pre">lp_alt</span></code> formulation, the objective function is:</p>
+<ul class="simple">
+<li><p>For the integrated design problem:</p></li>
+</ul>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[  f_{\text{NPV}, \text{alt}}(\boldsymbol{x}) = \sum_{s} (\lambda^s_P \bar{P}^s + \lambda_E^s \bar{E}^s) - \dfrac{8760}{n}\sum_{k=1}^m {\boldsymbol{\lambda}^T \cdot (\sum_{s} \boldsymbol{p}^{s} - \alpha \boldsymbol{p}^c)}{(1+r)^k} + \beta \mathbb{1}^T\cdot \boldsymbol{p}^c\]</div>
+</div>
+<ul class="simple">
+<li><p>For the dispatch only problem:</p></li>
+</ul>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[  f_{R, \text{alt}}(\boldsymbol{x}) = - \boldsymbol{\lambda}^T \cdot (\sum_{s} \boldsymbol{p}^{s} - \alpha \boldsymbol{p}^c) + \beta \mathbb{1}^T\cdot \boldsymbol{p}^c\]</div>
+</div>
+</section>
+<section id="in-solve-lp-pyomo">
+<h3>In <code class="docutils literal notranslate"><span class="pre">solve_lp_pyomo</span></code><a class="headerlink" href="#in-solve-lp-pyomo" title="Link to this heading">¶</a></h3>
+<p>The dispatch optimization in <code class="docutils literal notranslate"><span class="pre">solve_lp_pyomo</span></code> is currently only implemented using the <code class="docutils literal notranslate"><span class="pre">lp_alt</span></code> formulation. The design variables of the problem are the storage system components energy and power capacities, the time series of storage power and energy, and the time series of curtailed power, i.e., <span class="math notranslate nohighlight">\(\boldsymbol{x} = [\boldsymbol{p}^c, (\bar{P}^s, \bar{E}^s, \boldsymbol{p}^s, \boldsymbol{e}^s)_{s\in{1,2}}]\)</span>.  If <code class="docutils literal notranslate"><span class="pre">fixed_cap</span> <span class="pre">=</span> <span class="pre">True</span></code>, the storage capacities are either removed from the list of design variables or fixed to their initial values, i.e., <span class="math notranslate nohighlight">\(\boldsymbol{x} = [\boldsymbol{p}^c, (\boldsymbol{p}^s, \boldsymbol{e}^s)_{s\in{1,2}}]\)</span>.</p>
+<p>The objective function of the problem aims to maximize the added NPV, i.e., the contribution of the storage system components to the total NPV,</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[  f_{\text{NPV}, \text{alt}}(\boldsymbol{x}) = \sum_{s} (\lambda^s_P \bar{P}^s + \lambda_E^s \bar{E}^s) - \dfrac{8760}{n}\sum_{k=1}^m \dfrac{\boldsymbol{\lambda}^T \cdot (\sum_{s} \boldsymbol{p}^{s} - \alpha \boldsymbol{p}^c)}{(1+r)^k}\]</div>
+</div>
+<p>There is only one regularization parameter, <span class="math notranslate nohighlight">\(\alpha\)</span>, to balance curtailment and storage use. When <code class="docutils literal notranslate"><span class="pre">fixed_cap</span> <span class="pre">=</span> <span class="pre">True</span></code>, the objective function does not change, but it becomes equivalent to maximization of revenues since the storage capacities are fixed.</p>
+<p>The problem is expressed mathematically as</p>
+<div class="math-wrapper amsmath docutils container">
+<div class="amsmath math notranslate nohighlight">
+\[\begin{align*}
+\text{min} &amp;&amp;&amp;  f_{\text{NPV}, \text{alt}}(\boldsymbol{x}) \\
+\text{s.t.} &amp;&amp;&amp;  P_{\text{bl},i} \leq  p_i \leq \bar{P} &amp;&amp;&amp; i = 0,..., n-1 \\
+  &amp;&amp;&amp; p^1_i + p^2_i \leq \text{max}(\bar{P} - \sum_g p^g_i, 0) &amp;&amp;&amp; i = 0,..., n-1 \\
+  &amp;&amp;&amp; e^s_0 \leq e^s_n, &amp;&amp;&amp; s \in \{1,2\} \\
+  &amp;&amp;&amp; (1-d)\bar{E} \leq e^{s}_i \leq \bar{E}^s &amp;&amp;&amp; i = 0,..., n \\
+  &amp;&amp;&amp; 0 \leq p^c_i \leq \sum_g p_i^g &amp;&amp;&amp; i = 0,..., n-1 \\
+  &amp;&amp;&amp; \text{Ramp limit constraints} \\
+  &amp;&amp;&amp; \text{Storage model (LP alt)} \\
+  &amp;&amp;&amp; \text{Storage capacity bounds} 
+\end{align*}\]</div>
+</div>
+<p>The baseload constraint is described here with a vector <span class="math notranslate nohighlight">\( \boldsymbol{P}_\text{bl}\)</span> and not a scalar, allowing a reliability below 100% to be set. The ramp limit constraint are associated to the parameter <code class="docutils literal notranslate"><span class="pre">dp_lim</span></code> and only enforced if its value is not <code class="docutils literal notranslate"><span class="pre">None</span></code>. The implemented constraints are</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[ -\delta P_\text{lim}  \leq p^{i+1} - p^{i} \leq    \delta P_\text{lim}, \ i = 0, ..., n-2 \]</div>
+</div>
+<p>The optimization problem is described implicitely using the (pyomo)[https://pyomo.readthedocs.io/] interface.</p>
+</section>
+</section>
+<section id="rolling-horizon-dispatch">
+<h2>Rolling horizon dispatch<a class="headerlink" href="#rolling-horizon-dispatch" title="Link to this heading">¶</a></h2>
+<p>The function <code class="docutils literal notranslate"><span class="pre">solve_dispatch</span></code> is used for rolling horizon dispatch to simulate the operation of the power plant with imperfect forecast. The goal of this optimization problem is to maximize revenues from electricity sales, while at the same time reducing as much as possible deviations from the required baseload or ramp-limit constraints. In addition, the dispatch problem can be solved to find the best operation considering several scenarios for the power forecast <span class="math notranslate nohighlight">\(p^{g,j}, j =1,..., m\)</span>.. For simplicity, only one generation component is considered here.</p>
+<p>The design variables of the problem are the time series of storage power and energy calculated for each forecast scenario, the time series of curtailed power for each forecast scenario, binary variables indicating if the dispatch constraints are satisfied, and two slack variables <span class="math notranslate nohighlight">\(r\)</span> and <span class="math notranslate nohighlight">\(r_p\)</span>. One has <span class="math notranslate nohighlight">\(\boldsymbol{x} = [(\boldsymbol{p}^{c,j})_{j=1,...,m}, (\boldsymbol{p}^{s,j}, \boldsymbol{e}^{s,j})_{s\in{1,2}, j=1,...,m}, \boldsymbol{y}, r, r_p]\)</span>.</p>
+<p>The objective function of the problem combines a revenue term, a reliability term using the slack variables and two regularization terms,</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[f(\boldsymbol{x}) = \dfrac{1}{m}\sum_{j=1}^{m} \boldsymbol{\lambda}^T\cdot(\sum_s \boldsymbol{p}^{s,j} - \alpha \boldsymbol{p}^{c,j}) - \mu (r + r_p) + \beta \dfrac{1}{m} \sum_{j=1}^m \sum_s e^s_{n} \]</div>
+</div>
+<p>where <span class="math notranslate nohighlight">\(\mu \gg 1\)</span> and <span class="math notranslate nohighlight">\(\beta \ll 1 \)</span>.</p>
+<p>The optimization problem can be written mathematically as</p>
+<div class="math-wrapper amsmath docutils container">
+<div class="amsmath math notranslate nohighlight">
+\[\begin{align*}
+\text{max} &amp;&amp;&amp;  f(\boldsymbol{x}) \\
+\text{s.t.} &amp;&amp;&amp;  P_\text{bl} y_i \leq p^{g,j}_i + p^{1,j}_i + p^{2,j}_i - p^{c,j}_i \leq \bar{P} &amp;&amp;&amp; i = 0,..., n-1, \ j=1,...,m \\
+  &amp;&amp;&amp; p^{1,j}_i + p^{2,j}_i \leq \text{max}(\bar{P} - p^{g,j}_i, 0) &amp;&amp;&amp; i = 0,..., n-1, \ j=1,...,m \\
+  &amp;&amp;&amp; e^{s,j}_0 = e^{s,j}_\text{init}, &amp;&amp;&amp; s \in \{1,2\}, \ j=1,...,m \\
+  &amp;&amp;&amp; p^{s,0}_0 = p^{s,j}_0 &amp;&amp;&amp; s \in \{1,2\}, \ j=1,...,m \\
+  &amp;&amp;&amp; (1-d)\bar{E} \leq e^{s}_i \leq \bar{E}^s &amp;&amp;&amp; i = 0,..., n \\
+  &amp;&amp;&amp; 0 \leq p^{c,j}_i \leq p^{g,j}_i &amp;&amp;&amp; i = 0,..., n-1,  \ j=1,...,m \\
+  &amp;&amp;&amp; r\geq 0\\
+  &amp;&amp;&amp; r_p\geq 0\\
+  &amp;&amp;&amp; \text{Reliability constraint} \\
+  &amp;&amp;&amp; \text{Ramp limit constraints} \\
+  &amp;&amp;&amp; \text{Storage model (LP alt)} \\
+  &amp;&amp;&amp; \text{Bounds on binary variables} 
+\end{align*}\]</div>
+</div>
+<p>where <span class="math notranslate nohighlight">\(e^s_\text{init}\)</span> is the initial state-of-charge of storage system <span class="math notranslate nohighlight">\(s\)</span> and should match the operation decided at the previous time step.</p>
+<p>The reliability constraint enforces a target reliability <span class="math notranslate nohighlight">\(r_\text{th}\)</span> based on the number of times where the dispatch constraints (baseload and ramp limit) are satisfied. This calculation is done for the time window of the forecast in addition to a window of past operation of length <span class="math notranslate nohighlight">\(n_h\)</span>. This enables the problem to keep a <em>memory</em> of previous operation. The constraint is expressed as</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[ \sum_{i=0}^{n-1} y_i \geq (r_\text{th} - r)(n + n_h) - k_h \]</div>
+</div>
+<p>where <span class="math notranslate nohighlight">\(k_h\)</span> is the number of time steps satisfying the dispatch constraints in the window of past operation. The terms <span class="math notranslate nohighlight">\(r_\text{th}, n_h\)</span> and <span class="math notranslate nohighlight">\(k_h\)</span> are inputs to the function <code class="docutils literal notranslate"><span class="pre">solve_dispatch_pyomo</span></code>.</p>
+<p>The ramp limit constraints are expressed as follows, with a separate expression for the constraint at the first time steps,</p>
+<div class="math-wrapper amsmath docutils container">
+<div class="amsmath math notranslate nohighlight">
+\[\begin{align*}
+ &amp; p^{g,j}_0 + p^{1,j}_0 + p^{2,j}_0 - p^{c,j}_0 - p_h - p^s_h \geq -\delta P_\text{lim} + r_p \bar{P} &amp;&amp; j = 1, ...,m \\
+ &amp; p^{1,j}_0 + p^{2,j}_0 - p^{c,j}_0 - p_h - p^s_h  \leq y_i ( \delta P_\text{lim} - p^{g,j}_0 + p_h + p^s_h) &amp;&amp; j = 1, ...,m \\
+&amp; ( p^{1,j}_{i+1} + p^{2,j}_{i+1} - p^{c,j}_{i+1}) - ( p^{1,j}_{i} + p^{2,j}_{i} - p^{c,j}_{i}) \geq -\bar{P} + y_i (\bar{P} - \delta P_\text{lim}) - p^{g,j}_i +  p^{g,j}_{i+1} &amp;&amp; j = 1, ...,m, \ i =1, ..., n-1\\
+&amp; ( p^{1,j}_{i+1} + p^{2,j}_{i+1} - p^{c,j}_{i+1}) - ( p^{1,j}_{i} + p^{2,j}_{i} - p^{c,j}_{i}) \leq \bar{P} + y_i (-\bar{P} + \delta P_\text{lim}) - p^{g,j}_i +  p^{g,j}_{i+1} &amp;&amp; j = 1, ...,m, \ i =1, ..., n-1
+\end{align*}\]</div>
+</div>
+<p>where <span class="math notranslate nohighlight">\(p_{h}\)</span> is the value of the power produced at the previous time step minus curtailment and <span class="math notranslate nohighlight">\(p^s_{h}\)</span> the value of the storage power at the previous time step. The lower bound for the ramp-limit at the first time step uses the slack variable <span class="math notranslate nohighlight">\(r_p\)</span> instead of a binary variable. This is to reduce the violation of the constraint when the ramp-limit cannot be satisfied at the first time step.</p>
+<p>Finally, to facilitate convergence of the algorithm, the bounds on the binary variables are set so that</p>
+<ul class="simple">
+<li><p>in the presence of a baseload constraint, <span class="math notranslate nohighlight">\(y_i = 1\)</span> if <span class="math notranslate nohighlight">\(\underset{j}{\text{min}}(p^{g,j}_i) \geq P_\text{bl}\)</span></p></li>
+<li><p>in the absence of baseload or ramp-limit constraints, <span class="math notranslate nohighlight">\(y_i = 1, \forall i\)</span>.</p></li>
+</ul>
+<p>The dispatch optimization in <code class="docutils literal notranslate"><span class="pre">solve_dispatch</span></code> is implemented using the <code class="docutils literal notranslate"><span class="pre">lp_alt</span></code> formulation. Two regularization terms are included in the objective function to ensure the constraints are active at the optimum. Furthermore, a penalty on the reliability binary variables is needed to ensure the dispatch constraints are respected as much as possible. As such, the objective function becomes</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The rolling horizon dispatch has only been used and verified for one storage system.</p>
+</div>
+</section>
+<section id="implementation-status">
+<h2>Implementation status<a class="headerlink" href="#implementation-status" title="Link to this heading">¶</a></h2>
+<p>The code implement different dispatch optimization problems through three routines. However, not all variations described above are available in each routine. An overview of their differences is reported below.</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Routine name</p></th>
+<th class="head"><p>Formulation</p></th>
+<th class="head"><p>Objective function</p></th>
+<th class="head"><p>Constraints</p></th>
+<th class="head"><p>Optimization algorithm</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">solve_lp_sparse</span></code></p></td>
+<td><p>lp, lp-alp, milp</p></td>
+<td><p>NPV or Revenues</p></td>
+<td><p>Baseload</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">scipy.linprog</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">solve_lp_pyomo</span></code></p></td>
+<td><p>lp_alt</p></td>
+<td><p>NPV  or Revenues</p></td>
+<td><p>Baseload, Ramp-limit</p></td>
+<td><p>pyomo-compatible (mosek, cplex, gurobi, etc.)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">solve_dispatch_pyomo</span></code></p></td>
+<td><p>lp_alt</p></td>
+<td><p>Trade off between revenues and reliability</p></td>
+<td><p>Baseload, Ramp-limit</p></td>
+<td><p>pyomo-compatible (mosek, cplex, gurobi, etc.)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"><div class="navigation-prev">
+    <a href="2_background.html">
+      <i class="i-lucide chevron-left"></i>
+      <div class="page-info">
+        <span>Previous</span><div class="title">Mathematical background</div></div>
+    </a>
+  </div><div class="navigation-next">
+    <a href="5_publications.html">
+      <div class="page-info">
+        <span>Next</span>
+        <div class="title">Publications</div>
+      </div>
+      <i class="i-lucide chevron-right"></i>
+    </a>
+  </div></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2026, Jenna Iori</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials"></div>
+    </div>
+  </div>
+</footer>
+      <script src="_static/documentation_options.js?v=2709fde1"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="_static/copybutton.js?v=f281be69"></script>
+      <script src="_static/shibuya.js?v=50760d75"></script>
+      <script>window.MathJax = {"options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script></body>
+</html>
