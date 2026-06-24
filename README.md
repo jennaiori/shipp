@@ -16,6 +16,8 @@
 ## Description
 SHIPP is used for studying the design and operation of hybrid power plants, i.e. power plants combining one or more renewable energy production with energy storage systems.
 
+Documentation is available at [https://jennaiori.github.io/shipp/](https://jennaiori.github.io/shipp/)
+
 ## Installation
 The package can be installed using pip.
 
@@ -35,7 +37,7 @@ The folder `experiments/` contains scripts to reproduce the results presented in
 A valid access or license to a solver compatible with pyomo (MOSEK, CPLEX, Gurobi, etc.) is recommended to solve large problems (see more information here: https://www.pyomo.org/).
 
 ## Authors and acknowledgment
-This project is developed by Jenna Iori at Delft University of Technology and is part of the Hollandse Kust Noord wind farm innovation program. Funding was provided by CrossWind C.V.
+This project is developed by Jenna Iori at Delft University of Technology and was initially part of the Hollandse Kust Noord wind farm innovation program, with funding from CrossWind C.V.
 
 The code is release under the Apache 2.0 License (see License.md).
 
