@@ -85,6 +85,7 @@ dev = [
 [project.urls]
 "Homepage" = "https://github.com/jennaiori/shipp"
 "Source" = "https://github.com/jennaiori/shipp"
+"Documentation"= "https://jennaiori.github.io/shipp/"
 
 
 [tool.setuptools]

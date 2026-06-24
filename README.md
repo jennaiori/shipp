@@ -6,7 +6,6 @@
 [![License](https://img.shields.io/pypi/l/shipp)](https://github.com/jennaiori/shipp/blob/main/LICENSE)
 
 
-
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/shipp_extended_dark_small.png">
   <source media="(prefers-color-scheme: light)" srcset="docs/images/shipp_extended_small.png">
@@ -35,6 +34,22 @@ The folder `experiments/` contains scripts to reproduce the results presented in
 
 ## Dependencies
 A valid access or license to a solver compatible with pyomo (MOSEK, CPLEX, Gurobi, etc.) is recommended to solve large problems (see more information here: https://www.pyomo.org/).
+
+## Latest changes [1.2.1]
+- Added CHANGELOG.md
+- Added documentation on the implementation of the dispatch optimization problems and mathematical background: [https://jennaiori.github.io/shipp/](https://jennaiori.github.io/shipp/)
+- Added API reference in the documentation
+- Added function `financial_metrics` in `kernel.py` to compute LCOE, NPV, IRR, CAPEX and cashflow
+- Changed functions `solve_lp_pyomo` and `solve_lp_sparse`:
+    - Both functions now take a single dictionary argument `options` for optional arguments like `fixed_cap` and the penalty factors.
+    - The constraint on the first and last state-of-charge is now an inequality constraint $e_0 \leq e_{n+1}$
+    - Addition of the constraint on maximum combined storage power in `solve_lp_sparse` to match `solve_lp_pyomo`
+    - Addition of a penalty on total curtailed energy with factor `beta_obj`
+- Added two problem formulations (`lp` and `milp`) in `solve_lp_sparse`
+- Added function `curtail` in `Production` object to copy the object and curtail the power production by a given `np.ndarray`
+- Added tests to check conservation of energy between energy produced, curtailed energy, storage losses and energy delivered
+- Fixed [issue #4](https://github.com/jennaiori/shipp/issues/4)
+- Fixed lack of storage model check / storage losses check in `solve_lp_sparse`
 
 ## Authors and acknowledgment
 This project is developed by Jenna Iori at Delft University of Technology and was initially part of the Hollandse Kust Noord wind farm innovation program, with funding from CrossWind C.V.
