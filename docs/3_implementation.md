@@ -77,48 +77,42 @@ The design variables of the problem $\boldsymbol{x}$ are the storage system comp
 
 In `solve_lp_sparse`, the implemented optimization problem is  
 
-```{math}
-\begin{align}
+\begin{align*}
 \text{min} &&&  f(\boldsymbol{x}) \\
-\text{s.t.} &&&  P_\text{bl} \leq  p_i \leq \bar{P} &&& i = 0,..., n-1 \\
-  &&& p^1_i + p^2_i \leq \text{max}(\bar{P} - \sum_g p^g_i, 0) &&& i = 0,..., n-1 \\
-  &&& e^s_0 \leq e^s_n, &&& s \in \{1,2\} \\
-  &&& (1-d)\bar{E} \leq e^{s}_i \leq \bar{E}^s &&& i = 0,..., n \\
-  &&& 0 \leq p^c_i \leq \sum_g p_i^g &&& i = 0,..., n-1 \\
+\text{s.t.} &&&  P_\text{bl} \leq  p_i \leq \bar{P} && i = 0,..., n-1 \\
+  &&& p^1_i + p^2_i \leq \text{max}(\bar{P} - \sum_g p^g_i, 0) && i = 0,..., n-1 \\
+  &&& e^s_0 \leq e^s_n, && s \in \{1,2\} \\
+  &&& (1-d)\bar{E} \leq e^{s}_i \leq \bar{E}^s && i = 0,..., n \\
+  &&& 0 \leq p^c_i \leq \sum_g p_i^g && i = 0,..., n-1 \\
   &&&  \text{Storage model} \\
   &&& \text{Storage capacity bounds} 
-\end{align}
-```
+\end{align*}
+
 where the storage model constraints depend on the formulation, as described above. The storage capacity bounds depend on the parameter `fixed_cap`. If `fixed_cap = False`, one has
 
-
-```{math}
-\begin{align}
+\begin{align*}
 0 \leq \bar{P}^s \leq \bar{P}^s_\text{max}, &&& s \in \{1,2\} \\
 0 \leq \bar{E}^s \leq \bar{E}^s_\text{max}, &&& s \in \{1,2\}
-\end{align}
-```
+\end{align*}
+
 
 where $ \bar{P}^s_\text{max}$ and $\bar{E}^s_\text{max}$ are either equal to the initial capacities of the storage system ( $\bar{P}^s_\text{init}, \bar{E}^s_\text{init}$) or to an arbitrary large value if a capacity is set to `None`.
 
 If `fixed_cap = True`, one has instead
-```{math}
-\begin{align}
+
+\begin{align*}
  \bar{P}^s = \bar{P}^s_\text{init}, &&& s \in \{1,2\} \\
 \bar{E}^s = \bar{E}^s_\text{init}, &&& s \in \{1,2\} 
-\end{align}
-```
+\end{align*}
+
 The problem can be represented in standard form, as 
 
-```{math}
-
-\begin{align}
+\begin{align*}
 \text{min} &&&  \boldsymbol{c}_\text{obj}^T \boldsymbol{x} \\
 \text{s.t.} &&&  \mathbf{A}_\text{eq} \boldsymbol{x} = \boldsymbol{b}_\text{eq} \\
             &&&  \mathbf{A}_\text{ineq} \boldsymbol{x} \leq \boldsymbol{b}_\text{ineq} \\
             &&&   \boldsymbol{x}_\text{lb} \leq \boldsymbol{x} \leq \boldsymbol{x}_\text{ub} 
-\end{align}
-```
+\end{align*}
 
 The terms $\boldsymbol{c}_\text{obj}, \mathbf{A}_\text{eq}, \boldsymbol{b}_\text{eq}, \mathbf{A}_\text{ineq}, \boldsymbol{b}_{ineq}, \boldsymbol{x}_\text{lb}, \boldsymbol{x}_\text{ub}$ are constructed with the routines `build_lp_obj_npv`, `build_lp_obj_revenues` and `build_lp_cst_sparse` and used as input in the solver `scipy.linprog`. 
 
@@ -163,8 +157,8 @@ The objective function of the problem aims to maximize the added NPV, i.e., the 
 There is only one regularization parameter, $\alpha$, to balance curtailment and storage use. When `fixed_cap = True`, the objective function does not change, but it becomes equivalent to maximization of revenues since the storage capacities are fixed. 
 
 The problem is expressed mathematically as 
-```{math}
-\begin{align}
+
+\begin{align*}
 \text{min} &&&  f_{\text{NPV}, \text{alt}}(\boldsymbol{x}) \\
 \text{s.t.} &&&  P_{\text{bl},i} \leq  p_i \leq \bar{P} &&& i = 0,..., n-1 \\
   &&& p^1_i + p^2_i \leq \text{max}(\bar{P} - \sum_g p^g_i, 0) &&& i = 0,..., n-1 \\
@@ -174,8 +168,8 @@ The problem is expressed mathematically as
   &&& \text{Ramp limit constraints} \\
   &&& \text{Storage model (LP alt)} \\
   &&& \text{Storage capacity bounds} 
-\end{align}
-```
+\end{align*}
+
 
 The baseload constraint is described here with a vector $ \boldsymbol{P}_\text{bl}$ and not a scalar, allowing a reliability below 100% to be set. The ramp limit constraint are associated to the parameter `dp_lim` and only enforced if its value is not `None`. The implemented constraints are
 
@@ -201,8 +195,8 @@ where $\mu \gg 1$ and $\beta \ll 1 $.
 
 The optimization problem can be written mathematically as
 
-```{math}
-\begin{align}
+
+\begin{align*}
 \text{max} &&&  f(\boldsymbol{x}) \\
 \text{s.t.} &&&  P_\text{bl} y_i \leq p^{g,j}_i + p^{1,j}_i + p^{2,j}_i - p^{c,j}_i \leq \bar{P} &&& i = 0,..., n-1, \ j=1,...,m \\
   &&& p^{1,j}_i + p^{2,j}_i \leq \text{max}(\bar{P} - p^{g,j}_i, 0) &&& i = 0,..., n-1, \ j=1,...,m \\
@@ -216,8 +210,8 @@ The optimization problem can be written mathematically as
   &&& \text{Ramp limit constraints} \\
   &&& \text{Storage model (LP alt)} \\
   &&& \text{Bounds on binary variables} 
-\end{align}
-```
+\end{align*}
+
 where $e^s_\text{init}$ is the initial state-of-charge of storage system $s$ and should match the operation decided at the previous time step.
 
 The reliability constraint enforces a target reliability $r_\text{th}$ based on the number of times where the dispatch constraints (baseload and ramp limit) are satisfied. This calculation is done for the time window of the forecast in addition to a window of past operation of length $n_h$. This enables the problem to keep a *memory* of previous operation. The constraint is expressed as
@@ -228,14 +222,14 @@ where $k_h$ is the number of time steps satisfying the dispatch constraints in t
 
 
 The ramp limit constraints are expressed as follows, with a separate expression for the constraint at the first time steps,
-```{math}
-\begin{align}
+
+\begin{align*}
  & p^{g,j}_0 + p^{1,j}_0 + p^{2,j}_0 - p^{c,j}_0 - p_h - p^s_h \geq -\delta P_\text{lim} + r_p \bar{P} && j = 1, ...,m \\
  & p^{1,j}_0 + p^{2,j}_0 - p^{c,j}_0 - p_h - p^s_h  \leq y_i ( \delta P_\text{lim} - p^{g,j}_0 + p_h + p^s_h) && j = 1, ...,m \\
 & ( p^{1,j}_{i+1} + p^{2,j}_{i+1} - p^{c,j}_{i+1}) - ( p^{1,j}_{i} + p^{2,j}_{i} - p^{c,j}_{i}) \geq -\bar{P} + y_i (\bar{P} - \delta P_\text{lim}) - p^{g,j}_i +  p^{g,j}_{i+1} && j = 1, ...,m, \ i =1, ..., n-1\\
 & ( p^{1,j}_{i+1} + p^{2,j}_{i+1} - p^{c,j}_{i+1}) - ( p^{1,j}_{i} + p^{2,j}_{i} - p^{c,j}_{i}) \leq \bar{P} + y_i (-\bar{P} + \delta P_\text{lim}) - p^{g,j}_i +  p^{g,j}_{i+1} && j = 1, ...,m, \ i =1, ..., n-1
-\end{align}
-```
+\end{align*}
+
 where $p_{h}$ is the value of the power produced at the previous time step minus curtailment and $p^s_{h}$ the value of the storage power at the previous time step. The lower bound for the ramp-limit at the first time step uses the slack variable $r_p$ instead of a binary variable. This is to reduce the violation of the constraint when the ramp-limit cannot be satisfied at the first time step.
 
 Finally, to facilitate convergence of the algorithm, the bounds on the binary variables are set so that
