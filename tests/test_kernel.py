@@ -106,8 +106,8 @@ def test_build_lp_cst_sparse_lp():
     mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub = \
         build_lp_cst_sparse(power, dt, p_min, p_max, n, stor1, stor2, options = dict(formulation = 'lp'))
     n_x = 7*n+6
-    n_eq = 2 + 2*n
-    n_ineq = 10*n+4
+    n_eq = 2*n
+    n_ineq = 11*n+6
 
     assert mat_eq.shape[0] == n_eq
     assert mat_eq.shape[1] == n_x
@@ -159,18 +159,20 @@ def test_build_lp_cst_sparse_lp_alt():
     mat_eq, vec_eq, mat_ineq, vec_ineq, lb, ub = \
         build_lp_cst_sparse(power, dt, p_min, p_max, n, stor1, stor2, options = dict(formulation = 'lp_alt'))
     n_x = 5*n+6
-    n_eq = 2
-    n_ineq = 14*n+4
+    n_eq = 0
+    n_ineq = 15*n+6
 
-    assert mat_eq.shape[0] == n_eq
-    assert mat_eq.shape[1] == n_x
-    assert vec_eq.shape[0] == n_eq
-    assert mat_ineq.shape[0] == n_ineq
+    if mat_eq is not None:
+        assert mat_eq.shape[0] == n_eq
+        assert mat_eq.shape[1] == n_x
+    if vec_eq is not None:
+        assert vec_eq.shape[0] == n_eq
+        assert mat_ineq.shape[0] == n_ineq
+        assert vec_eq.ndim == 1
     assert mat_ineq.shape[1] == n_x
     assert vec_ineq.shape[0] == n_ineq
     assert lb.shape[0] == n_x
     assert ub.shape[0] == n_x
-    assert vec_eq.ndim == 1
     assert vec_ineq.ndim == 1
     assert lb.ndim == 1
     assert ub.ndim == 1

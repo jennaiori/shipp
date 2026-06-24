@@ -54,7 +54,7 @@ def test_solve_lp_pyomo():
 
     # Test if the capacity changes when the input fixed_cap is True
     os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
-                        discount_rate, n_year, p_min, p_max, n, fixed_cap=True)
+                        discount_rate, n_year, p_min, p_max, n, options=dict(fixed_cap=True))
     assert os.storage_list[0].p_cap == 1
     assert os.storage_list[1].p_cap == 1
     assert os.storage_list[0].e_cap == 1
@@ -76,7 +76,7 @@ def test_solve_lp_pyomo():
     # Check that curtailment is correctly implemented
     p_max_curt = 2
     os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
-                        discount_rate, n_year, 0, p_max_curt, n, fixed_cap=True)
+                        discount_rate, n_year, 0, p_max_curt, n, options=dict(fixed_cap=True))
     assert( max(os.power_out.data) <= p_max_curt)
 
     # Check that the depth of discharge is correctly implemented
@@ -97,7 +97,7 @@ def test_solve_lp_pyomo():
 
     # Check energy balance
     os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
-                        discount_rate, n_year, 0, p_max, n,  fixed_cap=True)
+                        discount_rate, n_year, 0, p_max, n,  options = dict(fixed_cap=True))
     
     energy_in = dt*(sum(prod_wind.power.data) + sum(prod_pv.power.data))
     energy_delivered= dt*(sum(os.power_out.data))
@@ -107,7 +107,7 @@ def test_solve_lp_pyomo():
     # Check energy balance in case of curtailment
     
     os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
-                        discount_rate, n_year, 0, p_max_curt, n,  fixed_cap=True)
+                        discount_rate, n_year, 0, p_max_curt, n,  options = dict(fixed_cap=True))
     
     energy_in = dt*(sum(prod_wind.power.data) + sum(prod_pv.power.data))
     energy_delivered= dt*(sum(os.power_out.data))

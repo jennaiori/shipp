@@ -24,7 +24,7 @@ from shipp.timeseries import TimeSeries
 from shipp.kernel import os_rule_based
 import warnings
 
-def solve_lp_pyomo(price_ts: TimeSeries, prod1: Production, prod2: Production, stor1: Storage, stor2: Storage, discount_rate: float, n_year: int, p_min: float, p_max: float, n: int, name_solver: str = 'mosek', fixed_cap: bool = False, dp_lim = None,     alpha_obj: float = DEFAULT_ALPHA_OBJ, verbose = False) -> OpSchedule:
+def solve_lp_pyomo(price_ts: TimeSeries, prod1: Production, prod2: Production, stor1: Storage, stor2: Storage, discount_rate: float, n_year: int, p_min: float, p_max: float, n: int, dp_lim = None, options: dict = None) -> OpSchedule:
     """Build and solve an integrated dispatch NPV maximization with pyomo as a linear program.
 
     This function builds and solves the hybrid sizing and operation problem as a linear program. The objective is to minimize the Net Present Value of the plant. The optimization problem finds the optimal energy and power capacity of two storage systems and their optimal dispatch. In this function, the input for the power production represented by two Production objects. The problem can be constrained by a baseload power production constraint or a ramp limitation constraint.
@@ -40,11 +40,14 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod1: Production, prod2: Production, s
         p_min (float or np.ndarray): Minimum power requirement [MW].
         p_max (float): Maximum power requirement [MW].
         n (int): Number of time steps to consider in the optimization.
-        name_solver (str): Name of optimization solver to be used with pyomo.
-        fixed_cap (bool): If True, the capacity of the storage is fixed.
         dp_lim (float): Limit for the ramp limitation [MW/h] (up and down)
-        alpha_obj (float):  factor in the objective function to adjust the relative weight of curtailement and storage power.
-        verbose (bool): If true, prints the output of the optimization algorithm.
+        options (dict): list of options for the problem formulation
+        
+            - name_solver (str): Name of optimization solver to be used with pyomo. Default is 'mosek'.
+            - fixed_cap (bool): True if the storage capacity is fixed during the optimization. Default is False.
+            - alpha_obj (float): penalty factor for the curtailed power in the objective function proportional to the price. Default is (1+1e-6)
+            - beta_obj (float): penalty factor for the curtailed power in the objective function. Default is 0
+            - verbose (bool): If true, prints the output of the optimization algorithm.
 
     Returns:
         OpSchedule: Object describing the optimal operational schedule and storage size.
@@ -62,6 +65,30 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod1: Production, prod2: Production, s
     assert n <=  len(prod1.power.data)
     assert n <=  len(prod2.power.data)
     assert n <=  len(price_ts.data)
+
+    # Default values for the options
+    name_solver = 'mosek'
+    fixed_cap = False
+    alpha_obj = DEFAULT_ALPHA_OBJ
+    beta_obj = 0
+    verbose = False
+
+    if options is not None:
+        if 'name_solver' in options.keys():
+            name_solver = options['name_solver']
+        if 'fixed_cap' in options.keys():
+            fixed_cap = options['fixed_cap']
+            assert isinstance(fixed_cap, bool)
+        if 'alpha_obj' in options.keys():
+            alpha_obj = options['alpha_obj']
+            assert isinstance(alpha_obj, (float, int))
+        if 'beta_obj' in options.keys():
+            beta_obj = options['beta_obj']
+            assert isinstance(beta_obj, (float, int))
+        if 'verbose' in options.keys():
+            verbose = options['verbose']
+            assert isinstance(verbose, bool)
+
 
     power_res = prod1.power.data[:n] + prod2.power.data[:n]
 
@@ -143,9 +170,7 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod1: Production, prod2: Production, s
     # Objective function
     factor = npf.npv(discount_rate, np.ones(n_year))-1
     model.obj = pyo.Objective(expr=  365 * 24/n*factor* sum([p*(model.p_vec1[n]
-                 + model.p_vec2[k] - alpha_obj *model.p_cur[l]) for p, n, k,l in zip(price_ts.data[:n], model.p_vec1, model.p_vec2, model.p_cur)]) - p_cost1*model.p_cap1
-                - e_cost1*model.e_cap1 - p_cost2*model.p_cap2
-                - e_cost2*model.e_cap2, sense = pyo.maximize)
+                 + model.p_vec2[k] - alpha_obj *model.p_cur[l]) for p, n, k,l in zip(price_ts.data[:n], model.p_vec1, model.p_vec2, model.p_cur)]) - beta_obj* sum(model.p_cur[l] for l in model.p_cur) - p_cost1*model.p_cap1 - e_cost1*model.e_cap1 - p_cost2*model.p_cap2 - e_cost2*model.e_cap2, sense = pyo.maximize)
 
     # Rule functions for the constraints
     def rule_e_model_charge1(model, i):
@@ -201,8 +226,8 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod1: Production, prod2: Production, s
         return model.p_cur[i] <= power_res[i]
 
     # Constraint for each storage type
-    model.e_start_end1 =pyo.Constraint(expr = model.e_vec1[0]==model.e_vec1[n])
-    model.e_start_end2 =pyo.Constraint(expr = model.e_vec2[0]==model.e_vec2[n])
+    model.e_start_end1 =pyo.Constraint(expr = model.e_vec1[0]<=model.e_vec1[n])
+    model.e_start_end2 =pyo.Constraint(expr = model.e_vec2[0]<=model.e_vec2[n])
 
     model.e_model_charge1 = pyo.Constraint(model.vec_n, rule=rule_e_model_charge1)
     model.e_model_discharge1 = pyo.Constraint(model.vec_n, rule=rule_e_model_discharge1)

@@ -9,7 +9,7 @@ The code has so far only be used for an hourly time step ($\Delta t = 1$), and h
 
 The storage system model linking power to stored energy is a piece-wise linear function (see [](storage_system_model)) and cannot be implemented directly in a linear or mixed-integer linear optimization problem. In SHIPP, three alternative formulations of the storage system model constraints are implemented:
 - a mixed-integer linear (`milp`) formulation where integer variables are used to indicate if the storage is charging or discharging. Since the equations are enforced exactly, any feasible point of the optimization validates the model.
-- a linear formulation using a relaxed form of the MILP (`lp-alt`). In this case, the storage system model is only valid at the optimum. Feasible points for the optimization problem do not necessarily validate the storage model.
+- a linear formulation using a relaxed form of the MILP (`lp_alt`). In this case, the storage system model is only valid at the optimum. Feasible points for the optimization problem do not necessarily validate the storage model.
 - a linear formulation (`lp`) where the storage power is divded into a charging and discharging terms. Here as well, the validity of the storage model is not guaranteed due to the possibility of simultaneous charge and discharge.
 
 
@@ -38,7 +38,7 @@ $$ -M(1-z^s_i)  \leq p^s_i \leq M z^s_i. $$ -->
 
 
 
-### LP-alt
+### LP alt
 This is the default formulation in SHIPP. Here, the storage system model is represented by two inequality constraints,
 ```{math}
 & e^s_{i+1} - e^s_{i} \leq  - \Delta t \ \eta^s_\text{in} \  p^s_i, \\
@@ -66,8 +66,8 @@ The design variables of the problem $\boldsymbol{x}$ are the storage system comp
 | ----------- | ------------------ |----------- | ---------------- |
 |  `milp`     | $f_\text{NPV}$      | False  |$\boldsymbol{p}^c, (\bar{P}^s, \bar{E}^s, \boldsymbol{p}^{s+}, \boldsymbol{p}^{s-}, \boldsymbol{e}^s, \boldsymbol{z}^s_i)_{s\in{1,2}}$  |
 | `milp`     | $f_R$        | True  |$\boldsymbol{p}^c, (\boldsymbol{p}^{s+}, \boldsymbol{p}^{s-}, \boldsymbol{e}^s, \boldsymbol{z}^s_i)_{s\in{1,2}}$ |
-|  `lp-alt`     | $f_{\text{NPV}, \text{alt}}$      | False  |$\boldsymbol{p}^c, (\bar{P}^s, \bar{E}^s, \boldsymbol{p}^s, \boldsymbol{e}^s)_{s\in{1,2}}$  |
-| `lp-alt`     | $f_{R, \text{alt}}$        | True  |$\boldsymbol{p}^c, (\boldsymbol{p}^s, \boldsymbol{e}^s)_{s\in{1,2}}$ |
+|  `lp_alt`     | $f_{\text{NPV}, \text{alt}}$      | False  |$\boldsymbol{p}^c, (\bar{P}^s, \bar{E}^s, \boldsymbol{p}^s, \boldsymbol{e}^s)_{s\in{1,2}}$  |
+| `lp_alt`     | $f_{R, \text{alt}}$        | True  |$\boldsymbol{p}^c, (\boldsymbol{p}^s, \boldsymbol{e}^s)_{s\in{1,2}}$ |
 |  `lp`     | $f_\text{NPV}$      | False  |$\boldsymbol{p}^c, (\bar{P}^s, \bar{E}^s, \boldsymbol{p}^{s+}, \boldsymbol{p}^{s-}, \boldsymbol{e}^s)_{s\in{1,2}}$  |
 | `lp`     | $f_R$        | True  |$\boldsymbol{p}^c, (\boldsymbol{p}^{s+}, \boldsymbol{p}^{s-}, \boldsymbol{e}^s)_{s\in{1,2}}$ |
 
@@ -81,7 +81,8 @@ In `solve_lp_sparse`, the implemented optimization problem is
 \begin{align}
 \text{min} &&&  f(\boldsymbol{x}) \\
 \text{s.t.} &&&  P_\text{bl} \leq  p_i \leq \bar{P} &&& i = 0,..., n-1 \\
-  &&& e^s_0 = e^s_n, &&& s \in \{1,2\} \\
+  &&& p^1_i + p^2_i \leq \text{max}(\bar{P} - \sum_g p^g_i, 0) &&& i = 0,..., n-1 \\
+  &&& e^s_0 \leq e^s_n, &&& s \in \{1,2\} \\
   &&& (1-d)\bar{E} \leq e^{s}_i \leq \bar{E}^s &&& i = 0,..., n \\
   &&& 0 \leq p^c_i \leq \sum_g p_i^g &&& i = 0,..., n-1 \\
   &&&  \text{Storage model} \\
@@ -139,7 +140,7 @@ For the `lp` and `milp` formulation, the storage power is divided into charge $\
 ```
 
 
-For the `lp-alt` formulation, the objective function is:
+For the `lp_alt` formulation, the objective function is:
 - For the integrated design problem: 
 ```{math}
   f_{\text{NPV}, \text{alt}}(\boldsymbol{x}) = \sum_{s} (\lambda^s_P \bar{P}^s + \lambda_E^s \bar{E}^s) - \dfrac{8760}{n}\sum_{k=1}^m {\boldsymbol{\lambda}^T \cdot (\sum_{s} \boldsymbol{p}^{s} - \alpha \boldsymbol{p}^c)}{(1+r)^k} + \beta \mathbb{1}^T\cdot \boldsymbol{p}^c
@@ -152,12 +153,12 @@ For the `lp-alt` formulation, the objective function is:
 
 
 ### In `solve_lp_pyomo`
-The dispatch optimization in `solve_lp_pyomo` is currently only implemented using the `lp-alt` formulation. The design variables of the problem are the storage system components energy and power capacities, the time series of storage power and energy, and the time series of curtailed power, i.e., $\boldsymbol{x} = [\boldsymbol{p}^c, (\bar{P}^s, \bar{E}^s, \boldsymbol{p}^s, \boldsymbol{e}^s)_{s\in{1,2}}]$.  If `fixed_cap = True`, the storage capacities are either removed from the list of design variables or fixed to their initial values, i.e., $\boldsymbol{x} = [\boldsymbol{p}^c, (\boldsymbol{p}^s, \boldsymbol{e}^s)_{s\in{1,2}}]$.
+The dispatch optimization in `solve_lp_pyomo` is currently only implemented using the `lp_alt` formulation. The design variables of the problem are the storage system components energy and power capacities, the time series of storage power and energy, and the time series of curtailed power, i.e., $\boldsymbol{x} = [\boldsymbol{p}^c, (\bar{P}^s, \bar{E}^s, \boldsymbol{p}^s, \boldsymbol{e}^s)_{s\in{1,2}}]$.  If `fixed_cap = True`, the storage capacities are either removed from the list of design variables or fixed to their initial values, i.e., $\boldsymbol{x} = [\boldsymbol{p}^c, (\boldsymbol{p}^s, \boldsymbol{e}^s)_{s\in{1,2}}]$.
 
 The objective function of the problem aims to maximize the added NPV, i.e., the contribution of the storage system components to the total NPV,
 
 ```{math}
-  f_{\text{NPV}, \text{alt}}(\boldsymbol{x}) = \sum_{s} (\lambda^s_P \bar{P}^s + \lambda_E^s \bar{E}^s) - \dfrac{8760}{n}\sum_{k=1}^m {\boldsymbol{\lambda}^T \cdot (\sum_{s} \boldsymbol{p}^{s} - \alpha \boldsymbol{p}^c)}{(1+r)^k}
+  f_{\text{NPV}, \text{alt}}(\boldsymbol{x}) = \sum_{s} (\lambda^s_P \bar{P}^s + \lambda_E^s \bar{E}^s) - \dfrac{8760}{n}\sum_{k=1}^m \dfrac{\boldsymbol{\lambda}^T \cdot (\sum_{s} \boldsymbol{p}^{s} - \alpha \boldsymbol{p}^c)}{(1+r)^k}
 ```
 There is only one regularization parameter, $\alpha$, to balance curtailment and storage use. When `fixed_cap = True`, the objective function does not change, but it becomes equivalent to maximization of revenues since the storage capacities are fixed. 
 
@@ -167,11 +168,11 @@ The problem is expressed mathematically as
 \text{min} &&&  f_{\text{NPV}, \text{alt}}(\boldsymbol{x}) \\
 \text{s.t.} &&&  P_{\text{bl},i} \leq  p_i \leq \bar{P} &&& i = 0,..., n-1 \\
   &&& p^1_i + p^2_i \leq \text{max}(\bar{P} - \sum_g p^g_i, 0) &&& i = 0,..., n-1 \\
-  &&& e^s_0 = e^s_n, &&& s \in \{1,2\} \\
+  &&& e^s_0 \leq e^s_n, &&& s \in \{1,2\} \\
   &&& (1-d)\bar{E} \leq e^{s}_i \leq \bar{E}^s &&& i = 0,..., n \\
   &&& 0 \leq p^c_i \leq \sum_g p_i^g &&& i = 0,..., n-1 \\
   &&& \text{Ramp limit constraints} \\
-  &&& \text{Storage model (LP-alt)} \\
+  &&& \text{Storage model (LP alt)} \\
   &&& \text{Storage capacity bounds} 
 \end{align}
 ```
@@ -213,7 +214,7 @@ The optimization problem can be written mathematically as
   &&& r_p\geq 0\\
   &&& \text{Reliability constraint} \\
   &&& \text{Ramp limit constraints} \\
-  &&& \text{Storage model (LP-alt)} \\
+  &&& \text{Storage model (LP alt)} \\
   &&& \text{Bounds on binary variables} 
 \end{align}
 ```
@@ -241,7 +242,7 @@ Finally, to facilitate convergence of the algorithm, the bounds on the binary va
 - in the presence of a baseload constraint, $y_i = 1$ if $\underset{j}{\text{min}}(p^{g,j}_i) \geq P_\text{bl}$
 - in the absence of baseload or ramp-limit constraints, $y_i = 1, \forall i$.
 
-The dispatch optimization in `solve_dispatch` is implemented using the `lp-alt` formulation. Two regularization terms are included in the objective function to ensure the constraints are active at the optimum. Furthermore, a penalty on the reliability binary variables is needed to ensure the dispatch constraints are respected as much as possible. As such, the objective function becomes
+The dispatch optimization in `solve_dispatch` is implemented using the `lp_alt` formulation. Two regularization terms are included in the objective function to ensure the constraints are active at the optimum. Furthermore, a penalty on the reliability binary variables is needed to ensure the dispatch constraints are respected as much as possible. As such, the objective function becomes
 
 
 ```{warning}
@@ -255,5 +256,5 @@ The code implement different dispatch optimization problems through three routin
 | Routine name | Formulation | Objective function | Constraints| Optimization algorithm |
 | ------------ | ----------- |------------------- |----------- |----------------- |
 | `solve_lp_sparse` | lp, lp-alp, milp | NPV or Revenues      | Baseload  | `scipy.linprog` |
-| `solve_lp_pyomo`| lp-alt | NPV  or Revenues      | Baseload, Ramp-limit  | pyomo-compatible (mosek, cplex, gurobi, etc.) |
-| `solve_dispatch_pyomo`| lp-alt | Trade off between revenues and reliability | Baseload, Ramp-limit      | pyomo-compatible (mosek, cplex, gurobi, etc.) |
+| `solve_lp_pyomo`| lp_alt | NPV  or Revenues      | Baseload, Ramp-limit  | pyomo-compatible (mosek, cplex, gurobi, etc.) |
+| `solve_dispatch_pyomo`| lp_alt | Trade off between revenues and reliability | Baseload, Ramp-limit      | pyomo-compatible (mosek, cplex, gurobi, etc.) |

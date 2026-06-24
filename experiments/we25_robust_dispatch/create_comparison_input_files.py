@@ -186,7 +186,7 @@ if duration == 0: # Find optimal storage size if duration parameter not included
 
     p_min_vec = get_p_min_vec(p_min, windpower_obs[:nt_max], rel)
 
-    os_res = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor, stor_null, 0.03, 20, p_min_vec, p_max, nt_max, name_solver = name_solver)
+    os_res = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor, stor_null, 0.03, 20, p_min_vec, p_max, nt_max, options = dict(name_solver = name_solver))
 
     p_cap1 = os_res.storage_list[0].p_cap
     e_cap1 = os_res.storage_list[0].e_cap

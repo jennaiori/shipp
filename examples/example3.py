@@ -71,7 +71,7 @@ kmin =  np.argmin(dpower[:n-1]) # Index of minimum ramp
 kmax =  np.argmax(dpower[:n-1]) # Index of maximum ramp
 
 # Solve the sizing optimization problem with perfect and unliminited information (PI-U)
-os =  solve_lp_pyomo(price_dam, prod, prod_null, stor, stor_null, discount_rate, n_year, 0, p_max, n, pyo_solver, fixed_cap = False, dp_lim = dp_lim, verbose = False)
+os =  solve_lp_pyomo(price_dam, prod, prod_null, stor, stor_null, discount_rate, n_year, 0, p_max, n, dp_lim = dp_lim, options = dict(name_solver =pyo_solver, fixed_cap = False,  verbose = False))
 
 power_piu = np.array(os.power_out.data)
 dpower_piu = np.diff(power_piu)

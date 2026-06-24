@@ -310,8 +310,8 @@ def build_lp_cst_sparse(power: np.ndarray, dt: float, p_min, p_max: float, n: in
     With n the number of time steps, the problem is made of:
 
         - n_x = 5*n+6 design variables (lp_alt formulation) or 7*n+6 (lp formulation) or 10*n+6 (milp formulation) 
-        - n_eq = 2 equality constraints  (lp_alt formulation) or 2+2*n (lp and milp formulation)
-        - n_ineq = 14*n+4 inequality constraints  (lp_alt formulation) or 4+10*n (lp formulation) or 4+16*n (milp formulation)
+        - n_eq = 0 equality constraints  (lp_alt formulation) or 2*n (lp and milp formulation)
+        - n_ineq = 15*n+6 inequality constraints  (lp_alt formulation) or 6+11*n (lp formulation) or 6+17*n (milp formulation)
 
     The design variables for the linear problem are:
 
@@ -349,6 +349,7 @@ def build_lp_cst_sparse(power: np.ndarray, dt: float, p_min, p_max: float, n: in
         - (milp formulation only) Constraint to enforce distinct charge and discharge in storage 2 (size 2*n)
         - (milp formulation only) Constraint to enforce distinct curtailment and discharge in storage 1 (size n)
         - (milp formulation only) Constraint to enforce distinct curtailment and discharge in storage 1 (size n)
+        - Constraint on the maximum combined storage power (size n)
 
     Args:
         power (np.ndarray): A shape-(n,) array for the power production from renewables [MW].
@@ -611,44 +612,65 @@ def build_lp_cst_sparse(power: np.ndarray, dt: float, p_min, p_max: float, n: in
         vec_p_curt_stor1_int = z_n1
         vec_p_curt_stor2_int = z_n1
 
+    # Constraint on the maximum storage power, to avoid simultaneous discharge and curtailment
+    # p <= max(p_max - p_res, 0)
+    # or p^discharge - p^charge <= max(p_max-p_res)
+    if formulation == 'lp_alt':
+        mat_max_combined_power = sps.hstack((eye_n, eye_n, z_n,
+                                    z_n_np1, z_n_np1,
+                                    z_n1, z_n1, z_n1, z_n1))
+    elif formulation == 'lp' or formulation == 'milp':
+        mat_max_combined_power = sps.hstack((-eye_n, eye_n, -eye_n, eye_n, z_n,
+                                    z_n_np1, z_n_np1,
+                                    z_n1, z_n1, z_n1, z_n1))
+
+    vec_max_combined_power =  np.array([max(p_max - p, 0) for p in power]).reshape(n,1)
 
 
     ## Assemble matrices
     if formulation == 'lp_alt':
-        mat_eq = sps.vstack((mat_stor1_first_e,  mat_stor2_first_e))
-        vec_eq = sps.vstack((vec_stor1_first_e,  vec_stor2_first_e)).toarray().squeeze()
+        # mat_eq = sps.vstack((mat_stor1_first_e,  mat_stor2_first_e))
+        # vec_eq = sps.vstack((vec_stor1_first_e,  vec_stor2_first_e)).toarray().squeeze()
+        mat_eq = None
+        vec_eq = None
 
-        mat_ineq = sps.vstack((-1*mat_power_bound, mat_power_bound,
+        mat_ineq = sps.vstack((mat_stor1_first_e,  mat_stor2_first_e,
+                               -1*mat_power_bound, mat_power_bound,
                                     mat_stor1_model_in, mat_stor1_model_out,
                                     mat_stor2_model_in, mat_stor2_model_out,
                                     mat_stor1_min_energy, mat_stor1_max_energy, mat_stor2_max_power,
                                     mat_stor2_min_power, mat_stor1_max_power,
-                                    mat_stor1_min_power, mat_stor2_min_energy, mat_stor2_max_energy))
-        vec_ineq = sps.vstack((-1*vec_power_min, vec_power_max,
+                                    mat_stor1_min_power, mat_stor2_min_energy, mat_stor2_max_energy,
+                                    mat_max_combined_power))
+        vec_ineq = sps.vstack((vec_stor1_first_e,  vec_stor2_first_e,
+                               -1*vec_power_min, vec_power_max,
                                     vec_stor1_model_in, vec_stor1_model_out,
                                     vec_stor2_model_in, vec_stor2_model_out,
                                     vec_stor1_min_energy, vec_stor1_max_energy, vec_stor2_max_power,
                                     vec_stor2_min_power, vec_stor1_max_power,
-                                    vec_stor1_min_power, vec_stor1_min_energy, vec_stor2_max_energy)).toarray().squeeze()
+                                    vec_stor1_min_power, vec_stor1_min_energy, vec_stor2_max_energy,
+                                    vec_max_combined_power)).toarray().squeeze()
     elif formulation == 'lp' or formulation == 'milp':
-        mat_eq_lp = sps.vstack((mat_stor1_first_e,  mat_stor2_first_e, mat_stor1_model, mat_stor2_model))
-        vec_eq = sps.vstack((vec_stor1_first_e,  vec_stor2_first_e, vec_stor1_model, vec_stor2_model)).toarray().squeeze()
+        mat_eq_lp = sps.vstack((mat_stor1_model, mat_stor2_model))
+        vec_eq = sps.vstack(( vec_stor1_model, vec_stor2_model)).toarray().squeeze()
 
-        mat_ineq_lp = sps.vstack((-1*mat_power_bound, mat_power_bound,
+        mat_ineq_lp = sps.vstack((mat_stor1_first_e,  mat_stor2_first_e,-1*mat_power_bound, mat_power_bound,
                                     mat_stor1_min_energy, mat_stor1_max_energy, mat_stor2_max_power,
                                     mat_stor1_max_power,
-                                    mat_stor2_min_energy, mat_stor2_max_energy))
-        vec_ineq_lp = sps.vstack((-1*vec_power_min, vec_power_max,
+                                    mat_stor2_min_energy, mat_stor2_max_energy,
+                                    mat_max_combined_power))
+        vec_ineq_lp = sps.vstack((vec_stor1_first_e,  vec_stor2_first_e,-1*vec_power_min, vec_power_max,
                                     vec_stor1_min_energy, vec_stor1_max_energy, vec_stor2_max_power,
                                     vec_stor1_max_power,
-                                    vec_stor2_min_energy, vec_stor2_max_energy))
+                                    vec_stor2_min_energy, vec_stor2_max_energy,
+                                    vec_max_combined_power))
         
         if formulation == 'milp':
             # The equality matrix for the MILP formulation is constructed based on the LP one, as follows:
             # mat_ineq = | mat_eq_lp  |  right_block_eq |
             #
             # Where the right_block is a zeros (6n+2 x 2n) matrix corresponding to the additional integer variables for the existing constraints
-            right_block_eq = sps.coo_array(( 2*n+2, 2*n))
+            right_block_eq = sps.coo_array((2*n, 2*n))
             mat_eq = sps.hstack((mat_eq_lp, right_block_eq))
 
             # The inequality matrix for the MILP formulation is constructed based on the LP one, as follows:
@@ -657,7 +679,7 @@ def build_lp_cst_sparse(power: np.ndarray, dt: float, p_min, p_max: float, n: in
             #            |        lower_block          |
             # Where the right_block is a zeros (6n+2 x 2n) matrix corresponding to the additional integer variables for the existing constraints, and the lower block (6*n x 9n+6) corresponds to the contraints specific to the integer variables
 
-            mat_right_block = sps.coo_array((10*n+4, 2*n))
+            mat_right_block = sps.coo_array((11*n+6, 2*n))
             mat_lower_block = sps.vstack((mat_stor1_power_c_int, mat_stor1_power_d_int, mat_stor2_power_c_int, mat_stor2_power_d_int, mat_p_curt_stor1_int, mat_p_curt_stor2_int))
             vec_lower_block = sps.vstack((vec_stor1_power_c_int, vec_stor1_power_d_int, vec_stor2_power_c_int, vec_stor2_power_d_int, vec_p_curt_stor1_int, vec_p_curt_stor2_int))
 
@@ -825,7 +847,10 @@ def solve_lp_sparse(price_ts: TimeSeries, prod1: Production,
     mat_eq, vec_eq, mat_ineq, vec_ineq, bounds_lower, bounds_upper =  build_lp_cst_sparse(power_res, dt, p_min, p_max, n, stor1, stor2, stor1_p_cap_max = stor1.p_cap, stor2_p_cap_max = stor2.p_cap, stor1_e_cap_max = stor1.e_cap, stor2_e_cap_max= stor2.e_cap, options = options)
 
     n_var = bounds_upper.shape[0]
-    n_cstr_eq = vec_eq.shape[0]
+    if vec_eq is not None:
+        n_cstr_eq = vec_eq.shape[0]
+    else:
+        n_cstr_eq = 0
     n_cstr_ineq = vec_ineq.shape[0]
 
     assert n_var == bounds_lower.shape[0]
