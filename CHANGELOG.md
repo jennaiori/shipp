@@ -6,6 +6,10 @@
 - Change NPV formulation in the dispatch optimization problem to include OPEX and storage replacement
 
 
+## [Current]
+- Changed class `Storage`: the depth-of-charge parameter `dod` is replaced by a minimum and maximum state-of-charge `soc_min` and `soc_max`.
+
+
 ## [1.2.1] - 2026-06-24
 - Added CHANGELOG.md (this document)
 - Added documentation on the implementation of the dispatch optimization problems and mathematical background: [https://jennaiori.github.io/shipp/](https://jennaiori.github.io/shipp/)

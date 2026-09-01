@@ -19,7 +19,7 @@ Iori, Jenna (2025): SHIPP - A design optimization software for hybrid power plan
 
 ```
 
-Examples of use of SHIPP in academic research are available below.
+Examples of use of SHIPP in academic research:
 
 - Iori, J., Zaaijer, M. B., von Terzi, D. A., & Watson, S. J. (2024). Design drivers for the storage system of baseload hybrid power plants. In 8th International Hybrid Power Plants and Systems Workshop, HYB 2024 (2 ed., Vol. 2024, pp. 245-250) [https://doi.org/10.1049/icp.2024.1844](https://doi.org/10.1049/icp.2024.1844)
 - Iori, J., Zaaijer, M. B., Kreeft, J., von Terzi, D. A., & Watson, S. J. (2025). Reliable operation of wind-storage systems for baseload power production. Paper presented at WindEurope Annual Event 2025, Copenhagen, Denmark. [https://doi.org/10.1088/1742-6596/3025/1/012023](https://doi.org/10.1088/1742-6596/3025/1/012023)
@@ -27,3 +27,6 @@ Examples of use of SHIPP in academic research are available below.
   - To reproduce results from this paper, see [https://github.com/jennaiori/torque26-128](https://github.com/jennaiori/torque26-128)
 
 
+Examples of use of SHIPP in MSc theses:
+- Thodoris Tsonopoulos (2026). Modeling of Battery Degradation for Integrated Design of Storage Systems. MSc thesis. [https://resolver.tudelft.nl/uuid:356c069e-9e7b-4ca1-8d70-3b0e789f8d42](https://resolver.tudelft.nl/uuid:356c069e-9e7b-4ca1-8d70-3b0e789f8d42). Code available at [https://github.com/ThodorisTson/battery-degradation-thesis](https://github.com/ThodorisTson/battery-degradation-thesis)
+- Leire Antia Guisasola (2026). Forecast Uncertainty Propagation in Wind-Storage Hybrid Power Plant Dispatch. MSc thesis. [https://resolver.tudelft.nl/uuid:5146bc0b-06f6-441a-a4ef-141df62217fc](https://resolver.tudelft.nl/uuid:5146bc0b-06f6-441a-a4ef-141df62217fc)  
