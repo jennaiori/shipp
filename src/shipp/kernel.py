@@ -7,6 +7,7 @@ Functions:
     - build_lp_cst_sparse: Build sparse constraints for a LP.
     - solve_lp_sparse: Build and solve a LP for NPV maximization.
     - os_rule_based: Build the operation schedule with a rule-based EMS
+    - financial_metrics: Calculate financial metrics for a given hybrid power plant
 """
 
 import traceback
@@ -309,13 +310,13 @@ def build_lp_cst_sparse(power: np.ndarray, dt: float, p_min, p_max: float, n: in
     With n the number of time steps, the problem is made of:
 
         - n_x = 5*n+6 design variables (lp_alt formulation) or 7*n+6 (lp formulation) or 10*n+6 (milp formulation) 
-        - n_eq = 2 equality constraints  (lp_alt formulation) or 2+2*n (lp and milp formulation)
-        - n_ineq = 14*n+4 inequality constraints  (lp_alt formulation) or 4+10*n (lp formulation) or 4+16*n (milp formulation)
+        - n_eq = 0 equality constraints  (lp_alt formulation) or 2*n (lp and milp formulation)
+        - n_ineq = 15*n+6 inequality constraints  (lp_alt formulation) or 6+11*n (lp formulation) or 6+17*n (milp formulation)
 
     The design variables for the linear problem are:
 
-        - Power from storage 1, shape-(n,) (lp_alt formulation) or Power from storage 1 in charge, shape-(n,) and discharge, shape-(n,) (lp_formulation) 
-        - Power from storage 2, shape-(n,) (lp_alt formulation) or Power from storage 2 in charge, shape-(n,) and discharge, shape-(n,) (lp_formulation) 
+        - Power from storage 1, shape-(n,) (lp_alt formulation) or Power from storage 1 in charge, shape-(n,) and discharge, shape-(n,) (lp and milp formulation) 
+        - Power from storage 2, shape-(n,) (lp_alt formulation) or Power from storage 2 in charge, shape-(n,) and discharge, shape-(n,) (lp and milp formulation) 
         - Curtailed power, shape-(n,)
         - State of charge (energy) of storage 1, shape-(n+1,)
         - State of charge (energy) of storage 2, shape-(n+1,)
@@ -348,6 +349,7 @@ def build_lp_cst_sparse(power: np.ndarray, dt: float, p_min, p_max: float, n: in
         - (milp formulation only) Constraint to enforce distinct charge and discharge in storage 2 (size 2*n)
         - (milp formulation only) Constraint to enforce distinct curtailment and discharge in storage 1 (size n)
         - (milp formulation only) Constraint to enforce distinct curtailment and discharge in storage 1 (size n)
+        - Constraint on the maximum combined storage power (size n)
 
     Args:
         power (np.ndarray): A shape-(n,) array for the power production from renewables [MW].
@@ -485,12 +487,12 @@ def build_lp_cst_sparse(power: np.ndarray, dt: float, p_min, p_max: float, n: in
     # Constraint on the minimum and maximum stored energy of storage 1
     if formulation == 'lp_alt':
         mat_stor1_min_energy = sps.hstack((z_np1_n, z_np1_n, z_np1_n, -eye_np1, z_np1,
-                                z_np1_1, (1-stor1.dod)*one_np1_1, z_np1_1, z_np1_1))
+                                z_np1_1, stor1.soc_min*one_np1_1, z_np1_1, z_np1_1))
         mat_stor1_max_energy = sps.hstack((z_np1_n, z_np1_n, z_np1_n, eye_np1, z_np1,
                                 z_np1_1, -1*one_np1_1, z_np1_1, z_np1_1))
     elif formulation == 'lp' or formulation == 'milp':
         mat_stor1_min_energy = sps.hstack((z_np1_n, z_np1_n, z_np1_n, z_np1_n, z_np1_n, -eye_np1, z_np1,
-                                z_np1_1, (1-stor1.dod)*one_np1_1, z_np1_1, z_np1_1))
+                                z_np1_1, stor1.soc_min*one_np1_1, z_np1_1, z_np1_1))
         mat_stor1_max_energy = sps.hstack((z_np1_n, z_np1_n, z_np1_n, z_np1_n, z_np1_n, eye_np1, z_np1,
                                 z_np1_1, -1*one_np1_1, z_np1_1, z_np1_1))
     vec_stor1_min_energy = z_np1_1
@@ -516,12 +518,12 @@ def build_lp_cst_sparse(power: np.ndarray, dt: float, p_min, p_max: float, n: in
     # Constraint on the maximum stored energy of storage 2
     if formulation == 'lp_alt':
         mat_stor2_min_energy = sps.hstack((z_np1_n, z_np1_n, z_np1_n, z_np1,  -eye_np1,
-                                z_np1_1, z_np1_1, z_np1_1, (1-stor2.dod)*one_np1_1))
+                                z_np1_1, z_np1_1, z_np1_1,stor2.soc_min*one_np1_1))
         mat_stor2_max_energy = sps.hstack((z_np1_n, z_np1_n, z_np1_n, z_np1,  eye_np1,
                                 z_np1_1, z_np1_1, z_np1_1, -1*one_np1_1,))
     elif formulation == 'lp' or formulation == 'milp':
         mat_stor2_min_energy = sps.hstack((z_np1_n, z_np1_n, z_np1_n, z_np1_n, z_np1_n,  z_np1,  -eye_np1,
-                                z_np1_1, z_np1_1, z_np1_1, (1-stor2.dod)*one_np1_1))
+                                z_np1_1, z_np1_1, z_np1_1,stor2.soc_min*one_np1_1))
         mat_stor2_max_energy = sps.hstack((z_np1_n, z_np1_n, z_np1_n, z_np1_n, z_np1_n, z_np1,  eye_np1,
                                 z_np1_1, z_np1_1, z_np1_1, -1*one_np1_1))
     vec_stor2_min_energy = z_np1_1
@@ -610,44 +612,65 @@ def build_lp_cst_sparse(power: np.ndarray, dt: float, p_min, p_max: float, n: in
         vec_p_curt_stor1_int = z_n1
         vec_p_curt_stor2_int = z_n1
 
+    # Constraint on the maximum storage power, to avoid simultaneous discharge and curtailment
+    # p <= max(p_max - p_res, 0)
+    # or p^discharge - p^charge <= max(p_max-p_res)
+    if formulation == 'lp_alt':
+        mat_max_combined_power = sps.hstack((eye_n, eye_n, z_n,
+                                    z_n_np1, z_n_np1,
+                                    z_n1, z_n1, z_n1, z_n1))
+    elif formulation == 'lp' or formulation == 'milp':
+        mat_max_combined_power = sps.hstack((-eye_n, eye_n, -eye_n, eye_n, z_n,
+                                    z_n_np1, z_n_np1,
+                                    z_n1, z_n1, z_n1, z_n1))
+
+    vec_max_combined_power =  np.array([max(p_max - p, 0) for p in power]).reshape(n,1)
 
 
     ## Assemble matrices
     if formulation == 'lp_alt':
-        mat_eq = sps.vstack((mat_stor1_first_e,  mat_stor2_first_e))
-        vec_eq = sps.vstack((vec_stor1_first_e,  vec_stor2_first_e)).toarray().squeeze()
+        # mat_eq = sps.vstack((mat_stor1_first_e,  mat_stor2_first_e))
+        # vec_eq = sps.vstack((vec_stor1_first_e,  vec_stor2_first_e)).toarray().squeeze()
+        mat_eq = None
+        vec_eq = None
 
-        mat_ineq = sps.vstack((-1*mat_power_bound, mat_power_bound,
+        mat_ineq = sps.vstack((mat_stor1_first_e,  mat_stor2_first_e,
+                               -1*mat_power_bound, mat_power_bound,
                                     mat_stor1_model_in, mat_stor1_model_out,
                                     mat_stor2_model_in, mat_stor2_model_out,
                                     mat_stor1_min_energy, mat_stor1_max_energy, mat_stor2_max_power,
                                     mat_stor2_min_power, mat_stor1_max_power,
-                                    mat_stor1_min_power, mat_stor2_min_energy, mat_stor2_max_energy))
-        vec_ineq = sps.vstack((-1*vec_power_min, vec_power_max,
+                                    mat_stor1_min_power, mat_stor2_min_energy, mat_stor2_max_energy,
+                                    mat_max_combined_power))
+        vec_ineq = sps.vstack((vec_stor1_first_e,  vec_stor2_first_e,
+                               -1*vec_power_min, vec_power_max,
                                     vec_stor1_model_in, vec_stor1_model_out,
                                     vec_stor2_model_in, vec_stor2_model_out,
                                     vec_stor1_min_energy, vec_stor1_max_energy, vec_stor2_max_power,
                                     vec_stor2_min_power, vec_stor1_max_power,
-                                    vec_stor1_min_power, vec_stor1_min_energy, vec_stor2_max_energy)).toarray().squeeze()
+                                    vec_stor1_min_power, vec_stor1_min_energy, vec_stor2_max_energy,
+                                    vec_max_combined_power)).toarray().squeeze()
     elif formulation == 'lp' or formulation == 'milp':
-        mat_eq_lp = sps.vstack((mat_stor1_first_e,  mat_stor2_first_e, mat_stor1_model, mat_stor2_model))
-        vec_eq = sps.vstack((vec_stor1_first_e,  vec_stor2_first_e, vec_stor1_model, vec_stor2_model)).toarray().squeeze()
+        mat_eq_lp = sps.vstack((mat_stor1_model, mat_stor2_model))
+        vec_eq = sps.vstack(( vec_stor1_model, vec_stor2_model)).toarray().squeeze()
 
-        mat_ineq_lp = sps.vstack((-1*mat_power_bound, mat_power_bound,
+        mat_ineq_lp = sps.vstack((mat_stor1_first_e,  mat_stor2_first_e,-1*mat_power_bound, mat_power_bound,
                                     mat_stor1_min_energy, mat_stor1_max_energy, mat_stor2_max_power,
                                     mat_stor1_max_power,
-                                    mat_stor2_min_energy, mat_stor2_max_energy))
-        vec_ineq_lp = sps.vstack((-1*vec_power_min, vec_power_max,
+                                    mat_stor2_min_energy, mat_stor2_max_energy,
+                                    mat_max_combined_power))
+        vec_ineq_lp = sps.vstack((vec_stor1_first_e,  vec_stor2_first_e,-1*vec_power_min, vec_power_max,
                                     vec_stor1_min_energy, vec_stor1_max_energy, vec_stor2_max_power,
                                     vec_stor1_max_power,
-                                    vec_stor2_min_energy, vec_stor2_max_energy))
+                                    vec_stor2_min_energy, vec_stor2_max_energy,
+                                    vec_max_combined_power))
         
         if formulation == 'milp':
             # The equality matrix for the MILP formulation is constructed based on the LP one, as follows:
             # mat_ineq = | mat_eq_lp  |  right_block_eq |
             #
             # Where the right_block is a zeros (6n+2 x 2n) matrix corresponding to the additional integer variables for the existing constraints
-            right_block_eq = sps.coo_array(( 2*n+2, 2*n))
+            right_block_eq = sps.coo_array((2*n, 2*n))
             mat_eq = sps.hstack((mat_eq_lp, right_block_eq))
 
             # The inequality matrix for the MILP formulation is constructed based on the LP one, as follows:
@@ -656,7 +679,7 @@ def build_lp_cst_sparse(power: np.ndarray, dt: float, p_min, p_max: float, n: in
             #            |        lower_block          |
             # Where the right_block is a zeros (6n+2 x 2n) matrix corresponding to the additional integer variables for the existing constraints, and the lower block (6*n x 9n+6) corresponds to the contraints specific to the integer variables
 
-            mat_right_block = sps.coo_array((10*n+4, 2*n))
+            mat_right_block = sps.coo_array((11*n+6, 2*n))
             mat_lower_block = sps.vstack((mat_stor1_power_c_int, mat_stor1_power_d_int, mat_stor2_power_c_int, mat_stor2_power_d_int, mat_p_curt_stor1_int, mat_p_curt_stor2_int))
             vec_lower_block = sps.vstack((vec_stor1_power_c_int, vec_stor1_power_d_int, vec_stor2_power_c_int, vec_stor2_power_d_int, vec_p_curt_stor1_int, vec_p_curt_stor2_int))
 
@@ -824,7 +847,10 @@ def solve_lp_sparse(price_ts: TimeSeries, prod1: Production,
     mat_eq, vec_eq, mat_ineq, vec_ineq, bounds_lower, bounds_upper =  build_lp_cst_sparse(power_res, dt, p_min, p_max, n, stor1, stor2, stor1_p_cap_max = stor1.p_cap, stor2_p_cap_max = stor2.p_cap, stor1_e_cap_max = stor1.e_cap, stor2_e_cap_max= stor2.e_cap, options = options)
 
     n_var = bounds_upper.shape[0]
-    n_cstr_eq = vec_eq.shape[0]
+    if vec_eq is not None:
+        n_cstr_eq = vec_eq.shape[0]
+    else:
+        n_cstr_eq = 0
     n_cstr_ineq = vec_ineq.shape[0]
 
     assert n_var == bounds_lower.shape[0]
@@ -901,16 +927,28 @@ def solve_lp_sparse(price_ts: TimeSeries, prod1: Production,
                             eff_out = stor1.eff_out,
                             p_cost = stor1.p_cost,
                             e_cost = stor1.e_cost,
-                            dod = stor1.dod)
+                            soc_min = stor1.soc_min,
+                            soc_max = stor1.soc_max,
+                            lifetime= stor1.lifetime,
+                            opex_fix= stor1.opex_fix,
+                            opex_var=stor1.opex_var)
     stor2_res = Storage(e_cap = stor2_e_cap,
                             p_cap = stor2_p_cap,
                             eff_in = stor2.eff_in,
                             eff_out = stor2.eff_out,
                             p_cost = stor2.p_cost,
                             e_cost = stor2.e_cost,
-                            dod = stor2.dod)
+                            soc_min = stor2.soc_min,
+                            soc_max = stor2.soc_max,
+                            lifetime= stor2.lifetime,
+                            opex_fix= stor2.opex_fix,
+                            opex_var=stor2.opex_var)
 
-    prod1_res = Production(power_ts = TimeSeries(np.array(power_res_new) - prod2.power.data[:n], dt), p_cost= prod1.p_cost)
+    
+    p_curtail = prod2.power.data[:n] + prod1.power.data[:n] - np.array(power_res_new)
+    # prod1_res = Production(power_ts = TimeSeries(p_curtail, dt), p_cost= prod1.p_cost)
+    prod1_res = prod1.curtail(p_curtail)
+    
 
     os_res = OpSchedule(production_list = [prod1_res, prod2],
                         storage_list = [stor1_res, stor2_res],
@@ -991,14 +1029,14 @@ def os_rule_based(price_ts: TimeSeries, prod1: Production, prod2: Production, st
         if avail_power>=0:  
             # Charge storage 1 first
             stor1_p[t] = max(-stor1.p_cap,
-                            -(stor1.e_cap-stor1_e[t])/dt/stor1.eff_in,
+                            -(stor1.e_cap*stor1.soc_max-stor1_e[t])/dt/stor1.eff_in,
                             -avail_power )
 
             avail_power += stor1_p[t]  # this operation "reduces" the available power since stor1_p is <0
 
             # Charge storage 2 next
             stor2_p[t] = max(-stor2.p_cap,
-                              -(stor2.e_cap - stor2_e[t])/dt/stor2.eff_in,
+                              -(stor2.e_cap*stor2.soc_max - stor2_e[t])/dt/stor2.eff_in,
                               -avail_power )
 
             avail_power += stor2_p[t]
@@ -1008,29 +1046,29 @@ def os_rule_based(price_ts: TimeSeries, prod1: Production, prod2: Production, st
             stor2_p[t] = 0
             #if the price is high enough, discharge storage 1 to sell as much as posible
             if price_ts.data[t] > price_min:
-                if stor2_e[t] > stor2.e_cap*(1 - stor2.dod):
+                if stor2_e[t] > stor2.e_cap*stor2.soc_min:
                     stor2_p[t] = min(stor2.p_cap,
-                                      (stor2_e[t] - stor2.e_cap*(1 - stor2.dod))/dt * stor2.eff_out)
-                if stor1_e[t] > stor1.e_cap*(1 - stor1.dod):
+                                      (stor2_e[t] - stor2.e_cap*stor2.soc_min)/dt * stor2.eff_out)
+                if stor1_e[t] > stor1.e_cap*stor1.soc_min:
                     stor1_p[t] = min(stor1.p_cap,
-                                        (stor1_e[t] - stor1.e_cap*(1 - stor1.dod))/dt*stor1.eff_out)
+                                        (stor1_e[t] - stor1.e_cap*stor1.soc_min)/dt*stor1.eff_out)
 
         else:
             # If the power produced is below the required baseload, discharge the storage systems
             missing_power = p_min - power_res[t ]
 
-            if stor2_e[t]>  stor2.e_cap*(1 - stor2.dod):
+            if stor2_e[t]>  stor2.e_cap*stor2.soc_min:
                 stor2_p[t] = min(stor2.p_cap,
-                                  (stor2_e[t] -  stor2.e_cap*(1 - stor2.dod))/dt*stor2.eff_out, missing_power)
+                                  (stor2_e[t] -  stor2.e_cap*stor2.soc_min)/dt*stor2.eff_out, missing_power)
             else:
                 stor2_p[t] = 0
 
             missing_power -= stor2_p[t]
 
 
-            if stor1_e[t]> stor1.e_cap*(1 - stor1.dod):
+            if stor1_e[t]> stor1.e_cap*stor1.soc_min:
                 stor1_p[t] = min(stor1.p_cap,
-                                    (stor1_e[t] - stor1.e_cap*(1 - stor1.dod))/dt*stor1.eff_out,
+                                    (stor1_e[t] - stor1.e_cap*stor1.soc_min)/dt*stor1.eff_out,
                                     missing_power)
             else:
                 stor1_p[t] = 0
@@ -1060,7 +1098,8 @@ def os_rule_based(price_ts: TimeSeries, prod1: Production, prod2: Production, st
                             eff_out = stor1.eff_out,
                             p_cost = stor1.p_cost,
                             e_cost = stor1.e_cost,
-                            dod = stor1.dod)
+                            soc_min = stor1.soc_min,
+                            soc_max = stor1.soc_max)
 
     stor2_res = Storage(e_cap = max(stor2_e),
                             p_cap = max(stor2_p),
@@ -1068,7 +1107,8 @@ def os_rule_based(price_ts: TimeSeries, prod1: Production, prod2: Production, st
                             eff_out = stor2.eff_out,
                             p_cost = stor2.p_cost,
                             e_cost = stor2.e_cost,
-                            dod = stor2.dod)
+                            soc_min = stor2.soc_min,
+                            soc_max = stor2.soc_max)
 
     os_res = OpSchedule(production_list = [prod1, prod2],
                         storage_list = [stor1_res, stor2_res],
@@ -1082,3 +1122,117 @@ def os_rule_based(price_ts: TimeSeries, prod1: Production, prod2: Production, st
     os_res.get_npv_irr(discount_rate, n_year)
 
     return os_res
+
+def financial_metrics(production_list: list[Production], storage_list: list[Storage], production_p: list[TimeSeries],
+                 storage_p: list[TimeSeries], p_max_hpp: float, p_cost_shared: float, price: TimeSeries, m:int, discount_rate: float, added_price: float = 0) -> tuple[float, float, float, float, list[float]]:
+    """Calculate financial metrics for a given hybrid power plant
+    
+    Five metrics are calculated: LCOE, NPV, IRR, Total CAPEX, and the vector of cashflow during the project.
+    
+    Args:
+        production_list (list[Production]): List of power generation components (wind farm, solar PV, etc.)
+        storage_list (list[Storage]): List of storage system components
+        production_p (list[TimeSeries]): List of power production time series, corresponding to the components in production_list
+        storage_p (list[TimeSeries]): List of storage power time series, corresponding to the components in storage_list
+        p_max_hpp (float): Grid connection capacity of the hybrid power plant (MW)
+        p_cost_shared (float): Shared CAPEX of the hybrid power plant (e.g., balance of plant), proportional to the grid connection capacity (Currency/MW)
+        price (TimeSeries): Time series of electricity price to calculate the revenue (currency/MWh)
+        m (int): number of years of operation of the project (-))
+        discount_rate (float): discount rate for the calculation of discounted cashflows (-)
+        added_price (float, optional): Value of electricity price added to the price timeseries, similar to a subsidy premium (currency/MWh).  
+    
+    Returns:
+        tuple[float, float, float, float, list[float]]: [lcoe, npv, irr, capex_tot, cashflow]
+
+    Raises:
+        AssertionError: if any argument is of incorrect type, if the length of production or storage objects does not match the list of power timeseries, if the time increment is inconsistent.
+    
+    
+    
+    """
+    # Check validity of inputs
+    assert isinstance(production_list, list) and all(isinstance(p, Production) for p in production_list), \
+        "production_list must be a list of Production objects."
+    assert isinstance(storage_list, list) and all(isinstance(s, Storage) for s in storage_list), \
+        "storage_list must be a list of Storage objects."
+    assert isinstance(production_p, list) and all(isinstance(ts, TimeSeries) for ts in production_p), \
+        "production_p must be a list of TimeSeries objects."
+    assert isinstance(storage_p, list) and all(isinstance(ts, TimeSeries) for ts in storage_p), \
+        "storage_p must be a list of TimeSeries objects."
+    assert isinstance(p_max_hpp, (int, float)) and (p_max_hpp > 0), "p_max_hpp must be a positive numeric value."
+    assert isinstance(p_cost_shared, (int, float)) and (p_cost_shared >= 0), "p_cost_shared must be a positive numeric value."
+    assert isinstance(price, TimeSeries), "price must be a TimeSeries object."
+    assert isinstance(m, int) and (m>0), "m must be a positive integer."
+    assert isinstance(discount_rate, (float, int)) and (0 <= discount_rate <=1), "discount_rate must be a numeric value between 0 and 1."
+    if added_price is not None:
+        assert isinstance(added_price, (float, int)) and (0 <= added_price), "added_price must be a positive numeric value."
+
+    assert len(production_p) == len(production_list), "the number of production object in production_list must match the number of power timeseries in production_p"
+    assert len(storage_p) == len(storage_list), "the number of storage object in storage_list must match the number of power timeseries in storage_p"
+
+    dt = production_p[0].dt
+    assert all(power.dt == dt for power in production_p+storage_p), "the time increment dt should be consistent accross timeseries in production_p and storage_p"
+
+    # Calculate AEP, CAPEX, OPEX and Revenues for all production and storage objects
+    aep_production = [  sum(prod.data)*dt for prod in production_p]
+    aep_storage_discharge = [  sum(np.maximum(stor.data, 0))*dt for stor in storage_p] # Sum of energy in discharge only - for the calculation of the variable OPEX
+    aep_storage_tot = [  sum(stor.data)*dt for stor in storage_p]
+
+    capex_production =  [ prod.get_tot_costs() for prod in production_list ] 
+    capex_storage =  [ stor.get_tot_costs() for stor in storage_list ] 
+    capex_shared = p_max_hpp*p_cost_shared # Shared CAPEX of Balance of plant (BOP)
+
+    opex_production =  [ prod.opex_fix * prod.p_max + prod.opex_var * aep_prod for prod, aep_prod in zip(production_list, aep_production) ] 
+    opex_storage =  [ stor.opex_fix * stor.p_cap + stor.opex_var * aep_stor for stor, aep_stor in zip(storage_list, aep_storage_discharge) ] 
+
+    revenues_production =  [ sum([(p) *(l + added_price) for p, l in zip(prod.data, price.data)]) for prod in production_p] 
+    revenues_storage =  [sum([(p) *(l + added_price) for p, l in zip(stor.data, price.data)]) for stor in storage_p] 
+
+    # Expenses are recorded in tuple objects, where the first element is the year where the expense occurs
+    # The CAPEX for the production objects and for the balance of plant occur on year 0.    
+    capex_tuples = [(0, capex_shared)] + [(0, capex_prod) for capex_prod in capex_production]
+
+    # The OPEX of production objects occurs every year except year 0.
+    opex_tuples  = [(i, opex_prod) for i in range(1, m+1) for opex_prod in opex_production]
+
+    # The CAPEX and OPEX for the storage systems takes into account the year of replacement
+    # Here, we assume that the storage is not replaced if its lifetime is longer than the remaining lifetime of the project. For example, for a 25 year project, a storage system with a 8 year lifetime is replaced 3 times.
+    capex_batt_tuples = []
+    opex_batt_tuples = []
+    for stor, capex, opex in zip(storage_list, capex_storage, opex_storage): 
+        for i in range(m//stor.lifetime): # Looping over the number of batteries during the project lifetime
+            capex_batt_tuples.append((i*stor.lifetime, capex)) # Adding CAPEX at each replacement year
+            for j in range(stor.lifetime):
+                opex_batt_tuples.append((i*stor.lifetime+j, opex)) # Adding OPEX at each year of operation
+    
+    # Combine all expense tuples into a single vector of costs indexed by year, where costs_vec[i] is the total expenses in year i
+    costs_vec = [0 for _ in range(m+1)]
+    for tuple in capex_tuples + opex_tuples + capex_batt_tuples + opex_batt_tuples:
+        index_year = tuple[0]
+        costs_vec[index_year] += tuple[1]
+
+    # Represent the electricity production and revenues into a vector indexed by year    
+    aep_vec = [sum(aep_production)+sum(aep_storage_tot) if i>0 else 0 for i in range(0, m+1)]
+    revenues_vec = [sum(revenues_production)+ sum(revenues_storage) if i>0 else 0 for i in range(0, m+1)]
+    
+    # Combine costs and revenues into a vector of cashflow over the project lifetime
+    cashflow = [(rev-cost) for rev, cost in zip(revenues_vec, costs_vec)]
+    
+    # Calculate the LCOE as the ratio between levelized costs and levelized AEP
+    levelized_aep_bis = npf.npv(discount_rate, aep_vec)
+    levelized_costs_bis = npf.npv(discount_rate, costs_vec)
+    
+    lcoe = levelized_costs_bis/levelized_aep_bis
+
+    # Calculate NPV and IRR
+    npv = npf.npv(discount_rate, [(rev-cost) for rev, cost in zip(revenues_vec, costs_vec)])
+
+    irr = npf.irr([(rev-cost) for rev, cost in zip(revenues_vec, costs_vec)])
+   
+    # Calculate the total CAPEX, included the discounted cost of storage system replacement.
+    capex_tot = sum(capex_production)+capex_shared
+
+    for tuple in capex_batt_tuples:
+        capex_tot+=tuple[1]/(1+discount_rate)**tuple[0]
+
+    return lcoe, npv, irr, capex_tot, cashflow

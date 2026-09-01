@@ -21,7 +21,7 @@ from shipp.io_functions import get_power_price_data
 n = 5*24  # number of time steps
 dt = 1 # time step duration [hour]
 discount_rate = 0.03 #discount rate
-n_year = 20  # Project duration [years]
+n_year = 20  # Number of years of operation [years]
 p_cost_res = 3000  # USD/MW
 p_min = 0 # Minimum required baseload power
 dp_lim = 6 # Power ramp limit in MW per time step
@@ -71,7 +71,7 @@ kmin =  np.argmin(dpower[:n-1]) # Index of minimum ramp
 kmax =  np.argmax(dpower[:n-1]) # Index of maximum ramp
 
 # Solve the sizing optimization problem with perfect and unliminited information (PI-U)
-os =  solve_lp_pyomo(price_dam, prod, prod_null, stor, stor_null, discount_rate, n_year, 0, p_max, n, pyo_solver, fixed_cap = False, dp_lim = dp_lim, verbose = False)
+os =  solve_lp_pyomo(price_dam, prod, prod_null, stor, stor_null, discount_rate, n_year, 0, p_max, n, dp_lim = dp_lim, options = dict(name_solver =pyo_solver, fixed_cap = False,  verbose = False))
 
 power_piu = np.array(os.power_out.data)
 dpower_piu = np.diff(power_piu)

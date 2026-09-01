@@ -20,7 +20,7 @@ from shipp.io_functions import get_power_price_data
 n = 20 * 24  # number of time steps
 dt = 1 # time step duration [hour]
 discount_rate = 0.03 #discount rate
-n_year = 20  # Project duration [years]
+n_year = 20  # Number of years of operation [years]
 p_min = 10 # Required minimum baseload power
 p_cost_res = 3000  # cost per installed capacity of the renewable energy source [USD/MW]
 
@@ -74,9 +74,9 @@ if pyo_solver == 'none':
 
 else:
     # Solve the integrated sizing + dispatch problem
-    os =  solve_lp_pyomo(price_dam, prod, prod_null, stor, stor_null, discount_rate, n_year, p_min, p_max, n, pyo_solver)
+    os =  solve_lp_pyomo(price_dam, prod, prod_null, stor, stor_null, discount_rate, n_year, p_min, p_max, n, options = dict(name_solver = pyo_solver))
      # Solve the dispatch problem with fixed storage capacity
-    os_fixed =  solve_lp_pyomo(price_dam, prod, prod_null, stor, stor_null, discount_rate, n_year, p_min, p_max, n, pyo_solver, options=dict(fixed_cap = True))
+    os_fixed =  solve_lp_pyomo(price_dam, prod, prod_null, stor, stor_null, discount_rate, n_year, p_min, p_max, n, options=dict(name_solver = pyo_solver, fixed_cap = True))
 
 #calculate yearly revenues for renewable power only
 revenues_res_only = np.dot(data_price[:n], np.minimum(data_power[:n], p_max))*dt

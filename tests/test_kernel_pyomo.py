@@ -54,7 +54,7 @@ def test_solve_lp_pyomo():
 
     # Test if the capacity changes when the input fixed_cap is True
     os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
-                        discount_rate, n_year, p_min, p_max, n, fixed_cap=True)
+                        discount_rate, n_year, p_min, p_max, n, options=dict(fixed_cap=True))
     assert os.storage_list[0].p_cap == 1
     assert os.storage_list[1].p_cap == 1
     assert os.storage_list[0].e_cap == 1
@@ -76,24 +76,60 @@ def test_solve_lp_pyomo():
     # Check that curtailment is correctly implemented
     p_max_curt = 2
     os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
-                        discount_rate, n_year, 0, p_max_curt, n, fixed_cap=True)
+                        discount_rate, n_year, 0, p_max_curt, n, options=dict(fixed_cap=True))
     assert( max(os.power_out.data) <= p_max_curt)
 
     # Check that the depth of discharge is correctly implemented
 
     tol = 1e-5
-    stor_batt_dod = Storage(1,1,1,1,1,1, dod = 0.9)
+    stor_soc = Storage(1,1,1,1,1,1, soc_min = 0.1)
     stor_null = Storage(e_cap = 0, p_cap = 0)
 
-    os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt_dod, stor_null,
+    os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_soc, stor_null,
                         discount_rate, n_year, p_min, p_max, n)
-    assert min(os.storage_e[0].data) >= stor_batt_dod.e_cap*(1 - stor_batt_dod.dod)-tol
-    assert os.storage_list[0].dod ==0.9
+    assert min(os.storage_e[0].data) >= stor_soc.e_cap*stor_soc.soc_min-tol
+    assert os.storage_list[0].soc_min == 0.1
 
-    os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_null, stor_batt_dod, 
+    os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_null, stor_soc, 
                         discount_rate, n_year, p_min, p_max, n)
-    assert min(os.storage_e[1].data) >= stor_batt_dod.e_cap*(1 - stor_batt_dod.dod)-tol
-    assert os.storage_list[1].dod == 0.9
+    assert min(os.storage_e[1].data) >= stor_soc.e_cap*stor_soc.soc_min-tol
+    assert os.storage_list[1].soc_min == 0.1
+
+    stor_soc = Storage(1,1,1,1,1,1, soc_max = 0.9)
+    stor_null = Storage(e_cap = 0, p_cap = 0)
+
+    os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_soc, stor_null,
+                        discount_rate, n_year, p_min, p_max, n)
+    assert max(os.storage_e[0].data) <= stor_soc.e_cap*stor_soc.soc_max + tol
+    assert os.storage_list[0].soc_max == 0.9
+
+    os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_null, stor_soc, 
+                        discount_rate, n_year, p_min, p_max, n)
+    assert min(os.storage_e[1].data) <=  stor_soc.e_cap*stor_soc.soc_max + tol
+    assert os.storage_list[1].soc_max == 0.9
+
+    # Check energy balance
+    os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                        discount_rate, n_year, 0, p_max, n,  options = dict(fixed_cap=True))
+    
+    energy_in = dt*(sum(prod_wind.power.data) + sum(prod_pv.power.data))
+    energy_delivered= dt*(sum(os.power_out.data))
+    energy_lost = dt*(sum(os.losses[0])+ sum(os.losses[1]))
+    assert (energy_in - (energy_delivered + energy_lost)) <= tol
+
+    # Check energy balance in case of curtailment
+    
+    os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                        discount_rate, n_year, 0, p_max_curt, n,  options = dict(fixed_cap=True))
+    
+    energy_in = dt*(sum(prod_wind.power.data) + sum(prod_pv.power.data))
+    energy_delivered= dt*(sum(os.power_out.data))
+    energy_lost = dt*(sum(os.losses[0])+ sum(os.losses[1]))
+    assert energy_in >= energy_delivered + energy_lost
+    
+    p_curtail = prod_wind.power.data - os.production_p[0].data
+
+    assert (energy_in -(energy_delivered + energy_lost + dt*sum(p_curtail))) <= tol
 
 
 def test_run_storage_operation():
@@ -300,10 +336,10 @@ def test_run_storage_operation():
 
     assert( max(power_out) <= 90)
 
-    # Check that the depth of discharge is correctly implemented
+    # Check that the depth of discharge (soc_min and soc_max) is correctly implemented
     tol = 1e-4
-    stor_dod = Storage(e_cap=2, p_cap=1, eff_in=0.9, eff_out=0.9, p_cost=1, e_cost=1, dod = 0.9)
-    e_start_dod = stor_dod.e_cap
+    stor_dod = Storage(e_cap=2, p_cap=1, eff_in=0.9, eff_out=0.9, p_cost=1, e_cost=1, soc_min = 0.1, soc_max = 0.9)
+    e_start_dod = stor_dod.e_cap*0.8
     result = run_storage_operation(
         run_type="unlimited",
         power=power,
@@ -318,7 +354,8 @@ def test_run_storage_operation():
         rel=rel,
     )
 
-    assert min(result['energy']) >= stor_dod.e_cap*(1 - stor_dod.dod )- tol
+    assert min(result['energy']) >= stor_dod.e_cap* stor_dod.soc_min - tol
+    assert max(result['energy']) <= stor_dod.e_cap* stor_dod.soc_max + tol
 
     result = run_storage_operation(
         run_type="rule-based",
@@ -334,7 +371,8 @@ def test_run_storage_operation():
         rel=rel,
     )
 
-    assert min(result['energy']) >= stor_dod.e_cap*(1 - stor_dod.dod) - tol
+    assert min(result['energy']) >= stor_dod.e_cap* stor_dod.soc_min - tol
+    assert max(result['energy']) <= stor_dod.e_cap* stor_dod.soc_max + tol
 
     result = run_storage_operation(
         run_type="forecast",
@@ -351,7 +389,8 @@ def test_run_storage_operation():
         rel=rel,
     )
 
-    assert min(result['energy']) >= stor_dod.e_cap*(1 - stor_dod.dod) - tol
+    assert min(result['energy']) >= stor_dod.e_cap* stor_dod.soc_min - tol
+    assert max(result['energy']) <= stor_dod.e_cap* stor_dod.soc_max + tol
 
 
 
@@ -454,14 +493,14 @@ def test_solve_dispatch_pyomo():
 
     # Check that the depth of discharge is correctly 
 
-    stor_batt_dod = Storage(1,1,1,1,1,1, dod = 0.9)
+    stor_batt_dod = Storage(1,1,1,1,1,1, soc_min = 0.1)
     e_start_dod = 0.9
     p_vec1, e_vec1,  p_vec2, e_vec2, p_cur, bin, status = solve_dispatch_pyomo(price, m, rel, n, power, p_min, p_max, e_start_dod, 0, dt,  stor_batt_dod, stor_null)
 
-    assert min(e_vec1[0]) >= stor_batt_dod.e_cap*(1 - stor_batt_dod.dod)
+    assert min(e_vec1[0]) >= stor_batt_dod.e_cap*stor_batt_dod.soc_min
     
     p_vec1, e_vec1,  p_vec2, e_vec2, p_cur, bin, status = solve_dispatch_pyomo(price, m, rel, n, power, p_min, p_max,  0, e_start_dod, dt,   stor_null, stor_batt_dod)
 
-    assert min(e_vec2[0]) >= stor_batt_dod.e_cap*(1 - stor_batt_dod.dod)
+    assert min(e_vec2[0]) >= stor_batt_dod.e_cap*stor_batt_dod.soc_min
 
     

@@ -6,6 +6,7 @@ src/shipp.egg-info/
 experiments/hyb24_bl_hpp/__pycache__/
 docs/_build/
 *.pyc
+docs/apidocs/
 # Ignore data files and figures
 experiments/hyb24_bl_hpp/figures
 experiments/we25_robust_dispatch/data/mars_ptf*

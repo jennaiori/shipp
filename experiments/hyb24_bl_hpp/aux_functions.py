@@ -297,7 +297,7 @@ def run_site_comparison(power_wind: list[np.ndarray], price: list[np.ndarray],
 
                 os =  solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt,
                                      stor_lts, discount_rate, n_year,
-                                     p_min_vec, p_max, n, pyo_solver)
+                                     p_min_vec, p_max, n, options = dict(name_solver = pyo_solver))
 
                 rev_res_only = 365 * 24 / n * np.dot(price[i][:n],
                                               np.minimum(power, p_max))*delta_t
@@ -483,7 +483,7 @@ def run_cost_comparison(power_wind: list[np.ndarray], price: list[np.ndarray],
 
                 os =  solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_st_tmp,
                                      stor_lt_tmp, discount_rate, n_year,
-                                     p_min_vec, p_max, n, pyo_solver)
+                                     p_min_vec, p_max, n, options = dict(name_solver = pyo_solver))
 
                 p_st, _ = get_percent(os, prod_wind.power.data[:n], p_min,
                                          p_min_vec)

@@ -36,7 +36,7 @@ def test_simple():
 def test_storage_initialization():
     # Test with all parameters
     stor = Storage(e_cap=100, p_cap=50, eff_in=0.9, eff_out=0.85, 
-                   e_cost=1000, p_cost=5000, dod=0.8)
+                   e_cost=1000, p_cost=5000, soc_min=0.2)
     
     # Test with default parameters
     stor_default = Storage()
@@ -86,8 +86,8 @@ def test_storage_methods():
         assert False
     
     # Minimum energy level
-    stor = Storage(e_cap=100, p_cap=50, dod = 0.8)
-    expected_min_e = (1-0.8)*100
+    stor = Storage(e_cap=100, p_cap=50, soc_min = 0.2)
+    expected_min_e = 0.2*100
     assert stor.get_min_e() == expected_min_e
 
     # Check the behavior of the copy
@@ -98,7 +98,8 @@ def test_storage_methods():
     assert stor_copy.p_cost == stor.p_cost
     assert stor_copy.eff_in == stor.eff_in
     assert stor_copy.eff_out == stor.eff_out
-    assert stor_copy.dod == stor.dod
+    assert stor_copy.soc_min == stor.soc_min
+    assert stor_copy.soc_max == stor.soc_max
 
     stor_copy.e_cap = 200
     assert stor_copy.e_cap != stor.e_cap
@@ -201,7 +202,7 @@ def test_opschedule_methods():
     
     # Test function for NPV and IRR calculation
     discount_rate = 0
-    n_year = 2
+    n_year = 1
 
     cash_flow = [-os.capex, os.annual_revenue]
     expected_irr = (os.annual_revenue/os.capex - 1)
@@ -211,7 +212,7 @@ def test_opschedule_methods():
   
     # Test function for added NPV
     discount_rate = 0
-    n_year = 2
+    n_year = 1
 
     cash_flow = [-stor_unit.get_tot_costs(), os.annual_revenue_storage]
     expected_irr = (os.annual_revenue_storage/stor_unit.get_tot_costs() - 1)

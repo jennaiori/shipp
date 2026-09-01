@@ -69,7 +69,7 @@ A {py:obj}`Storage <components.Storage>` object describes an abstract storage sy
 - its cost per energy and power capacity `e_cost` and `p_cost`
 - its energy and power capacity `e_cap` and `p_cap`
 - its efficiency in charge and discharge `eff_in` and `eff_out`. Note that only constant efficiencies are considered here.
-- its depth of discharge `dod`.
+- its minimum and maximum allowed state-of-charge `soc_min` and `soc_max`.
 
 Below is an example of initialization.
 ```python
@@ -81,7 +81,7 @@ prod = Production(power_ts, p_cost = p_cost_res)
 p_cost = 150*1e3  # cost per power capacity [Eur/MW]
 e_cost = 75 * 1e3 # cost per energy capacity [Eur/MWh]
 eta = 0.85 #Round trip efficiency, here applied in discharge.
-dod = 0.9 # Depth of discharge
+soc_min = 0.1 # Minimum state-of-charge
 e_cap = 20 # Energy capacity [MWh]
 p_cap = 10 # Power capacity [MW]
 stor = Storage(e_cap = e_cap, p_cap = p_cap, eff_in = 1, eff_out= eta, e_cost = e_cost, p_cost = p_cost)
@@ -108,13 +108,13 @@ The discount rate and number of years are required because the underlying object
 The dispatch optimization problem can be solved with the built-in solver in scipy, `scipy.optimize.linprog` with the following command:
 
 ```python
-os = solve_lp_sparse(price_ts, prod, prod_null, stor, stor_null, discount_rate, n_year, p_min, p_max, n, fixed_cap = True)
+os = solve_lp_sparse(price_ts, prod, prod_null, stor, stor_null, discount_rate, n_year, p_min, p_max, n, options=dict(fixed_cap = True))
 ```
 
 However, this solver performs poorly with large problems. Instead, it is recommended to use off-the-shelf solvers throught the pyomo interface with the following command, where the parameter `name_solver` refers to a solver compatible with pyomo, for example 'mosek', 'cplex', 'gurobi'.
 
 ```python
-os = solve_lp_pyomo(price_ts, prod, prod_null, stor, stor_null, discount_rate, n_year, p_min, p_max, n, name_solver, fixed_cap = True)
+os = solve_lp_pyomo(price_ts, prod, prod_null, stor, stor_null, discount_rate, n_year, p_min, p_max, n, name_solver, options=dict(fixed_cap = True))
 ```
 
 
