@@ -752,10 +752,12 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
 
 
     # Tuning parameters of the optimization problem
-    if dp_min is None:
+    if (dp_min is None) and (dp_max is None):
         mu_obj = mu*(p_min)*(n+n_hist)*np.max(price[0:n])
+    elif dp_max is None: 
+        mu_obj = mu*(p_min + abs(dp_min))*(n+n_hist)*np.max(price[0:n])
     else:
-        mu_obj = mu*(p_min + dp_min)*(n+n_hist)*np.max(price[0:n])
+        mu_obj = mu*(p_min + abs(dp_max))*(n+n_hist)*np.max(price[0:n])
 
     # Check that the starting state of charge is within the bounds, considering a tolerance corresponding to the optimization tolerance.
     assert e_start1 + tol >= stor1.e_cap*stor1.soc_min
@@ -888,7 +890,6 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
                 return  model.p_vec1[j, i] + model.p_vec2[j, i] - model.p_cur[j,i] <= model.bin[i]*(dp_max  - power_forecast[j][i] + p_hist_res + p_hist_stor)
             else:
                 return  model.p_vec1[j, i] + model.p_vec2[j, i] - (model.p_vec1[j, i-1] + model.p_vec2[j, i-1]) - (model.p_cur[j,i] - model.p_cur[j, i-1]) <= dp_feasible + model.bin[i]*(dp_max - dp_feasible ) - power_forecast[j][i] + power_forecast[j][i-1]
-
         model.dp_tot_max = pyo.Constraint(model.mat_m_n, rule=rule_dp_tot_max)
 
     ## Global constraints

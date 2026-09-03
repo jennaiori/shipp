@@ -25,7 +25,7 @@ n_year = 20  # Number of years of operation [years]
 p_cost_res = 3000  # USD/MW
 p_min = 0 # Minimum required baseload power
 dp_min = -6 # Power ramp limit in MW per time step
-
+dp_max = 6
 # Input data for the storage characteristics
 p_cost = 150 * 1e3  # cost per power capacity for STS [USD/MW]
 e_cost = 75 * 1e3 # cost per energy capacity for STS [USD/MWh]
@@ -66,12 +66,12 @@ prod_null = Production(TimeSeries([0 for _ in range(n)], dt), 0) # Creation of a
 
 #calculate yearly revenues and reliability for renewable power only
 revenues_res_only = np.dot(data_price[:n], np.minimum(data_power[:n], p_max))*dt
-rel_ramp_res_only = sum([1/(n-1) if( dp>= dp_min )else 0 for dp in dpower[:n-1] ])
+rel_ramp_res_only = sum([1/(n-1) if( dp_max >= dp>= dp_min )else 0 for dp in dpower[:n-1] ])
 kmin =  np.argmin(dpower[:n-1]) # Index of minimum ramp
 kmax =  np.argmax(dpower[:n-1]) # Index of maximum ramp
 
 # Solve the sizing optimization problem with perfect and unliminited information (PI-U)
-os =  solve_lp_pyomo(price_dam, prod, prod_null, stor, stor_null, discount_rate, n_year, p_max, n, dp_min = dp_min, options = dict(name_solver =pyo_solver, fixed_cap = False,  verbose = False))
+os =  solve_lp_pyomo(price_dam, prod, prod_null, stor, stor_null, discount_rate, n_year, p_max, n, dp_min = dp_min, dp_max = dp_max, options = dict(name_solver =pyo_solver, fixed_cap = False,  verbose = False))
 
 power_piu = np.array(os.power_out.data)
 dpower_piu = np.diff(power_piu)
@@ -94,7 +94,7 @@ beta_obj = 1e-6  # Regularization parameter for the last state of charge
 alpha_obj = 1-1e-6 # Regularization parameter for the curtailment
 
 # Solve the sizing optimization problem with perfect information, but limited (PI)
-res = run_storage_operation('forecast', data_power, data_price, p_max, os.storage_list[0], e_start, n_for, n, dt, forecast_perfect, dp_min = dp_min, dp_max = -dp_min, rel = rel_th, options = dict(verbose = False, name_solver = 'mosek', mu = mu, beta_obj = beta_obj, alpha_obj = alpha_obj))
+res = run_storage_operation('forecast', data_power, data_price, p_max, os.storage_list[0], e_start, n_for, n, dt, forecast_perfect, dp_min = dp_min, dp_max = dp_max, rel = rel_th, options = dict(verbose = False, name_solver = 'mosek', mu = mu, beta_obj = beta_obj, alpha_obj = alpha_obj))
 
 power_pi = np.array([data_power[i] + res['power'][i] - res['p_cur'][i] for i in range(len(res['power']))])
 dpower_pi = np.diff(power_pi)
@@ -170,7 +170,8 @@ for t in range(nt):
 
 # Iterate over the time steps in the simulation for the rolling horizon.
 for t in range(nt):
-    p_vec, e_vec, p_vec2, _, p_cur, bin_vec, status = solve_dispatch_pyomo(data_price[t:], m, rel_th, n_for, forecast_perfect[t],  p_max, e_start_new, 0,  dt, stor, stor_null,  cnt_hist=(t-1), dp_min = dp_min, dp_max = -dp_min, p_hist_stor=p_hist_stor, options = dict(verbose = False, name_solver = 'mosek', mu = mu, beta_obj = beta_obj, n_hist = n_hist, alpha_obj = alpha_obj))
+    p_vec, e_vec, p_vec2, _, p_cur, bin_vec, status = solve_dispatch_pyomo(data_price[t:], m, rel_th, n_for, forecast_perfect[t],  p_max, e_start_new, 0,  dt, stor, stor_null,  cnt_hist=(t-1), dp_min = dp_min, dp_max = dp_max, p_hist_stor=p_hist_stor, p_hist_res = p_hist_res, options = dict(verbose = False, name_solver = 'mosek', mu = mu, beta_obj = beta_obj, n_hist = n_hist, alpha_obj = alpha_obj))
+
     
     # If the optimization problem is solved correctly, we retrieve the results.
     if status == 'ok':
@@ -193,6 +194,17 @@ for t in range(nt):
     ax[1, t].plot([x for x in range(t, t+n_for)], p_vec[0,:] + data_power[t:t+n_for] - p_cur[0,:] , '--')
     ax[2, t].plot([x for x in range(t, t+n_for)], e_vec[0,:n_for] , '--')
     ax[3, t].plot([x for x in range(t, t+n_for)], p_cur[0,:], '--' )
+
+    print('----------')
+    print('TIME STEP', t)
+    print('----------')
+    print('forec=', [float(x) for x in forecast_perfect[t][0][:3]])
+    print('p_vec=', p_vec[0,:3])
+    print('e_vec=', e_vec[0, :4])
+    print('p_cur=', p_cur[0, :3])
+    print('bin_vec=', bin_vec[:3])
+    print('p2grid =', p_vec[0,0:3] + data_power[t:t+3] - p_cur[0,:3])
+    print()
 
 rel_res = 1/nt*sum(bin_res)
 rev_res = sum([data_price[i]*(p_res[i]-p_cur_res[i]) for i in range(nt)])
