@@ -27,17 +27,17 @@ def test_solve_lp_pyomo():
 
     # Test the function with p_min as a scalar
     _ = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
-                        discount_rate, n_year, p_min, p_max, n)
+                        discount_rate, n_year,  p_max, n, p_min)
 
     # Test the function with p_min as a vector
     _ = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
-                        discount_rate, n_year, p_min_vec, p_max, n)
+                        discount_rate, n_year, p_max, n, p_min_vec)
 
     # Raise an error if the length of p_min_vec is not equal to the number of time steps
     try:
         _ = solve_lp_pyomo(TimeSeries(price, 2*dt), prod_wind, prod_pv,
-                            stor_batt, stor_h2, discount_rate, n_year,
-                            p_min_vec, p_max, n)
+                            stor_batt, stor_h2, discount_rate, n_year, p_max, n,
+                            p_min_vec)
     except AssertionError:
         assert True
     else:
@@ -46,7 +46,7 @@ def test_solve_lp_pyomo():
     # Raise an error if the optimization does not converge
     try:
         _ = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
-                           discount_rate, n_year, 2.0, 0.0, n)
+                           discount_rate, n_year, 0.0, n, 2.0)
     except RuntimeError:
         assert True
     else:
@@ -54,19 +54,31 @@ def test_solve_lp_pyomo():
 
     # Test if the capacity changes when the input fixed_cap is True
     os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
-                        discount_rate, n_year, p_min, p_max, n, options=dict(fixed_cap=True))
+                        discount_rate, n_year, p_max, n, p_min, options=dict(fixed_cap=True))
     assert os.storage_list[0].p_cap == 1
     assert os.storage_list[1].p_cap == 1
     assert os.storage_list[0].e_cap == 1
     assert os.storage_list[1].e_cap == 1
 
-    # Test the function with the parameter dp_lim
+    # Test the function with the parameter dp_min / dp_max
     _ = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
-                        discount_rate, n_year, 0, p_max, n, dp_lim = dp_lim)    
-    # Test the function with an incorrect value for dp_lim
+                        discount_rate, n_year, p_max, n, dp_min = -dp_lim)    
+    _ = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                        discount_rate, n_year, p_max, n, dp_max = dp_lim)    
+    
+    # Test the function with an incorrect value for dp_min / dp_max
     try:
         _ = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
-                        discount_rate, n_year, 0, p_max, n, dp_lim = -0.5)    
+                        discount_rate, n_year, p_max, n, dp_min = 0.5)    
+
+    except AssertionError:
+        assert True
+    else:
+        assert False
+
+    try:
+        _ = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                        discount_rate, n_year, p_max, n, dp_max = -0.5)    
 
     except AssertionError:
         assert True
@@ -76,7 +88,7 @@ def test_solve_lp_pyomo():
     # Check that curtailment is correctly implemented
     p_max_curt = 2
     os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
-                        discount_rate, n_year, 0, p_max_curt, n, options=dict(fixed_cap=True))
+                        discount_rate, n_year, p_max_curt, n, options=dict(fixed_cap=True))
     assert( max(os.power_out.data) <= p_max_curt)
 
     # Check that the depth of discharge is correctly implemented
@@ -86,12 +98,12 @@ def test_solve_lp_pyomo():
     stor_null = Storage(e_cap = 0, p_cap = 0)
 
     os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_soc, stor_null,
-                        discount_rate, n_year, p_min, p_max, n)
+                        discount_rate, n_year, p_max, n, p_min = p_min)
     assert min(os.storage_e[0].data) >= stor_soc.e_cap*stor_soc.soc_min-tol
     assert os.storage_list[0].soc_min == 0.1
 
     os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_null, stor_soc, 
-                        discount_rate, n_year, p_min, p_max, n)
+                        discount_rate, n_year, p_max, n, p_min = p_min)
     assert min(os.storage_e[1].data) >= stor_soc.e_cap*stor_soc.soc_min-tol
     assert os.storage_list[1].soc_min == 0.1
 
@@ -99,18 +111,18 @@ def test_solve_lp_pyomo():
     stor_null = Storage(e_cap = 0, p_cap = 0)
 
     os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_soc, stor_null,
-                        discount_rate, n_year, p_min, p_max, n)
+                        discount_rate, n_year,  p_max, n, p_min = p_min)
     assert max(os.storage_e[0].data) <= stor_soc.e_cap*stor_soc.soc_max + tol
     assert os.storage_list[0].soc_max == 0.9
 
     os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_null, stor_soc, 
-                        discount_rate, n_year, p_min, p_max, n)
+                        discount_rate, n_year,  p_max, n, p_min = p_min)
     assert min(os.storage_e[1].data) <=  stor_soc.e_cap*stor_soc.soc_max + tol
     assert os.storage_list[1].soc_max == 0.9
 
     # Check energy balance
     os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
-                        discount_rate, n_year, 0, p_max, n,  options = dict(fixed_cap=True))
+                        discount_rate, n_year,  p_max, n,  options = dict(fixed_cap=True))
     
     energy_in = dt*(sum(prod_wind.power.data) + sum(prod_pv.power.data))
     energy_delivered= dt*(sum(os.power_out.data))
@@ -120,7 +132,7 @@ def test_solve_lp_pyomo():
     # Check energy balance in case of curtailment
     
     os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
-                        discount_rate, n_year, 0, p_max_curt, n,  options = dict(fixed_cap=True))
+                        discount_rate, n_year, p_max_curt, n,  options = dict(fixed_cap=True))
     
     energy_in = dt*(sum(prod_wind.power.data) + sum(prod_pv.power.data))
     energy_delivered= dt*(sum(os.power_out.data))
@@ -180,7 +192,28 @@ def test_run_storage_operation():
         nt=nt,
         dt=dt,
         rel=rel,
-        dp_lim=dp_lim,
+        dp_min= -dp_lim,
+    )
+    assert isinstance(result, dict)
+    assert "power" in result
+    assert "energy" in result
+    assert "reliability" in result
+    assert "revenues" in result
+    assert "bin" in result
+
+    result = run_storage_operation(
+        run_type="unlimited",
+        power=power,
+        price=price,
+        p_min=0,
+        p_max=p_max,
+        stor=stor,
+        e_start=e_start,
+        n=n,
+        nt=nt,
+        dt=dt,
+        rel=rel,
+        dp_max= dp_lim,
     )
     assert isinstance(result, dict)
     assert "power" in result
@@ -227,7 +260,29 @@ def test_run_storage_operation():
         dt=dt,
         rel=rel,
         forecast=forecast,
-        dp_lim = dp_lim,
+        dp_min = -dp_lim,
+    )
+    assert isinstance(result_with_forecast, dict)
+    assert "power" in result
+    assert "energy" in result
+    assert "reliability" in result
+    assert "revenues" in result
+    assert "bin" in result
+
+    result_with_forecast = run_storage_operation(
+        run_type="forecast",
+        power=power,
+        price=price,
+        p_min=0,
+        p_max=p_max,
+        stor=stor,
+        e_start=e_start,
+        n=n,
+        nt=nt,
+        dt=dt,
+        rel=rel,
+        forecast=forecast,
+        dp_max = dp_lim,
     )
     assert isinstance(result_with_forecast, dict)
     assert "power" in result
@@ -269,7 +324,27 @@ def test_run_storage_operation():
             nt=nt,
             dt=dt,
             rel=rel,
-            dp_lim = -0.5
+            dp_max = -0.5
+        )
+    except AssertionError:
+        assert True
+    else:
+        assert False
+
+    try:
+        run_storage_operation(
+            run_type="unlimited",
+            power=power,
+            price=price,
+            p_min=p_min,
+            p_max=p_max,
+            stor=stor,
+            e_start=e_start,
+            n=n,
+            nt=nt,
+            dt=dt,
+            rel=rel,
+            dp_min = 0.5
         )
     except AssertionError:
         assert True
@@ -289,7 +364,7 @@ def test_run_storage_operation():
             nt=nt,
             dt=dt,
             rel=rel,
-            dp_lim = dp_lim
+            dp_min = -dp_lim
         )
     except RuntimeError:
         assert True
@@ -309,7 +384,7 @@ def test_run_storage_operation():
         nt=nt,
         dt=dt,
         rel=rel,
-        verbose=True,
+        options = dict(verbose=True),
     )
     assert isinstance(result_verbose, dict)
     assert "power" in result
@@ -411,7 +486,7 @@ def test_solve_dispatch_pyomo():
     e_start = 0
 
     # Test the output of the function
-    p_vec1, e_vec1,  p_vec2, e_vec2, p_cur, bin, status = solve_dispatch_pyomo(price, m, rel, n, power, p_min, p_max, e_start, 0, dt,  stor_batt, stor_null)
+    p_vec1, e_vec1,  p_vec2, e_vec2, p_cur, bin, status = solve_dispatch_pyomo(price, m, rel, n, power,  p_max, e_start, 0, dt,  stor_batt, stor_null, p_min = p_min)
 
     assert (len(p_vec1) == m)
     assert (len(p_vec2) == m)
@@ -440,7 +515,7 @@ def test_solve_dispatch_pyomo():
     # Check that the function raises an error if the input is incorrect
     ## Incorrect format for the power forecast
     try:
-        _ = solve_dispatch_pyomo(price, m, rel, n, power[0], p_min, p_max, e_start, 0, dt,  stor_batt, stor_null)
+        _ = solve_dispatch_pyomo(price, m, rel, n, power[0],  p_max, e_start, 0, dt,  stor_batt, stor_null, p_min = p_min)
     except TypeError:
         assert True
     else:
@@ -448,7 +523,7 @@ def test_solve_dispatch_pyomo():
 
     ## Incorrect value for the reliability
     try:
-        _ = solve_dispatch_pyomo(price, m, rel+2.0, n, power, p_min, p_max, e_start, 0, dt,  stor_batt, stor_null)
+        _ = solve_dispatch_pyomo(price, m, rel+2.0, n, power, p_max, e_start, 0, dt,  stor_batt, stor_null, p_min = p_min)
     except AssertionError:
         assert True
     else:
@@ -456,7 +531,7 @@ def test_solve_dispatch_pyomo():
 
     # Incorrect length for the price
     try:
-        _ = solve_dispatch_pyomo(price[:n-2], m, rel+2.0, n, power, p_min, p_max, e_start, 0, dt,  stor_batt, stor_null)
+        _ = solve_dispatch_pyomo(price[:n-2], m, rel+2.0, n, power,  p_max, e_start, 0, dt,  stor_batt, stor_null, p_min = p_min)
     except AssertionError:
         assert True
     else:
@@ -465,7 +540,7 @@ def test_solve_dispatch_pyomo():
     # Negative price value
     price_neg = [0.1, 0.1, 0.2, -0.2, 0.1]
     try:
-        _ = solve_dispatch_pyomo(price_neg, m, rel, n, power, p_min, p_max, e_start, 0, dt,  stor_batt, stor_null)
+        _ = solve_dispatch_pyomo(price_neg, m, rel, n, power, p_max, e_start, 0, dt,  stor_batt, stor_null, p_min = p_min)
     except AssertionError:
         assert True
     else:
@@ -473,17 +548,17 @@ def test_solve_dispatch_pyomo():
 
     # Raise an error if the problem is ill-posed / not converged
     try:
-        _ = solve_dispatch_pyomo(price, m, rel, n, power, p_min, -p_max, e_start, 0, dt,  stor_batt, stor_null)
+        _ = solve_dispatch_pyomo(price, m, rel, n, power, -p_max, e_start, 0, dt,  stor_batt, stor_null, p_min = p_min)
     except RuntimeError:
         assert True
     else:
         assert False
 
     # Test the function with the parameter dp_lim
-    p_vec1, e_vec1,  p_vec2, e_vec2, p_cur, bin, status = solve_dispatch_pyomo(price, m, rel, n, power, p_min, p_max, e_start, 0, dt,  stor_batt, stor_null, dp_lim = dp_lim)  
+    p_vec1, e_vec1,  p_vec2, e_vec2, p_cur, bin, status = solve_dispatch_pyomo(price, m, rel, n, power, p_max, e_start, 0, dt,  stor_batt, stor_null, p_min = p_min, dp_min = -dp_lim)  
     # Test the function with a positive value for dp_lim
     try:
-        _ = solve_dispatch_pyomo(price, m, rel, n, power, p_min, p_max, e_start, 0, dt,  stor_batt, stor_null, dp_lim = -dp_lim)  
+        _ = solve_dispatch_pyomo(price, m, rel, n, power, p_max, e_start, 0, dt,  stor_batt, stor_null,  p_min = p_min, dp_min = dp_lim)  
 
     except AssertionError:
         assert True
@@ -495,11 +570,11 @@ def test_solve_dispatch_pyomo():
 
     stor_batt_dod = Storage(1,1,1,1,1,1, soc_min = 0.1)
     e_start_dod = 0.9
-    p_vec1, e_vec1,  p_vec2, e_vec2, p_cur, bin, status = solve_dispatch_pyomo(price, m, rel, n, power, p_min, p_max, e_start_dod, 0, dt,  stor_batt_dod, stor_null)
+    p_vec1, e_vec1,  p_vec2, e_vec2, p_cur, bin, status = solve_dispatch_pyomo(price, m, rel, n, power, p_max, e_start_dod, 0, dt,  stor_batt_dod, stor_null)
 
     assert min(e_vec1[0]) >= stor_batt_dod.e_cap*stor_batt_dod.soc_min
     
-    p_vec1, e_vec1,  p_vec2, e_vec2, p_cur, bin, status = solve_dispatch_pyomo(price, m, rel, n, power, p_min, p_max,  0, e_start_dod, dt,   stor_null, stor_batt_dod)
+    p_vec1, e_vec1,  p_vec2, e_vec2, p_cur, bin, status = solve_dispatch_pyomo(price, m, rel, n, power, p_max,  0, e_start_dod, dt,   stor_null, stor_batt_dod)
 
     assert min(e_vec2[0]) >= stor_batt_dod.e_cap*stor_batt_dod.soc_min
 

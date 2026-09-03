@@ -221,15 +221,15 @@ def test_solve_lp_sparse():
     prod_pv = Production(power_ts, p_cost = 1)
     
     _ = solve_lp_sparse(price_ts, prod_wind, prod_pv, stor1, stor2,
-                        discount_rate, n_year, p_min, p_max, n)
+                        discount_rate, n_year,  p_max, n, p_min)
 
     _ = solve_lp_sparse(price_ts, prod_wind, prod_pv, stor1, stor2,
-                        discount_rate, n_year, p_min_vec, p_max, n)
+                        discount_rate, n_year, p_max, n, p_min_vec)
 
     try:
         _ = solve_lp_sparse(TimeSeries(price, 2*dt), prod_wind, prod_pv,
-                            stor1, stor2, discount_rate, n_year,
-                            p_min_vec, p_max, n)
+                            stor1, stor2, discount_rate, n_year, p_max, n,
+                            p_min_vec)
     except AssertionError:
         assert True
     else:
@@ -237,7 +237,7 @@ def test_solve_lp_sparse():
 
     try:
         _ = solve_lp_sparse(price_ts, prod_wind, prod_pv, stor1, stor2,
-                                    discount_rate, n_year, 4.0, 0.0, n)
+                                    discount_rate, n_year, 0.0, n,  4.0)
     except RuntimeError:
         assert True
     else:
@@ -245,7 +245,7 @@ def test_solve_lp_sparse():
 
     # Check energy balance
     ops = solve_lp_sparse(price_ts, prod_wind, prod_pv, stor1, stor2,
-                        discount_rate, n_year, p_min, p_max, n)
+                        discount_rate, n_year, p_max, n, p_min)
     
     energy_in = dt*(sum(prod_wind.power.data) + sum(prod_pv.power.data))
     energy_delivered= dt*(sum(ops.power_out.data))
@@ -255,7 +255,7 @@ def test_solve_lp_sparse():
     # Check energy balance in case of curtailment
     
     ops = solve_lp_sparse(price_ts, prod_wind, prod_pv, stor1, stor2,
-                        discount_rate, n_year, 0, 1.5, n)
+                        discount_rate, n_year, 1.5, n)
     
     energy_in = dt*(sum(prod_wind.power.data) + sum(prod_pv.power.data))
     energy_delivered= dt*(sum(ops.power_out.data))
@@ -293,13 +293,13 @@ def test_solve_lp_sparse_formulation():
     for p_min, p_max in zip([0, 0.1, 0.2, 0.2], [4.0, 4.0, 4.0, 2.5]):
 
         os1 = solve_lp_sparse(price_ts, prod_wind, prod_pv, stor1, stor2,
-                            discount_rate, n_year, p_min, p_max, n, options = dict(fixed_cap = True, formulation = 'lp', epsilon = 0.0))
+                            discount_rate, n_year, p_max, n, p_min = p_min, options = dict(fixed_cap = True, formulation = 'lp', epsilon = 0.0))
 
         os2 = solve_lp_sparse(price_ts, prod_wind, prod_pv, stor1, stor2,
-                            discount_rate, n_year, p_min, p_max, n, options = dict(fixed_cap = True, formulation = 'lp_alt'))
+                            discount_rate, n_year, p_max, n, p_min = p_min, options = dict(fixed_cap = True, formulation = 'lp_alt'))
 
         os3 = solve_lp_sparse(price_ts, prod_wind, prod_pv, stor1, stor2,
-                            discount_rate, n_year, p_min, p_max, n, options = dict(fixed_cap = True, formulation = 'milp', epsilon = 0.0))
+                            discount_rate, n_year, p_max, n, p_min = p_min, options = dict(fixed_cap = True, formulation = 'milp', epsilon = 0.0))
   
         assert (os1.production_p[0].data == os2.production_p[0].data).all()
         assert (os1.production_p[1].data == os2.production_p[1].data).all()
@@ -316,13 +316,13 @@ def test_solve_lp_sparse_formulation():
         assert (os1.storage_e[1].data == os3.storage_e[1].data).all()
 
         os1 = solve_lp_sparse(price_ts, prod_wind, prod_pv, stor1, stor2,
-                            discount_rate, n_year, p_min, p_max, n, options = dict(fixed_cap = False, formulation = 'lp', epsilon = 1e-6, alpha_obj = 1.0))
+                            discount_rate, n_year, p_max, n, p_min=p_min, options = dict(fixed_cap = False, formulation = 'lp', epsilon = 1e-6, alpha_obj = 1.0))
 
         os2 = solve_lp_sparse(price_ts, prod_wind, prod_pv, stor1, stor2,
-                            discount_rate, n_year, p_min, p_max, n, options = dict(fixed_cap = False, formulation = 'lp_alt', alpha_obj = 1.0))
+                            discount_rate, n_year, p_max, n, p_min=p_min, options = dict(fixed_cap = False, formulation = 'lp_alt', alpha_obj = 1.0))
 
         os3 = solve_lp_sparse(price_ts, prod_wind, prod_pv, stor1, stor2,
-                            discount_rate, n_year, p_min, p_max, n, options = dict(fixed_cap = False, formulation = 'milp', epsilon = 0.0, alpha_obj = 1.0))
+                            discount_rate, n_year, p_max, n, p_min=p_min, options = dict(fixed_cap = False, formulation = 'milp', epsilon = 0.0, alpha_obj = 1.0))
   
         assert (os1.production_p[0].data == os2.production_p[0].data).all()
         assert (os1.production_p[1].data == os2.production_p[1].data).all()

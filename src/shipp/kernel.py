@@ -780,9 +780,8 @@ def build_lp_cst_sparse(power: np.ndarray, dt: float, p_min, p_max: float, n: in
 
 def solve_lp_sparse(price_ts: TimeSeries, prod1: Production,
                     prod2: Production, stor1: Storage, stor2: Storage,
-                    discount_rate: float, n_year: int,
-                    p_min, p_max: float,
-                    n: int, options: dict = None) -> OpSchedule:
+                    discount_rate: float, n_year: int, p_max: float,
+                    n: int, p_min: float = 0, options: dict = None) -> OpSchedule:
     """Build and solve the integrated dispatch optimization problem, formulated as a linear program.
 
     This function builds and solves the hybrid sizing and operation problem as a linear program. The objective is to minimize the Net Present Value of the plant. The optimization problem finds the optimal energy and power capacity of two storage systems and their optimal dispatch. In this function, the power production inputs are represented by two Production objects (e.g. one for wind and one for solar PV).
@@ -795,9 +794,9 @@ def solve_lp_sparse(price_ts: TimeSeries, prod1: Production,
         stor2 (Storage): Object describing storage 2.
         discount_rate (float): Discount rate for the NPV calculation [-].
         n_year (int): Number of years for the NPV calculation [-].
-        p_min (float or np.ndarray): Minimum power requirement (e.g. baseload) [MW].
         p_max (float): Maximum power requirement [MW].
         n (int): Number of time steps to consider in the optimization.
+        p_min (float or np.ndarray): Minimum power requirement (e.g. baseload) [MW]. Default is zero.
         options (dict): list of options for the problem formulation
         
             - formulation (str): Problem formulation for the storage model. Allowed values are 'lp', 'lp_alt', 'milp'. Default is lp_alt.

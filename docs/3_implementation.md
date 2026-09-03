@@ -171,9 +171,9 @@ The problem is expressed mathematically as
 \end{align*}
 
 
-The baseload constraint is described here with a vector $ \boldsymbol{P}_\text{bl}$ and not a scalar, allowing a reliability below 100% to be set. The ramp limit constraint are associated to the parameter `dp_lim` and only enforced if its value is not `None`. The implemented constraints are
+The baseload constraint is described here with a vector $ \boldsymbol{P}_\text{bl}$ and not a scalar, allowing a reliability below 100% to be set. The ramp limit constraint are associated to the parameters `dp_min` and `dp_max` and only enforced if its value is not `None`. The implemented constraints are
 
-$$ -\delta P_\text{lim}  \leq p^{i+1} - p^{i} \leq    \delta P_\text{lim}, \ i = 0, ..., n-2 $$
+$$ \delta P_\text{min}  \leq p^{i+1} - p^{i} \leq    \delta P_\text{max}, \ i = 0, ..., n-2 $$
 
 The optimization problem is described implicitely using the (pyomo)[https://pyomo.readthedocs.io/] interface. 
 
