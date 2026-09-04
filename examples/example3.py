@@ -94,7 +94,7 @@ beta_obj = 1e-6  # Regularization parameter for the last state of charge
 alpha_obj = 1-1e-6 # Regularization parameter for the curtailment
 
 # Solve the sizing optimization problem with perfect information, but limited (PI)
-res = run_storage_operation('forecast', data_power, data_price, p_max, os.storage_list[0], e_start, n_for, n, dt, forecast_perfect, dp_min = dp_min, dp_max = dp_max, rel = rel_th, options = dict(verbose = False, name_solver = 'mosek', mu = mu, beta_obj = beta_obj, alpha_obj = alpha_obj))
+res = run_storage_operation('forecast', data_power, data_price, p_max, os.storage_list[0], e_start, n_for, n, dt, forecast_perfect, dp_min = dp_min, dp_max = dp_max, rel = rel_th, options = dict(verbose = False, name_solver = 'mosek', mu1_obj = mu,  mu3_obj = mu,  beta_obj = beta_obj, alpha_obj = alpha_obj))
 
 power_pi = np.array([data_power[i] + res['power'][i] - res['p_cur'][i] for i in range(len(res['power']))])
 dpower_pi = np.diff(power_pi)
@@ -170,7 +170,7 @@ for t in range(nt):
 
 # Iterate over the time steps in the simulation for the rolling horizon.
 for t in range(nt):
-    p_vec, e_vec, p_vec2, _, p_cur, bin_vec, status = solve_dispatch_pyomo(data_price[t:], m, rel_th, n_for, forecast_perfect[t],  p_max, e_start_new, 0,  dt, stor, stor_null,  cnt_hist=(t-1), dp_min = dp_min, dp_max = dp_max, p_hist_stor=p_hist_stor, p_hist_res = p_hist_res, options = dict(verbose = False, name_solver = 'mosek', mu = mu, beta_obj = beta_obj, n_hist = n_hist, alpha_obj = alpha_obj))
+    p_vec, e_vec, p_vec2, _, p_cur, bin_vec, status = solve_dispatch_pyomo(data_price[t:], m, rel_th, n_for, forecast_perfect[t],  p_max, e_start_new, 0,  dt, stor, stor_null,  cnt_hist=(t-1), dp_min = dp_min, dp_max = dp_max, p_hist_stor=p_hist_stor, p_hist_res = p_hist_res, options = dict(verbose = False, name_solver = 'mosek', mu1_obj = mu ,  mu3_obj = mu, beta_obj = 0, gamma_obj = beta_obj, n_hist = n_hist, alpha_obj = alpha_obj))
 
     
     # If the optimization problem is solved correctly, we retrieve the results.

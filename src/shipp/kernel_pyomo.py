@@ -190,7 +190,12 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod1: Production, prod2: Production, s
     # Objective function
     factor = npf.npv(discount_rate, np.ones(n_year))-1
     model.obj = pyo.Objective(expr=  365 * 24/n*factor* sum([p*(model.p_vec1[n]
-                 + model.p_vec2[k] - alpha_obj *model.p_cur[l]) for p, n, k,l in zip(price_ts.data[:n], model.p_vec1, model.p_vec2, model.p_cur)]) - beta_obj* sum(model.p_cur[l] for l in model.p_cur) - p_cost1*model.p_cap1 - e_cost1*model.e_cap1 - p_cost2*model.p_cap2 - e_cost2*model.e_cap2, sense = pyo.maximize)
+                 + model.p_vec2[k] - alpha_obj *model.p_cur[l]) for p, n, k,l in zip(price_ts.data[:n], model.p_vec1, model.p_vec2, model.p_cur)]) 
+                 - beta_obj* sum(model.p_cur[l] for l in model.p_cur) 
+                 - p_cost1*model.p_cap1 
+                 - e_cost1*model.e_cap1 
+                 - p_cost2*model.p_cap2 
+                 - e_cost2*model.e_cap2, sense = pyo.maximize)
 
     # Rule functions for the constraints
     def rule_e_model_charge1(model, i):
@@ -650,9 +655,12 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
                 
                     - name_solver (str): Name of optimization solver to be used with pyomo. Default is 'mosek'.
                     - verbose (bool): If true, prints the output of the optimization algorithm.
-                    - beta_obj (float): penalty term in the objective function for the energy level at the last time step.
-                    - alpha_obj (float): factor in the objective function to adjust the relative weight of curtailement and storage power.
-                    - mu (float): penalty term in the objective function for the reliability penalties.
+                    - alpha_obj (float): penalty factor for the curtailed power in the objective function proportional to the price. Default is (1-1e-6).
+                    - beta_obj (float): penalty factor for the curtailed power in the objective function. Default is 0.
+                    - mu1_obj (float): penalty term in the objective function for the reliability penalty. Default is 1.
+                    - mu2_obj (float): penalty term in the objective function for the mismatch to the baseload constraint at first time step. Default is 1.
+                    - mu3_obj (float): penalty term in the objective function for the mismatch to the ramp constraint at first time step. Default is 1.
+                    - gamma_obj (float): penalty term in the objective function for the energy level at the last time step. Default is 1e-6.
                     - tol (float): tolerance for checking the input validity and storage losses.
                     - n_hist (int): Number of time steps for the time window for past operation. Default is 0.
 
@@ -724,8 +732,11 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
     n_hist = 0
     name_solver = 'mosek'
     alpha_obj = DEFAULT_ALPHA_OBJ
-    beta_obj = 1e-6
-    mu = 1.0
+    beta_obj = 0
+    gamma_obj = 1e-6
+    mu1_obj = 1.0
+    mu2_obj = 1.0
+    mu3_obj = 1.0
     tol = 1e-4
 
     if options is not None:
@@ -743,9 +754,18 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
         if 'beta_obj' in options.keys():
             beta_obj = options['beta_obj']
             assert isinstance(beta_obj, (float, int))
-        if 'mu' in options.keys():
-            mu = options['mu']
-            assert isinstance(mu, (float, int))
+        if 'gamma_obj' in options.keys():
+            gamma_obj = options['gamma_obj']
+            assert isinstance(gamma_obj, (float, int))
+        if 'mu1_obj' in options.keys():
+            mu1_obj = options['mu1_obj']
+            assert isinstance(mu1_obj, (float, int))
+        if 'mu2_obj' in options.keys():
+            mu2_obj = options['mu2_obj']
+            assert isinstance(mu2_obj, (float, int))
+        if 'mu3_obj' in options.keys():
+            mu3_obj = options['mu3_obj']
+            assert isinstance(mu3_obj, (float, int))
         if 'tol' in options.keys():
             tol = options['tol']
             assert isinstance(tol, (float, int))
@@ -753,11 +773,13 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
 
     # Tuning parameters of the optimization problem
     if (dp_min is None) and (dp_max is None):
-        mu_obj = mu*(p_min)*(n+n_hist)*np.max(price[0:n])
+        tuning_obj = (p_min)*(n+n_hist)*np.max(price[0:n])
     elif dp_max is None: 
-        mu_obj = mu*(p_min + abs(dp_min))*(n+n_hist)*np.max(price[0:n])
+        tuning_obj = (p_min + abs(dp_min))*(n+n_hist)*np.max(price[0:n])
+    elif dp_min is None: 
+        tuning_obj = (p_min + abs(dp_max))*(n+n_hist)*np.max(price[0:n])
     else:
-        mu_obj = mu*(p_min + abs(dp_max))*(n+n_hist)*np.max(price[0:n])
+        tuning_obj = (p_min + max(abs(dp_min), dp_max) )*(n+n_hist)*np.max(price[0:n])
 
     # Check that the starting state of charge is within the bounds, considering a tolerance corresponding to the optimization tolerance.
     assert e_start1 + tol >= stor1.e_cap*stor1.soc_min
@@ -791,17 +813,26 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
     model.bin = pyo.Var(model.vec_n, within = pyo.Binary) ##binary variable for each time step
 
     model.penalty = pyo.Var(within=pyo.NonNegativeReals, bounds=(0, rel), initialize=0)
-    model.penalty_power = pyo.Var(within=pyo.NonNegativeReals, bounds=(0, 1), initialize=0)
+    model.penalty_ramp = pyo.Var(within=pyo.NonNegativeReals, bounds=(0, 1), initialize=0)
+    model.penalty_baseload = pyo.Var(within=pyo.NonNegativeReals, bounds=(0, 1), initialize=0)
     model.p_cur = pyo.Var(model.mat_m_n, domain=pyo.NonNegativeReals) #curtailed power
 
     # Input the objective function in the model
-    model.obj = pyo.Objective(expr = 1/m*sum([price[j] * (model.p_vec1[i,j] + model.p_vec2[i,j] - alpha_obj*model.p_cur[i,j]) for i,j in model.p_vec1]) - mu_obj*(model.penalty + model.penalty_power)+ beta_obj*1/m*sum([model.e_vec1[i, model.vec_np1.at(n+1)] + model.e_vec2[i, model.vec_np1.at(n+1)] for i in model.vec_m]), sense = pyo.maximize)
+    model.obj = pyo.Objective(expr = 1/m*sum([price[j] * (model.p_vec1[i,j] + model.p_vec2[i,j] - alpha_obj*model.p_cur[i,j]) for i,j in model.p_vec1]) 
+                              - beta_obj*1/m*sum([model.p_cur[i,j] for i,j in model.p_cur]) 
+                              - mu1_obj*tuning_obj*model.penalty 
+                              - mu2_obj*tuning_obj*model.penalty_baseload 
+                              - mu3_obj*tuning_obj*model.penalty_ramp
+                              + gamma_obj*1/m*sum([model.e_vec1[i, model.vec_np1.at(n+1)] + model.e_vec2[i, model.vec_np1.at(n+1)] for i in model.vec_m]), sense = pyo.maximize)
 
 
     # Define rule functions for the constraints
     ## Constraint for the minimum baseload power
     def rule_p_tot_min(model, j, i):
-        return model.p_vec1[j,i] + model.p_vec2[j,i] - model.p_cur[j,i] >= (p_min*model.bin[i] - power_forecast[j][i])
+        if i == 0: # Minimize deviation to the baseload when the power is known
+            return model.p_vec1[j,i] + model.p_vec2[j,i] - model.p_cur[j,i] >= p_min * (1- model.penalty_ramp) - power_forecast[j][i]
+        else:
+            return model.p_vec1[j,i] + model.p_vec2[j,i] - model.p_cur[j,i] >= (p_min*model.bin[i] - power_forecast[j][i])
     ## Constraint for the maximum power
     def rule_p_tot_max_curt(model, j, i):
         return model.p_vec1[j,i] + model.p_vec2[j,i] - model.p_cur[j,i]  <= p_max - power_forecast[j][i]
@@ -878,7 +909,7 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
         dp_feasible = p_max # Upper bound for the feasible ramp rate
         def rule_dp_tot_min(model, j, i):
             if i == 0: # The ramp rate for the first time step is calculated with "historical variables": p_hist_res and p_hist_stor
-                return  model.p_vec1[j, i] + model.p_vec2[j, i] - model.p_cur[j,i] >= dp_min  - power_forecast[j][i] + p_hist_res + p_hist_stor - model.penalty_power*dp_feasible
+                return  model.p_vec1[j, i] + model.p_vec2[j, i] - model.p_cur[j,i] >= dp_min  - power_forecast[j][i] + p_hist_res + p_hist_stor - model.penalty_ramp*dp_feasible
             else:
                 return  model.p_vec1[j, i] + model.p_vec2[j, i] - (model.p_vec1[j, i-1] + model.p_vec2[j, i-1]) - (model.p_cur[j,i] - model.p_cur[j, i-1]) >= -dp_feasible + model.bin[i]*(dp_min - -dp_feasible ) - power_forecast[j][i] + power_forecast[j][i-1]
         model.dp_tot_min = pyo.Constraint(model.mat_m_n, rule=rule_dp_tot_min)
@@ -887,7 +918,8 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
         dp_feasible = p_max # Upper bound for the feasible ramp rate
         def rule_dp_tot_max(model, j, i):
             if i == 0: #
-                return  model.p_vec1[j, i] + model.p_vec2[j, i] - model.p_cur[j,i] <= model.bin[i]*(dp_max  - power_forecast[j][i] + p_hist_res + p_hist_stor)
+                # return  model.p_vec1[j, i] + model.p_vec2[j, i] - model.p_cur[j,i] <= model.bin[i]*(dp_max  - power_forecast[j][i] + p_hist_res + p_hist_stor)
+                return  model.p_vec1[j, i] + model.p_vec2[j, i] - model.p_cur[j,i] <= dp_max  - power_forecast[j][i] + p_hist_res + p_hist_stor + model.penalty_ramp*dp_feasible
             else:
                 return  model.p_vec1[j, i] + model.p_vec2[j, i] - (model.p_vec1[j, i-1] + model.p_vec2[j, i-1]) - (model.p_cur[j,i] - model.p_cur[j, i-1]) <= dp_feasible + model.bin[i]*(dp_max - dp_feasible ) - power_forecast[j][i] + power_forecast[j][i-1]
         model.dp_tot_max = pyo.Constraint(model.mat_m_n, rule=rule_dp_tot_max)

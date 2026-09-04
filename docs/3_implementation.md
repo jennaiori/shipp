@@ -82,7 +82,7 @@ In `solve_lp_sparse`, the implemented optimization problem is
 \text{s.t.} &&&  P_\text{bl} \leq  p_i \leq \bar{P} && i = 0,..., n-1 \\
   &&& p^1_i + p^2_i \leq \text{max}(\bar{P} - \sum_g p^g_i, 0) && i = 0,..., n-1 \\
   &&& e^s_0 \leq e^s_n, && s \in \{1,2\} \\
-  &&& (1-d)\bar{E} \leq e^{s}_i \leq \bar{E}^s && i = 0,..., n \\
+  &&& \sigma^s_\text{min}\bar{E}^s \leq e^{s}_i \leq \sigma^s_\text{max}\bar{E}^s && i = 0,..., n \\
   &&& 0 \leq p^c_i \leq \sum_g p_i^g && i = 0,..., n-1 \\
   &&&  \text{Storage model} \\
   &&& \text{Storage capacity bounds} 
@@ -137,7 +137,7 @@ For the `lp` and `milp` formulation, the storage power is divided into charge $\
 For the `lp_alt` formulation, the objective function is:
 - For the integrated design problem: 
 ```{math}
-  f_{\text{NPV}, \text{alt}}(\boldsymbol{x}) = \sum_{s} (\lambda^s_P \bar{P}^s + \lambda_E^s \bar{E}^s) - \dfrac{8760}{n}\sum_{k=1}^m {\boldsymbol{\lambda}^T \cdot (\sum_{s} \boldsymbol{p}^{s} - \alpha \boldsymbol{p}^c)}{(1+r)^k} + \beta \mathbb{1}^T\cdot \boldsymbol{p}^c
+  f_{\text{NPV}, \text{alt}}(\boldsymbol{x}) = \sum_{s} (\lambda^s_P \bar{P}^s + \lambda_E^s \bar{E}^s) - \dfrac{8760}{n}\sum_{k=1}^m \dfrac{\boldsymbol{\lambda}^T \cdot (\sum_{s} \boldsymbol{p}^{s} - \alpha \boldsymbol{p}^c)}{(1+r)^k} + \beta \mathbb{1}^T\cdot \boldsymbol{p}^c
 ```
 - For the dispatch only problem:
 ```{math}
@@ -152,9 +152,9 @@ The dispatch optimization in `solve_lp_pyomo` is currently only implemented usin
 The objective function of the problem aims to maximize the added NPV, i.e., the contribution of the storage system components to the total NPV,
 
 ```{math}
-  f_{\text{NPV}, \text{alt}}(\boldsymbol{x}) = \sum_{s} (\lambda^s_P \bar{P}^s + \lambda_E^s \bar{E}^s) - \dfrac{8760}{n}\sum_{k=1}^m \dfrac{\boldsymbol{\lambda}^T \cdot (\sum_{s} \boldsymbol{p}^{s} - \alpha \boldsymbol{p}^c)}{(1+r)^k}
+  f_{\text{NPV}, \text{alt}}(\boldsymbol{x}) = \sum_{s} (\lambda^s_P \bar{P}^s + \lambda_E^s \bar{E}^s) - \dfrac{8760}{n}\sum_{k=1}^m \dfrac{\boldsymbol{\lambda}^T \cdot (\sum_{s} \boldsymbol{p}^{s} - \alpha \boldsymbol{p}^c)}{(1+r)^k} + \beta \mathbb{1}^T\cdot \boldsymbol{p}^c
 ```
-There is only one regularization parameter, $\alpha$, to balance curtailment and storage use. When `fixed_cap = True`, the objective function does not change, but it becomes equivalent to maximization of revenues since the storage capacities are fixed. 
+Contrary to the function `solve_lp_sparse`, the objective function does not change when `fixed_cap = True`, but it becomes equivalent to maximization of revenues since the storage capacities are fixed. 
 
 The problem is expressed mathematically as 
 
@@ -163,7 +163,7 @@ The problem is expressed mathematically as
 \text{s.t.} &&&  P_{\text{bl},i} \leq  p_i \leq \bar{P} &&& i = 0,..., n-1 \\
   &&& p^1_i + p^2_i \leq \text{max}(\bar{P} - \sum_g p^g_i, 0) &&& i = 0,..., n-1 \\
   &&& e^s_0 \leq e^s_n, &&& s \in \{1,2\} \\
-  &&& (1-d)\bar{E} \leq e^{s}_i \leq \bar{E}^s &&& i = 0,..., n \\
+  &&& \sigma^s_\text{min} \bar{E}^s \leq e^{s}_i \leq \sigma^s_\text{max} \bar{E}^s &&& i = 0,..., n \\
   &&& 0 \leq p^c_i \leq \sum_g p_i^g &&& i = 0,..., n-1 \\
   &&& \text{Ramp limit constraints} \\
   &&& \text{Storage model (LP alt)} \\
@@ -171,11 +171,11 @@ The problem is expressed mathematically as
 \end{align*}
 
 
-The baseload constraint is described here with a vector $ \boldsymbol{P}_\text{bl}$ and not a scalar, allowing a reliability below 100% to be set. The ramp limit constraint are associated to the parameters `dp_min` and `dp_max` and only enforced if its value is not `None`. The implemented constraints are
+The baseload constraint is described here with a vector $ \boldsymbol{P}_\text{bl}$ and not a scalar, allowing a reliability below 100% to be set. The ramp limit constraint is associated with the parameters `dp_min` and `dp_max` and only enforced if each value is not `None`. The implemented constraints are
 
 $$ \delta P_\text{min}  \leq p^{i+1} - p^{i} \leq    \delta P_\text{max}, \ i = 0, ..., n-2 $$
 
-The optimization problem is described implicitely using the (pyomo)[https://pyomo.readthedocs.io/] interface. 
+The optimization problem is described implicitely using the [pyomo](https://pyomo.readthedocs.io/) interface. 
 
 
 
@@ -183,30 +183,39 @@ The optimization problem is described implicitely using the (pyomo)[https://pyom
 
 The function `solve_dispatch` is used for rolling horizon dispatch to simulate the operation of the power plant with imperfect forecast. The goal of this optimization problem is to maximize revenues from electricity sales, while at the same time reducing as much as possible deviations from the required baseload or ramp-limit constraints. In addition, the dispatch problem can be solved to find the best operation considering several scenarios for the power forecast $p^{g,j}, j =1,..., m$.. For simplicity, only one generation component is considered here.
 
-The design variables of the problem are the time series of storage power and energy calculated for each forecast scenario, the time series of curtailed power for each forecast scenario, binary variables indicating if the dispatch constraints are satisfied, and two slack variables $r$ and $r_p$. One has $\boldsymbol{x} = [(\boldsymbol{p}^{c,j})_{j=1,...,m}, (\boldsymbol{p}^{s,j}, \boldsymbol{e}^{s,j})_{s\in{1,2}, j=1,...,m}, \boldsymbol{y}, r, r_p]$. 
+The design variables of the problem are the time series of storage power and energy calculated for each forecast scenario, the time series of curtailed power for each forecast scenario, binary variables indicating if the dispatch constraints are satisfied, and two slack variables $r$ and $r_p$. One has $\boldsymbol{x} = [(\boldsymbol{p}^{c,j})_{j=1,...,m}, (\boldsymbol{p}^{s,j}, \boldsymbol{e}^{s,j})_{s\in{1,2}, j=1,...,m}, \boldsymbol{y}, r_1, r_2, r_3]$. 
 
 
-The objective function of the problem combines a revenue term, a reliability term using the slack variables and two regularization terms,
+The objective function of the problem combines a revenue term, a penalty term on curtailment, three penalty terms on reliability using slack variables and one regularization term,
 
 ```{math}
-f(\boldsymbol{x}) = \dfrac{1}{m}\sum_{j=1}^{m} \boldsymbol{\lambda}^T\cdot(\sum_s \boldsymbol{p}^{s,j} - \alpha \boldsymbol{p}^{c,j}) - \mu (r + r_p) + \beta \dfrac{1}{m} \sum_{j=1}^m \sum_s e^s_{n} 
+f(\boldsymbol{x}) = \dfrac{1}{m}\sum_{j=1}^{m} \boldsymbol{\lambda}^T\cdot(\sum_s \boldsymbol{p}^{s,j} - \alpha \boldsymbol{p}^{c,j})  - \beta  \dfrac{1}{m}\sum_{j=1}^{m} \mathbb{1}^T\cdot \boldsymbol{p}^{c,j} - \tilde{R} (\mu_1 r_1 + \mu_2 r_2 + \mu_3 r_3) + \gamma \dfrac{1}{m} \sum_{j=1}^m \sum_s e^{s,j}_{n} 
 ```
-where $\mu \gg 1$ and $\beta \ll 1 $. 
+where $\gamma \ll 1 $. The parameter $\tilde{R}$ is a tuning factor used to balance the reliability term with regards to the revenue term. It is calculated as
+
+```{math}
+\tilde{R} = \begin{cases}
+  P_\text{bl} (n+n_\text{h}) \text{max}(\lambda) & \text{if there is no ramp-limit contraint} \\
+  (P_\text{bl} + \text{max}(|\delta P_\text{min}|, \delta P_\text{max})) (n+n_\text{h}) \text{max}(\lambda) & \text{if there is a ramp-limit contraint} 
+\end{cases}
+```
+
 
 The optimization problem can be written mathematically as
 
 
 \begin{align*}
 \text{max} &&&  f(\boldsymbol{x}) \\
-\text{s.t.} &&&  P_\text{bl} y_i \leq p^{g,j}_i + p^{1,j}_i + p^{2,j}_i - p^{c,j}_i \leq \bar{P} &&& i = 0,..., n-1, \ j=1,...,m \\
+\text{s.t.} &&&  p^{g,j}_i + p^{1,j}_i + p^{2,j}_i - p^{c,j}_i \leq \bar{P} &&& i = 0,..., n-1, \ j=1,...,m \\
   &&& p^{1,j}_i + p^{2,j}_i \leq \text{max}(\bar{P} - p^{g,j}_i, 0) &&& i = 0,..., n-1, \ j=1,...,m \\
   &&& e^{s,j}_0 = e^{s,j}_\text{init}, &&& s \in \{1,2\}, \ j=1,...,m \\
   &&& p^{s,0}_0 = p^{s,j}_0 &&& s \in \{1,2\}, \ j=1,...,m \\
-  &&& (1-d)\bar{E} \leq e^{s}_i \leq \bar{E}^s &&& i = 0,..., n \\
+  &&& \sigma^s_\text{min} \bar{E} \leq e^{s}_i \leq \sigma^s_\text{max} \bar{E}^s &&& i = 0,..., n \\
   &&& 0 \leq p^{c,j}_i \leq p^{g,j}_i &&& i = 0,..., n-1,  \ j=1,...,m \\
   &&& r\geq 0\\
   &&& r_p\geq 0\\
   &&& \text{Reliability constraint} \\
+  &&& \text{Baseload constraints}
   &&& \text{Ramp limit constraints} \\
   &&& \text{Storage model (LP alt)} \\
   &&& \text{Bounds on binary variables} 
@@ -216,27 +225,35 @@ where $e^s_\text{init}$ is the initial state-of-charge of storage system $s$ and
 
 The reliability constraint enforces a target reliability $r_\text{th}$ based on the number of times where the dispatch constraints (baseload and ramp limit) are satisfied. This calculation is done for the time window of the forecast in addition to a window of past operation of length $n_h$. This enables the problem to keep a *memory* of previous operation. The constraint is expressed as
 
-$$ \sum_{i=0}^{n-1} y_i \geq (r_\text{th} - r)(n + n_h) - k_h $$
+$$ \sum_{i=0}^{n-1} y_i \geq (r_\text{th} - r_1)(n + n_h) - k_h $$
 
 where $k_h$ is the number of time steps satisfying the dispatch constraints in the window of past operation. The terms $r_\text{th}, n_h$ and $k_h$ are inputs to the function `solve_dispatch_pyomo`. 
 
-
-The ramp limit constraints are expressed as follows, with a separate expression for the constraint at the first time steps,
+The baseload constraints are expressed as follows
 
 \begin{align*}
- & p^{g,j}_0 + p^{1,j}_0 + p^{2,j}_0 - p^{c,j}_0 - p_h - p^s_h \geq -\delta P_\text{lim} + r_p \bar{P} && j = 1, ...,m \\
- & p^{1,j}_0 + p^{2,j}_0 - p^{c,j}_0 - p_h - p^s_h  \leq y_i ( \delta P_\text{lim} - p^{g,j}_0 + p_h + p^s_h) && j = 1, ...,m \\
-& ( p^{1,j}_{i+1} + p^{2,j}_{i+1} - p^{c,j}_{i+1}) - ( p^{1,j}_{i} + p^{2,j}_{i} - p^{c,j}_{i}) \geq -\bar{P} + y_i (\bar{P} - \delta P_\text{lim}) - p^{g,j}_i +  p^{g,j}_{i+1} && j = 1, ...,m, \ i =1, ..., n-1\\
-& ( p^{1,j}_{i+1} + p^{2,j}_{i+1} - p^{c,j}_{i+1}) - ( p^{1,j}_{i} + p^{2,j}_{i} - p^{c,j}_{i}) \leq \bar{P} + y_i (-\bar{P} + \delta P_\text{lim}) - p^{g,j}_i +  p^{g,j}_{i+1} && j = 1, ...,m, \ i =1, ..., n-1
+    P_\text{bl}(1 - r_2) \leq p^{g,j}_0 + p^{1,j}_0 + p^{2,j}_0 - p^{c,j}_0 \\
+    P_\text{bl} y_i \leq p^{g,j}_i + p^{1,j}_i + p^{2,j}_i - p^{c,j}_i && i = 1,..., n-1, \ j=1,...,m \\
 \end{align*}
 
-where $p_{h}$ is the value of the power produced at the previous time step minus curtailment and $p^s_{h}$ the value of the storage power at the previous time step. The lower bound for the ramp-limit at the first time step uses the slack variable $r_p$ instead of a binary variable. This is to reduce the violation of the constraint when the ramp-limit cannot be satisfied at the first time step.
+The constraint at the first time step does not include a binary variable, but instead uses a slack variable $r_2$ in order to minimize deviations when the constraint cannot be respected. If $P_\text{bl} = 0$, the constraints simply translate to a zero lower bound on the power, meaning that the power plant cannot import from the grid.
+
+The ramp limit constraints are expressed as follows, with a separate expression for the constraints at the first time step,
+
+\begin{align*}
+ & p^{g,j}_0 + p^{1,j}_0 + p^{2,j}_0 - p^{c,j}_0 - p_h - p^s_h \geq \delta P_\text{min} - r_3 \bar{P} && j = 1, ...,m \\
+ & p^{g,j}_0 + p^{1,j}_0 + p^{2,j}_0 - p^{c,j}_0 - p_h - p^s_h \leq \delta P_\text{max} + r_3 \bar{P} && j = 1, ...,m \\
+ & ( p^{1,j}_{i+1} + p^{2,j}_{i+1} - p^{c,j}_{i+1}) - ( p^{1,j}_{i} + p^{2,j}_{i} - p^{c,j}_{i}) \geq -\bar{P} + y_i (\bar{P} + \delta P_\text{min}) - p^{g,j}_i + p^{g,j}_{i+1} && j = 1, ...,m, \ i =1, ..., n-1\\
+& ( p^{1,j}_{i+1} + p^{2,j}_{i+1} - p^{c,j}_{i+1}) - ( p^{1,j}_{i} + p^{2,j}_{i} - p^{c,j}_{i}) \leq \bar{P} + y_i (-\bar{P} + \delta P_\text{max}) - p^{g,j}_i +  p^{g,j}_{i+1} && j = 1, ...,m, \ i =1, ..., n-1
+\end{align*}
+
+where $p_{h}$ is the value of the power produced at the previous time step minus curtailment and $p^s_{h}$ the value of the storage power at the previous time step. The bounds for the ramp-limit at the first time step uses the slack variable $r_2$ instead of a binary variable. This is to reduce the violation of the constraint when the ramp-limit cannot be satisfied at the first time step.
 
 Finally, to facilitate convergence of the algorithm, the bounds on the binary variables are set so that
 - in the presence of a baseload constraint, $y_i = 1$ if $\underset{j}{\text{min}}(p^{g,j}_i) \geq P_\text{bl}$
 - in the absence of baseload or ramp-limit constraints, $y_i = 1, \forall i$.
 
-The dispatch optimization in `solve_dispatch` is implemented using the `lp_alt` formulation. Two regularization terms are included in the objective function to ensure the constraints are active at the optimum. Furthermore, a penalty on the reliability binary variables is needed to ensure the dispatch constraints are respected as much as possible. As such, the objective function becomes
+The dispatch optimization in `solve_dispatch` is implemented using the `lp_alt` formulation. The regularization term on the curtailment and on the final state of charge are included in the objective function to ensure the constraints are active at the optimum. 
 
 
 ```{warning}
@@ -250,5 +267,5 @@ The code implement different dispatch optimization problems through three routin
 | Routine name | Formulation | Objective function | Constraints| Optimization algorithm |
 | ------------ | ----------- |------------------- |----------- |----------------- |
 | `solve_lp_sparse` | lp, lp-alp, milp | NPV or Revenues      | Baseload  | `scipy.linprog` |
-| `solve_lp_pyomo`| lp_alt | NPV  or Revenues      | Baseload, Ramp-limit  | pyomo-compatible (mosek, cplex, gurobi, etc.) |
+| `solve_lp_pyomo`| lp_alt | NPV       | Baseload, Ramp-limit  | pyomo-compatible (mosek, cplex, gurobi, etc.) |
 | `solve_dispatch_pyomo`| lp_alt | Trade off between revenues and reliability | Baseload, Ramp-limit      | pyomo-compatible (mosek, cplex, gurobi, etc.) |
