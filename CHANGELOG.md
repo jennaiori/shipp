@@ -8,6 +8,14 @@
 
 ## [Current]
 - Changed class `Storage`: the depth-of-charge parameter `dod` is replaced by a minimum and maximum state-of-charge `soc_min` and `soc_max`.
+- Changed functions `solve_lp_pyomo`, `solve_lp_sparse` and `solve_dispatch_pyomo`: the input `p_min` is now optional and default to 0.
+- Changed function `solve_dispatch_pyomo` to take a single dictionary argument `options` for optional arguments like `fixed_cap` and the penalty factors (similar to  `solve_lp_pyomo` and `solve_lp_sparse`).
+- Changed optimization problem implemented in `solve_dispatch_pyomo`
+    - The ramp-limit is now characterized by separate up- and down- bounds `dp_min` and `dp_max`, with `dp_min` $\leq 0$.
+    - Addition and renaming of tuning parameters `beta_obj` and `gamma_obj` in alignment with the optimization problems implemented in `solve_lp_sparse` and `solve_lp_pyomo`.
+    - Addition of a slack variable to reduce deviations to the baseload constraint, similar to what was implemented for the ramp constraint.
+    - Reformulation of the ramp-limit and baseload constraint at the first time step to combine a binary variable and a slack variable. 
+    - Addition of tuning parameters `mu1_obj`, `mu2_obj` and `mu3_obj` for the total reliability and the slack variables of the baseload and ramp penalties, respectively.
 
 
 ## [1.2.1] - 2026-06-24

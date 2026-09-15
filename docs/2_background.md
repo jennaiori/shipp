@@ -196,7 +196,7 @@ $$ \forall i, \ 0 \leq\sum_{g} p^g_i + \sum_{s} p^s_i - p^c_i \leq \bar{P}  $$
 
 SHIPP allows additional dispatch constraints to be enforced on the delivered power:
 - A minimum baseload power $P_\text{bl}$
-- A maximum power ramp $\delta P_\text{rl}$
+- Bounds on the power ramp $\delta P_\text{min}$ and $\delta P_\text{max}$
 
 The baseload constraint is expressed as a lower bound on the delivered power, 
 
@@ -204,4 +204,4 @@ $$ \forall i, \ P_\text{bl} \leq\sum_{g} p^g_i + \sum_{s} p^s_i - p^c_i. $$
 
 In the presence of a ramp limit, the constraint is applied to the difference of power between two time steps
 
-$$ \forall i, \ - \delta P_\text{rl} \leq\sum_{g} (p^g_{i+1} - p^g_i ) + \sum_{s} (p^s_{i+1} - p^s_i) - (p^c_{i+1} - p^c_i)  \leq \delta P_\text{rl} $$
+$$ \forall i, \  \delta P_\text{min} \leq\sum_{g} (p^g_{i+1} - p^g_i ) + \sum_{s} (p^s_{i+1} - p^s_i) - (p^c_{i+1} - p^c_i)  \leq \delta P_\text{max} $$

@@ -189,14 +189,14 @@ The design variables of the problem are the time series of storage power and ene
 The objective function of the problem combines a revenue term, a penalty term on curtailment, three penalty terms on reliability using slack variables and one regularization term,
 
 ```{math}
-f(\boldsymbol{x}) = \dfrac{1}{m}\sum_{j=1}^{m} \boldsymbol{\lambda}^T\cdot(\sum_s \boldsymbol{p}^{s,j} - \alpha \boldsymbol{p}^{c,j})  - \beta  \dfrac{1}{m}\sum_{j=1}^{m} \mathbb{1}^T\cdot \boldsymbol{p}^{c,j} - \tilde{R} (\mu_1 r_1 + \mu_2 r_2 + \mu_3 r_3) + \gamma \dfrac{1}{m} \sum_{j=1}^m \sum_s e^{s,j}_{n} 
+f(\boldsymbol{x}) = \dfrac{1}{m}\sum_{j=1}^{m} \boldsymbol{\lambda}^T\cdot(\sum_s \boldsymbol{p}^{s,j} - \alpha \boldsymbol{p}^{c,j})  - \beta  \dfrac{1}{m}\sum_{j=1}^{m} \mathbb{1}^T\cdot \boldsymbol{p}^{c,j} + \gamma \dfrac{1}{m} \sum_{j=1}^m \sum_s e^{s,j}_{n} - \tilde{R} (\mu_1 r_1 + \mu_2 r_2 + \mu_3 r_3) 
 ```
 where $\gamma \ll 1 $. The parameter $\tilde{R}$ is a tuning factor used to balance the reliability term with regards to the revenue term. It is calculated as
 
 ```{math}
 \tilde{R} = \begin{cases}
-  P_\text{bl} (n+n_\text{h}) \text{max}(\lambda) & \text{if there is no ramp-limit contraint} \\
-  (P_\text{bl} + \text{max}(|\delta P_\text{min}|, \delta P_\text{max})) (n+n_\text{h}) \text{max}(\lambda) & \text{if there is a ramp-limit contraint} 
+  P_\text{bl} (n+n_\text{h}) \text{max}(\boldsymbol{\lambda}) & \text{if there is no ramp-limit contraint} \\
+  (P_\text{bl} + \text{max}(|\delta P_\text{min}|, \delta P_\text{max})) (n+n_\text{h}) \text{max}(\boldsymbol{\lambda}) & \text{if there is a ramp-limit contraint} 
 \end{cases}
 ```
 
@@ -212,8 +212,7 @@ The optimization problem can be written mathematically as
   &&& p^{s,0}_0 = p^{s,j}_0 &&& s \in \{1,2\}, \ j=1,...,m \\
   &&& \sigma^s_\text{min} \bar{E} \leq e^{s}_i \leq \sigma^s_\text{max} \bar{E}^s &&& i = 0,..., n \\
   &&& 0 \leq p^{c,j}_i \leq p^{g,j}_i &&& i = 0,..., n-1,  \ j=1,...,m \\
-  &&& r\geq 0\\
-  &&& r_p\geq 0\\
+  &&& r_k\geq 0 &&& k \in {1,3}\\
   &&& \text{Reliability constraint} \\
   &&& \text{Baseload constraints}
   &&& \text{Ramp limit constraints} \\
@@ -232,22 +231,28 @@ where $k_h$ is the number of time steps satisfying the dispatch constraints in t
 The baseload constraints are expressed as follows
 
 \begin{align*}
-    P_\text{bl}(1 - r_2) \leq p^{g,j}_0 + p^{1,j}_0 + p^{2,j}_0 - p^{c,j}_0 \\
-    P_\text{bl} y_i \leq p^{g,j}_i + p^{1,j}_i + p^{2,j}_i - p^{c,j}_i && i = 1,..., n-1, \ j=1,...,m \\
+    &P_\text{bl} (y_0 - r_2) \leq p^{g,j}_0 + p^{1,j}_0 + p^{2,j}_0 - p^{c,j}_0 \\
+    &P_\text{bl} y_i \leq p^{g,j}_i + p^{1,j}_i + p^{2,j}_i - p^{c,j}_i && i = 1,..., n-1, \ j=1,...,m \\
+    &0 \leq y_0 - r_2 
 \end{align*}
 
-The constraint at the first time step does not include a binary variable, but instead uses a slack variable $r_2$ in order to minimize deviations when the constraint cannot be respected. If $P_\text{bl} = 0$, the constraints simply translate to a zero lower bound on the power, meaning that the power plant cannot import from the grid.
+The constraint at the first time step includes both a binary variable $y_0$ and a slack variable $r_2$. This constraint is used to minimize deviations when the constraint cannot be respected. If the constraint cannot be respected or the deviation is too large, the binary variable $y_0$ switches to zero and due to the third constraint, $r_2 = 0$. If $P_\text{bl} = 0$, the constraints simply translate to a zero lower bound on the power, meaning that the power plant cannot import from the grid. 
 
 The ramp limit constraints are expressed as follows, with a separate expression for the constraints at the first time step,
 
 \begin{align*}
- & p^{g,j}_0 + p^{1,j}_0 + p^{2,j}_0 - p^{c,j}_0 - p_h - p^s_h \geq \delta P_\text{min} - r_3 \bar{P} && j = 1, ...,m \\
- & p^{g,j}_0 + p^{1,j}_0 + p^{2,j}_0 - p^{c,j}_0 - p_h - p^s_h \leq \delta P_\text{max} + r_3 \bar{P} && j = 1, ...,m \\
+ & p^{g,j}_0 + p^{1,j}_0 + p^{2,j}_0 - p^{c,j}_0 - p_h - p^s_h \geq y_0 (\delta P_\text{min} + \bar{P}) - (1+r_3) \bar{P} && j = 1, ...,m \\
+ & p^{g,j}_0 + p^{1,j}_0 + p^{2,j}_0 - p^{c,j}_0 - p_h - p^s_h \leq y_0 (\delta P_\text{max} - \bar{P}) + (1+r_3) \bar{P} && j = 1, ...,m \\
  & ( p^{1,j}_{i+1} + p^{2,j}_{i+1} - p^{c,j}_{i+1}) - ( p^{1,j}_{i} + p^{2,j}_{i} - p^{c,j}_{i}) \geq -\bar{P} + y_i (\bar{P} + \delta P_\text{min}) - p^{g,j}_i + p^{g,j}_{i+1} && j = 1, ...,m, \ i =1, ..., n-1\\
-& ( p^{1,j}_{i+1} + p^{2,j}_{i+1} - p^{c,j}_{i+1}) - ( p^{1,j}_{i} + p^{2,j}_{i} - p^{c,j}_{i}) \leq \bar{P} + y_i (-\bar{P} + \delta P_\text{max}) - p^{g,j}_i +  p^{g,j}_{i+1} && j = 1, ...,m, \ i =1, ..., n-1
+& ( p^{1,j}_{i+1} + p^{2,j}_{i+1} - p^{c,j}_{i+1}) - ( p^{1,j}_{i} + p^{2,j}_{i} - p^{c,j}_{i}) \leq \bar{P} + y_i (-\bar{P} + \delta P_\text{max}) - p^{g,j}_i +  p^{g,j}_{i+1} && j = 1, ...,m, \ i =1, ..., n-1 \\
+& 0 \leq y_0 - r_3
 \end{align*}
 
-where $p_{h}$ is the value of the power produced at the previous time step minus curtailment and $p^s_{h}$ the value of the storage power at the previous time step. The bounds for the ramp-limit at the first time step uses the slack variable $r_2$ instead of a binary variable. This is to reduce the violation of the constraint when the ramp-limit cannot be satisfied at the first time step.
+where $p_{h}$ is the value of the power produced at the previous time step minus curtailment and $p^s_{h}$ the value of the storage power at the previous time step. Here as well, the bounds for the ramp-limit at the first time step uses the slack variable $r_3$ in addition to the binary variable $y_0$. This is to reduce the violation of the constraint when the ramp-limit cannot be satisfied at the first time step.
+
+```{note}
+It is possible to deactivate the use of the slack variables in the ramp and baseload constraint, by setting the input `mu2_obj` or `mu3_obj` to `None`. In this case, the corresponding slack variable is constrained to be equal to zero.
+```
 
 Finally, to facilitate convergence of the algorithm, the bounds on the binary variables are set so that
 - in the presence of a baseload constraint, $y_i = 1$ if $\underset{j}{\text{min}}(p^{g,j}_i) \geq P_\text{bl}$

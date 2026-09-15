@@ -578,4 +578,68 @@ def test_solve_dispatch_pyomo():
 
     assert min(e_vec2[0]) >= stor_batt_dod.e_cap*stor_batt_dod.soc_min
 
+    # Check the correct behavior of the slack variable for the baseload constraint
+
+    power =[ [0.5,1,2, 2, 3]]
+
+    e_start = 0.3
+    p_min = e_start + power[0][0]
+
+    ## If there is no penalty on reliability, the baseload constraint does not need to be respected.
+    mu1_obj = 0
+    p_vec1, e_vec1,  p_vec2, e_vec2, p_cur, bin, status = solve_dispatch_pyomo(price, m, rel, n, power, p_max, e_start, 0, dt,  stor_batt, stor_null, p_min = p_min, options = dict(mu1_obj = mu1_obj))
+    assert bin[0] == 0, print(p_vec1[0], e_vec1[0], p_cur, bin)
+
+    mu1_obj = 1
+    p_vec1, e_vec1,  p_vec2, e_vec2, p_cur, bin, status = solve_dispatch_pyomo(price, m, rel, n, power, p_max, e_start, 0, dt,  stor_batt, stor_null, p_min = p_min, options = dict(mu1_obj = mu1_obj))
+    assert bin[0] == 1, print(p_vec1[0], e_vec1[0], p_cur, bin)
+    
+
+    ## If the slack variable is allowed, the storage is emptied as much as possible even if the baseload constraint cannot be respected.
+    mu1_obj = 1
+
+    e_start = 0.1
+    p_min = 0.3 + power[0][0]
+    p_vec1, e_vec1,  p_vec2, e_vec2, p_cur, bin, status = solve_dispatch_pyomo(price, m, rel, n, power, p_max, e_start, 0, dt,  stor_batt, stor_null, p_min = p_min, options = dict(mu1_obj = mu1_obj))
+    assert bin[0] == 0, print(p_vec1[0], e_vec1[0], p_cur, bin)
+    assert p_vec1[0][0] <= 0, print(p_vec1[0], e_vec1[0], p_cur, bin)
+
+    mu2_obj = 1/n
+    p_vec1, e_vec1,  p_vec2, e_vec2, p_cur, bin, status = solve_dispatch_pyomo(price, m, rel, n, power, p_max, e_start, 0, dt,  stor_batt, stor_null, p_min = p_min, options = dict(mu1_obj = mu1_obj, mu2_obj = mu2_obj))
+    assert bin[0] == 0, print(p_vec1[0], e_vec1[0], p_cur, bin)
+    assert p_vec1[0][0] == 0.1, print(p_vec1[0], e_vec1[0], p_cur, bin)
+
+    # Check the correct behavior of the slack variable for the baseload constraint
+
+    power =[ [2,2,2,2,2]]
+
+    dp_min = -0.5
+    e_start = 0.1
+    p_hist_res = 2.6
+    p_hist_stor = 0
+
+
+    ## If there is no penalty on reliability, the ramp constraint does not need to be respected.
+    mu1_obj = 0
+    p_vec1, e_vec1,  p_vec2, e_vec2, p_cur, bin, status = solve_dispatch_pyomo(price, m, rel, n, power, p_max, e_start, 0, dt,  stor_batt, stor_null, dp_min = dp_min, p_hist_res = p_hist_res, p_hist_stor=p_hist_stor, options = dict(mu1_obj = mu1_obj))
+    assert bin[0] == 0, print(p_vec1[0], e_vec1[0], p_cur, bin)
+
+    mu1_obj = 1
+    p_vec1, e_vec1,  p_vec2, e_vec2, p_cur, bin, status = solve_dispatch_pyomo(price, m, rel, n, power, p_max, e_start, 0, dt,  stor_batt, stor_null, dp_min = dp_min, p_hist_res = p_hist_res, p_hist_stor=p_hist_stor, options = dict(mu1_obj = mu1_obj))
+    assert bin[0] == 1, print(p_vec1[0], e_vec1[0], p_cur, bin)
+    
+
+    # If the slack variable is allowed, the storage is discharged as much as possible even if the ramp constraint cannot be respected.
+    mu1_obj = 100
+
+    e_start = 0.1
+    p_hist_res = 2.7
+    p_vec1, e_vec1,  p_vec2, e_vec2, p_cur, bin, status = solve_dispatch_pyomo(price, m, rel, n, power, p_max, e_start, 0, dt,  stor_batt, stor_null, dp_min = dp_min, p_hist_res = p_hist_res, p_hist_stor=p_hist_stor, options = dict(mu1_obj = mu1_obj))
+    assert bin[0] == 0, print(p_vec1[0], e_vec1[0], p_cur, bin)
+    assert p_vec1[0][0] <= 0, print(p_vec1[0], e_vec1[0], p_cur, bin)
+
+    mu3_obj = 100
+    p_vec1, e_vec1,  p_vec2, e_vec2, p_cur, bin, status = solve_dispatch_pyomo(price, m, rel, n, power, p_max, e_start, 0, dt,  stor_batt, stor_null, dp_min = dp_min, p_hist_res = p_hist_res, p_hist_stor=p_hist_stor, options = dict(mu1_obj = mu1_obj, mu3_obj = mu3_obj))
+    assert bin[0] == 0, print(p_vec1[0], e_vec1[0], p_cur, bin)
+    assert np.abs(p_vec1[0][0] - 0.1) < 1e-4, print(p_vec1[0], e_vec1[0], p_cur, bin)
     
