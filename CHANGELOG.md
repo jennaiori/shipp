@@ -6,7 +6,7 @@
 - Change NPV formulation in the dispatch optimization problem to include OPEX and storage replacement
 
 
-## [Current]
+## [1.2.2]
 - Changed class `Storage`: the depth-of-charge parameter `dod` is replaced by a minimum and maximum state-of-charge `soc_min` and `soc_max`.
 - Changed functions `solve_lp_pyomo`, `solve_lp_sparse` and `solve_dispatch_pyomo`: the input `p_min` is now optional and default to 0.
 - Changed function `solve_dispatch_pyomo` to take a single dictionary argument `options` for optional arguments like `fixed_cap` and the penalty factors (similar to  `solve_lp_pyomo` and `solve_lp_sparse`).

@@ -17,39 +17,29 @@ SHIPP is used for studying the design and operation of hybrid power plants, i.e.
 
 Documentation is available at [https://jennaiori.github.io/shipp/](https://jennaiori.github.io/shipp/)
 
-## Installation
+## Installation and Usage
 The package can be installed using pip.
 
 ```python
 pip install shipp
 ```
 
-## Usage
-
 Examples are given in the folder `examples/`. 
 
-The folder `experiments/` contains scripts to reproduce the results presented in the following publications:
-- **`hyb24_bl_hpp/`**: Iori, J., Zaaijer, M., von Terzi, D., & Watson, S. (2024). Design drivers for the storage system of baseload hybrid power plants. In 8th International Hybrid Power Plants and Systems Workshop, HYB 2024 (2 ed., Vol. 2024, pp. 245-250) https://doi.org/10.1049/icp.2024.1844
-- **`we25_robust_dispatch/`**: Iori, J., Zaaijer, M., Kreeft, J., von Terzi, D., Watson, S. (2025) _Reliable operation of wind-storage systems for baseload power production_, WindEurope Annual Event 2025 Copenhagen, Denmark. https://doi.org/10.1088/1742-6596/3025/1/012023  
 
 ## Dependencies
 A valid access or license to a solver compatible with pyomo (MOSEK, CPLEX, Gurobi, etc.) is recommended to solve large problems (see more information here: https://www.pyomo.org/).
 
-## Latest changes [1.2.1]
-- Added CHANGELOG.md
-- Added documentation on the implementation of the dispatch optimization problems and mathematical background: [https://jennaiori.github.io/shipp/](https://jennaiori.github.io/shipp/)
-- Added API reference in the documentation
-- Added function `financial_metrics` in `kernel.py` to compute LCOE, NPV, IRR, CAPEX and cashflow
-- Changed functions `solve_lp_pyomo` and `solve_lp_sparse`:
-    - Both functions now take a single dictionary argument `options` for optional arguments like `fixed_cap` and the penalty factors.
-    - The constraint on the first and last state-of-charge is now an inequality constraint $e_0 \leq e_{n+1}$
-    - Addition of the constraint on maximum combined storage power in `solve_lp_sparse` to match `solve_lp_pyomo`
-    - Addition of a penalty on total curtailed energy with factor `beta_obj`
-- Added two problem formulations (`lp` and `milp`) in `solve_lp_sparse`
-- Added function `curtail` in `Production` object to copy the object and curtail the power production by a given `np.ndarray`
-- Added tests to check conservation of energy between energy produced, curtailed energy, storage losses and energy delivered
-- Fixed [issue #4](https://github.com/jennaiori/shipp/issues/4)
-- Fixed lack of storage model check / storage losses check in `solve_lp_sparse`
+## [1.2.2]
+- Changed class `Storage`: the depth-of-charge parameter `dod` is replaced by a minimum and maximum state-of-charge `soc_min` and `soc_max`.
+- Changed functions `solve_lp_pyomo`, `solve_lp_sparse` and `solve_dispatch_pyomo`: the input `p_min` is now optional and default to 0.
+- Changed function `solve_dispatch_pyomo` to take a single dictionary argument `options` for optional arguments like `fixed_cap` and the penalty factors (similar to  `solve_lp_pyomo` and `solve_lp_sparse`).
+- Changed optimization problem implemented in `solve_dispatch_pyomo`
+    - The ramp-limit is now characterized by separate up- and down- bounds `dp_min` and `dp_max`, with `dp_min` $\leq 0$.
+    - Addition and renaming of tuning parameters `beta_obj` and `gamma_obj` in alignment with the optimization problems implemented in `solve_lp_sparse` and `solve_lp_pyomo`.
+    - Addition of a slack variable to reduce deviations to the baseload constraint, similar to what was implemented for the ramp constraint.
+    - Reformulation of the ramp-limit and baseload constraint at the first time step to combine a binary variable and a slack variable. 
+    - Addition of tuning parameters `mu1_obj`, `mu2_obj` and `mu3_obj` for the total reliability and the slack variables of the baseload and ramp penalties, respectively.
 
 ## Authors and acknowledgment
 This project is developed by Jenna Iori at Delft University of Technology and was initially part of the Hollandse Kust Noord wind farm innovation program, with funding from CrossWind C.V.

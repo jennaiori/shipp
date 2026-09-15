@@ -1,4 +1,4 @@
-cff-version: 1.2.1
+cff-version: 1.2.2
 message: "If you are using this software, please cite it as shown below."
 authors:
   -
@@ -10,7 +10,7 @@ keywords:
   - Hybrid power plants
   - Storage systems
   - Design optimization
-version: 1.2.1
+version: 1.2.2
 doi: "10.4121/2ee36148-369f-4e1f-b770-c86752d7dca4"
 date-released: 2026-06-24
 license: Apache-2.0
