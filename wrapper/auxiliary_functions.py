@@ -247,3 +247,35 @@ def fetch_profile(generator_type, lat, lon, date_from, date_to, token,
     meta.update(model_params)
     write_cache(cache_file, data, meta)
     return TimeSeries(data, 1.0)
+
+
+### Fetching technology parameters
+
+def load_technology_parameters(csv_path, country, year):
+    """Load technology parameters from the CSV into a flat dictionary.
+
+    Args:
+        csv_path (str): path to the technology parameters CSV.
+        country (str): country ISO3 code (e.g. 'NLD').
+        year (int): year as it appears in the CSV.
+
+    Returns:
+        dict: {(technology, parameter): value}.
+
+    Raises:
+        FileNotFoundError: if the CSV does not exist.
+        ValueError: if no rows match the given country and year.
+    """
+    if not os.path.isfile(csv_path):
+        raise FileNotFoundError('CSV not found at {}'.format(csv_path))
+
+    df = pd.read_csv(csv_path)
+    mask = (df['country'] == country) & (df['year'] == year)
+    df = df.loc[mask]
+    if len(df) == 0:
+        raise ValueError(
+            'No rows in {} for country={} year={}'.format(
+                csv_path, country, year))
+
+    grouped = df.groupby(['technology', 'parameter'])['value'].mean()
+    return {key: float(val) for key, val in grouped.items()}

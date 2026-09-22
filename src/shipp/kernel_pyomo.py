@@ -1071,6 +1071,7 @@ def solve_lp_pyomo_sizing(price_ts: TimeSeries, prod1: Production, prod2: Produc
                           dp_max: float = None,
                           p_grid_max: float = None,
                           i_max: float = None,
+                          i_min: float = None,
                           beta_obj: float = 1e-4,
                           options: dict = None) -> OpSchedule:
     """Build and solve an integrated sizing and dispatch optimization problem
@@ -1114,8 +1115,12 @@ def solve_lp_pyomo_sizing(price_ts: TimeSeries, prod1: Production, prod2: Produc
             If None, no upper ramp constraint is applied. Default is None.
         p_grid_max (float): Optional explicit grid connection limit [MW].
             If None, only p_max is used.
-        i_max (float): Optional investment budget [currency]. If None, no
-            budget constraint is applied.
+        i_max (float): Optional investment budget upper limit [currency]. If
+            None, no upper budget constraint is applied.
+        i_min (float): Optional investment budget lower limit [currency]. If
+            None, no lower budget constraint is applied. Together with i_max,
+            this enforces an approximate spending target (e.g. i_min and i_max
+            set to BUDGET * (1 +- tol)).
         beta_obj (float): Additive penalty factor for the curtailed power in the
             objective function [currency/MWh]. Default is 1e-4.
         options (dict): list of options for the problem formulation
@@ -1226,6 +1231,12 @@ def solve_lp_pyomo_sizing(price_ts: TimeSeries, prod1: Production, prod2: Produc
         assert np.isfinite(p_grid_max)
     if i_max is not None:
         assert np.isfinite(i_max)
+        assert i_max >= 0
+    if i_min is not None:
+        assert np.isfinite(i_min)
+        assert i_min >= 0
+    if i_max is not None and i_min is not None:
+        assert i_min <= i_max
 
     if dp_min is not None:
         assert np.isfinite(dp_min)
@@ -1436,15 +1447,19 @@ def solve_lp_pyomo_sizing(price_ts: TimeSeries, prod1: Production, prod2: Produc
                     - model.p_cur[i]) <= p_grid_max
         model.p_grid_max = pyo.Constraint(model.vec_n, rule=rule_p_grid_max)
 
+    capex_expr = (
+        prod1.p_cost * model.x1
+        + prod2.p_cost * model.x2
+        + stor1.p_cost * model.p_cap1
+        + stor1.e_cost * model.e_cap1
+        + stor2.p_cost * model.p_cap2
+        + stor2.e_cost * model.e_cap2)
+
     if i_max is not None:
-        model.i_cap = pyo.Constraint(
-            expr=prod1.p_cost * model.x1
-                 + prod2.p_cost * model.x2
-                 + stor1.p_cost * model.p_cap1
-                 + stor1.e_cost * model.e_cap1
-                 + stor2.p_cost * model.p_cap2
-                 + stor2.e_cost * model.e_cap2
-                 <= i_max)
+        model.i_cap_max = pyo.Constraint(expr=capex_expr <= i_max)
+
+    if i_min is not None:
+        model.i_cap_min = pyo.Constraint(expr=capex_expr >= i_min)
 
     # Solve problem
     # Gap D: declare dual Suffix BEFORE solve so the solver populates shadow prices
@@ -1469,10 +1484,22 @@ def solve_lp_pyomo_sizing(price_ts: TimeSeries, prod1: Production, prod2: Produc
 
     # Check if the problem was solved correctly
     if (results.solver.status is not pyo.SolverStatus.ok) or \
-        (results.solver.termination_condition is not
-         pyo.TerminationCondition.optimal):
+    (results.solver.termination_condition is not
+        pyo.TerminationCondition.optimal):
+        print("Solver status:", results.solver.status)
+        print("Termination:", results.solver.termination_condition)
+        print("Message:", getattr(results.solver, 'message', None))
+        print("x1 bounds:", model.x1.bounds)
+        print("x2 bounds:", model.x2.bounds)
+        if i_min is not None or i_max is not None:
+            try:
+                model.i_cap_min.pprint()
+                model.i_cap_max.pprint()
+            except AttributeError:
+                pass
+        model.write('debug_model.lp', io_options={'symbolic_solver_labels': True})
         raise RuntimeError
-
+        
     # Extract optimum
     p_cur = [pyo.value(model.p_cur[e]) for e in model.p_cur]
 

@@ -1,0 +1,24 @@
+technology,parameter,country,year,source,value_type,value,unit,url,notes
+pv,size_ac,DNK,2025,DEA TC,mean,69,MW,https://ens.dk/en/analyses-and-statistics/technology-catalogues,based on ILR=1.3
+pv,lifetime,DNK,2025,DEA TC,mean,40,years,https://ens.dk/en/analyses-and-statistics/technology-catalogues,inverter lifetime is shorter at 15 years
+pv,area_density,DNK,2025,DEA TC,mean,10100,m2/MW,https://ens.dk/en/analyses-and-statistics/technology-catalogues,
+pv,capex,DNK,2025,DEA TC,mean,600000,EUR/MW,https://ens.dk/en/analyses-and-statistics/technology-catalogues,"cost per MW AC, in 2020 EUR"
+pv,opex,DNK,2025,DEA TC,mean,10030,EUR/MW/y,https://ens.dk/en/analyses-and-statistics/technology-catalogues,"cost per MW AC, in 2020 EUR"
+pv,size_dc,DNK,2025,DEA TC,mean,90,MW,https://ens.dk/en/analyses-and-statistics/technology-catalogues,
+pv,losses,DNK,2025,DEA TC,mean,0.14,,https://ens.dk/en/analyses-and-statistics/technology-catalogues,"based on performance ratio=86%, does not include bifaciality"
+pv,efficiency,DNK,2025,DEA TC,mean,0.24,,https://ens.dk/en/analyses-and-statistics/technology-catalogues,neglects yearly degradation
+wind,size_ac,DNK,2025,DEA TC,mean,4.5,MW,https://ens.dk/en/analyses-and-statistics/technology-catalogues,
+wind,lifetime,DNK,2025,DEA TC,mean,27,years,https://ens.dk/en/analyses-and-statistics/technology-catalogues,
+wind,area_density,DNK,2025,DEA TC,mean,1500,m2/MW,https://ens.dk/en/analyses-and-statistics/technology-catalogues,
+wind,capex,DNK,2025,DEA TC,mean,1180000,EUR/MW,https://ens.dk/en/analyses-and-statistics/technology-catalogues,costs in 2020 EUR
+wind,opex,DNK,2025,DEA TC,mean,17387,EUR/MW/y,https://ens.dk/en/analyses-and-statistics/technology-catalogues,"costs in 2020 EUR, not including variable OPEX"
+wind,hub_height,DNK,2025,DEA TC,mean,90,m,https://ens.dk/en/analyses-and-statistics/technology-catalogues,
+wind,rotor_diameter,DNK,2025,DEA TC,mean,135,m,https://ens.dk/en/analyses-and-statistics/technology-catalogues,
+lfp,capacity,DNK,2025,DEA TC,mean,3,MWh,https://ens.dk/en/analyses-and-statistics/technology-catalogues,
+lfp,duration,DNK,2025,DEA TC,mean,2,h,https://ens.dk/en/analyses-and-statistics/technology-catalogues,
+lfp,eff_rt_dc,DNK,2025,DEA TC,mean,0.95,,https://ens.dk/en/analyses-and-statistics/technology-catalogues,
+lfp,eff_rt_ac,DNK,2025,DEA TC,mean,0.91,,https://ens.dk/en/analyses-and-statistics/technology-catalogues,
+lfp,lifetime,DNK,2025,DEA TC,mean,15,,https://ens.dk/en/analyses-and-statistics/technology-catalogues,
+lfp,specific_energy,DNK,2025,DEA TC,mean,107,Wh/kg,https://ens.dk/en/analyses-and-statistics/technology-catalogues,
+lfp,capex,DNK,2025,DEA TC,mean,280000,EUR/MWh,https://ens.dk/en/analyses-and-statistics/technology-catalogues,costs in 2020 EUR
+lfp,opex,DNK,2025,DEA TC,mean,8100,EUR/MWh/y,https://ens.dk/en/analyses-and-statistics/technology-catalogues,costs in 2020 EUR

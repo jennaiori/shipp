@@ -118,16 +118,20 @@ class Production:
         p_max (float): rated capacity [MW]
         opex_fix (float): Annual OPEX of the component per unit of power capacity (Currency/MW/year)
         opex_var (float): Annual OPEX of the component per unit of energy produced (Currency/MWh/year)
+        p_max_is_decision (bool): Whether p_max is a decision variable
     '''
-    def __init__(self, power_ts: TimeSeries, p_cost: float = 0, p_max: float = None, opex_fix: float = 0, opex_var: float = 0) -> None:
+    def __init__(self, power_ts: TimeSeries, p_cost: float = 0, p_max: float = None, opex_fix: float = 0, opex_var: float = 0, p_max_is_decision: bool = False) -> None:
         self.power = power_ts
         if p_max is not None:
             self.p_max = p_max
+        elif p_max_is_decision:
+            self.p_max = None
         else:
             self.p_max = max(self.power.data)
         self.p_cost = p_cost
         self.opex_fix = opex_fix
         self.opex_var = opex_var
+        self.p_max_is_decision = p_max_is_decision
 
     def get_tot_costs(self) -> float:
         '''Returns total costs for the production'''
@@ -135,11 +139,12 @@ class Production:
     
     def curtail(self, p_curtail: np.ndarray) -> "Production":
         curtailed_power_ts = TimeSeries(self.power.data - p_curtail, self.power.dt)
-        return Production(power_ts = curtailed_power_ts,
-                          p_cost = self.p_cost,
-                          p_max = self.p_max,
-                          opex_fix = self.opex_fix,
-                          opex_var = self.opex_var)
+        return Production(power_ts=curtailed_power_ts,
+                        p_cost=self.p_cost,
+                        p_max=self.p_max,
+                        opex_fix=self.opex_fix,
+                        opex_var=self.opex_var,
+                        p_max_is_decision=self.p_max_is_decision)
     
     def __repr__(self) -> str:
         return (f"Production(p_cost={self.p_cost}, p_max={self.p_max}, opex_fix={self.opex_fix}, opex_var={self.opex_var},"
