@@ -38,7 +38,8 @@ class Storage:
 
     def __init__(self, e_cap: float = 0, p_cap: float = 0,
                  eff_in: float = 1, eff_out: float = 1, e_cost: float = 0,
-                 p_cost: float = 0, soc_min: float = 0, soc_max: float = 1, lifetime: int = 8, opex_fix: float = 0, opex_var: float = 0) -> None:
+                 p_cost: float = 0, soc_min: float = 0, soc_max: float = 1, lifetime: int = 8, opex_fix: float = 0, opex_var: float = 0,
+                 duration: float = None) -> None:
         if e_cap is not None:
             assert e_cap >=0
         if p_cap is not None:
@@ -49,6 +50,7 @@ class Storage:
         assert 1 >= eff_in >= 0
         assert 1 >= eff_out >= 0
         assert lifetime > 0
+        assert duration is None or duration > 0
         
         self.e_cap = e_cap 
         self.p_cap = p_cap
@@ -61,7 +63,7 @@ class Storage:
         self.lifetime = lifetime
         self.opex_fix = opex_fix
         self.opex_var = opex_var
-
+        self.duration = duration
     def get_av_eff(self) -> float:
         '''Returns the average efficiency'''
         return 0.5*(self.eff_in + self.eff_out)
@@ -95,12 +97,14 @@ class Storage:
             soc_max=self.soc_max,
             lifetime = self.lifetime,
             opex_fix = self.opex_fix,
-            opex_var = self.opex_var
+            opex_var = self.opex_var,
+            duration = self.duration
         )
 
     def __repr__(self) -> str:
         return (f"Storage(e_cap={self.e_cap}, p_cap={self.p_cap}, eff_in={self.eff_in}, "
-                f"eff_out={self.eff_out}, e_cost={self.e_cost}, p_cost={self.p_cost}, soc_min={self.soc_min}, soc_max={self.soc_max}, lifetime={self.lifetime}, opex_fix={self.opex_fix}, opex_var={self.opex_var})")
+                f"eff_out={self.eff_out}, e_cost={self.e_cost}, p_cost={self.p_cost}, soc_min={self.soc_min}, soc_max={self.soc_max}, lifetime={self.lifetime}, opex_fix={self.opex_fix}, opex_var={self.opex_var},"
+                f"duration={self.duration})")
 
 
 class Production:

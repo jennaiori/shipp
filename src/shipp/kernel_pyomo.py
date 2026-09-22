@@ -1061,3 +1061,555 @@ def solve_dispatch_pyomo(price: list, m: int, rel: float, n: int, power_forecast
     
     return p_vec1, e_vec1,  p_vec2, e_vec2, p_cur, bin, results.solver.status
 
+def solve_lp_pyomo_sizing(price_ts: TimeSeries, prod1: Production, prod2: Production,
+                          prof1_unit: TimeSeries, prof2_unit: TimeSeries,
+                          stor1: Storage, stor2: Storage,
+                          discount_rate: float, n_year: int,
+                          p_max: float, n: int,
+                          p_min: float = 0,
+                          dp_min: float = None,
+                          dp_max: float = None,
+                          p_grid_max: float = None,
+                          i_max: float = None,
+                          beta_obj: float = 1e-4,
+                          options: dict = None) -> OpSchedule:
+    """Build and solve an integrated sizing and dispatch optimization problem
+    where the installed capacity of the two production and two storage assets
+    is a design variable.
+
+    Production assets are described by normalized production profiles. The
+    optimization determines the optimal installed capacity of the two
+    production assets (x1, x2), the power capacity of the two storage systems
+    (with fixed power-to-energy ratio), and the dispatch. The objective is to
+    maximize the total net present value of the plant.
+
+    Args:
+        price_ts (TimeSeries): Time series of the price of electricity on the
+            day-ahead market [currency/MWh].
+        prod1 (Production): Object representing the first production asset.
+            The `p_cost`, `opex_fix` and `opex_var` attributes are used for the
+            objective. The `power` attribute is not used. The `p_max` attribute
+            is interpreted as the installed capacity:
+            - `None`: installed capacity is a decision variable
+            - `float`: installed capacity is fixed at that value (0 excludes the
+            asset)
+        prod2 (Production): Object representing the second production asset,
+            same convention as prod1.
+        prof1_unit (TimeSeries): Per-unit production profile for asset 1 [-].
+        prof2_unit (TimeSeries): Per-unit production profile for asset 2 [-].
+        stor1 (Storage): Object describing storage 1, with `duration` set.
+            The `p_cap` attribute is interpreted as follows:
+            - `None`: power capacity is a decision variable
+            - `float`: power capacity is fixed at that value (0 excludes the asset)
+            Energy capacity is always `duration * p_cap`.
+        stor2 (Storage): Object describing storage 2, with `duration` set.
+        discount_rate (float): Discount rate for the NPV calculation [-].
+        n_year (int): Number of years of operation [-].
+        p_max (float): Maximum power requirement [MW].
+        n (int): Number of time steps to consider in the optimization [-].
+        p_min (float or np.ndarray): Minimum power requirement [MW]. Default is 0.
+        dp_min (float): Limit for the ramp limitation [MW/h] (down, should be negative).
+            If None, no lower ramp constraint is applied. Default is None.
+        dp_max (float): Limit for the ramp limitation [MW/h] (up, should be positive).
+            If None, no upper ramp constraint is applied. Default is None.
+        p_grid_max (float): Optional explicit grid connection limit [MW].
+            If None, only p_max is used.
+        i_max (float): Optional investment budget [currency]. If None, no
+            budget constraint is applied.
+        beta_obj (float): Additive penalty factor for the curtailed power in the
+            objective function [currency/MWh]. Default is 1e-4.
+        options (dict): list of options for the problem formulation
+            - name_solver (str): Name of optimization solver to be used with
+              pyomo. Default is 'gurobi'.
+            - e_start1 (float): initial state-of-charge for storage 1 [MWh]. If
+              None, the initial state-of-charge is only constrained by the
+              periodicity requirement. Default is None.
+            - e_start2 (float): initial state-of-charge for storage 2 [MWh]. Same
+              convention as e_start1.
+            - return_duals (bool): If True, extract the dual variables of the
+              storage constraints and store them in `OpSchedule.dual_prices`.
+              Default is False.
+
+    Returns:
+        OpSchedule: Object describing the optimal operational schedule and
+            optimal capacities. The following attributes are set:
+            - npv: legacy-style NPV from OpSchedule.get_npv_irr [M.currency]
+            - npv_objective: objective-consistent NPV [M.currency]
+            - time: solver wall-clock time in seconds, when available
+            - dual_prices: dict of dual variables when return_duals=True, else None
+
+    Raises:
+        AssertionError: if the time step of the time series do not match, if the
+            length of the per-unit profiles is below n, if the storage objects do
+            not have a power-to-energy ratio set, or if any production asset has
+            a non-positive cost.
+        RuntimeError: if the optimization algorithm fails to solve the problem.
+    """
+
+    # Data initialization
+    dt = price_ts.dt
+    assert dt == prof1_unit.dt
+    assert dt == prof2_unit.dt
+    assert n <= len(price_ts.data)
+    assert n <= len(prof1_unit.data)
+    assert n <= len(prof2_unit.data)
+
+    # Default values for the options
+    name_solver = 'gurobi'
+    verbose = False
+    return_duals = False
+    e_start1 = None
+    e_start2 = None
+
+    if options is not None:
+        if 'name_solver' in options.keys():
+            name_solver = options['name_solver']
+        if 'verbose' in options.keys():
+            verbose = options['verbose']
+            assert isinstance(verbose, bool)
+        if 'return_duals' in options.keys():
+            return_duals = options['return_duals']
+            assert isinstance(return_duals, bool)
+        if 'e_start1' in options.keys():
+            e_start1 = options['e_start1']
+            assert isinstance(e_start1, (float, int))
+        if 'e_start2' in options.keys():
+            e_start2 = options['e_start2']
+            assert isinstance(e_start2, (float, int))
+
+    # Check validity of input data
+    assert np.all(np.isfinite(price_ts.data[:n]))
+    assert np.all(np.isfinite(prof1_unit.data[:n]))
+    assert np.all(np.isfinite(prof2_unit.data[:n]))
+    assert np.all(np.asarray(prof1_unit.data[:n]) >= 0)
+    assert np.all(np.asarray(prof2_unit.data[:n]) >= 0)
+
+    assert np.isfinite(prod1.p_cost)
+    assert np.isfinite(prod2.p_cost)
+    assert np.isfinite(prod1.opex_fix)
+    assert np.isfinite(prod2.opex_fix)
+    assert np.isfinite(prod1.opex_var)
+    assert np.isfinite(prod2.opex_var)
+
+    assert np.isfinite(stor1.eff_in)
+    assert np.isfinite(stor2.eff_in)
+    assert np.isfinite(stor1.eff_out)
+    assert np.isfinite(stor2.eff_out)
+    assert np.isfinite(stor1.p_cost)
+    assert np.isfinite(stor2.p_cost)
+    assert np.isfinite(stor1.e_cost)
+    assert np.isfinite(stor2.e_cost)
+
+    assert np.isfinite(p_max)
+    assert np.isfinite(dt)
+    assert np.isfinite(discount_rate)
+    assert 0 <= discount_rate <= 1
+
+    # Mode fields: present and finite where set
+    assert stor1.duration is not None
+    assert stor2.duration is not None
+    assert np.isfinite(stor1.duration)
+    assert np.isfinite(stor2.duration)
+    assert stor1.duration > 0
+    assert stor2.duration > 0
+
+    if prod1.p_max is not None:
+        assert np.isfinite(prod1.p_max)
+    if prod2.p_max is not None:
+        assert np.isfinite(prod2.p_max)
+    if stor1.p_cap is not None:
+        assert np.isfinite(stor1.p_cap)
+    if stor2.p_cap is not None:
+        assert np.isfinite(stor2.p_cap)
+
+    if p_grid_max is not None:
+        assert np.isfinite(p_grid_max)
+    if i_max is not None:
+        assert np.isfinite(i_max)
+
+    if dp_min is not None:
+        assert np.isfinite(dp_min)
+        assert dp_min <= 0
+    if dp_max is not None:
+        assert np.isfinite(dp_max)
+        assert dp_max >= 0
+
+    assert prod1.p_max is not None or prod1.p_cost > 0
+    assert prod2.p_max is not None or prod2.p_cost > 0
+    assert stor1.p_cap is not None or stor1.p_cost > 0 or stor1.e_cost > 0
+    assert stor2.p_cap is not None or stor2.p_cost > 0 or stor2.e_cost > 0
+
+    if isinstance(p_min, (np.ndarray, list)):
+        assert len(p_min) >= n
+        p_min_vec = p_min[:n].reshape(n,)
+    elif isinstance(p_min, (float, int)):
+        p_min_vec = p_min * np.ones(n)
+    else:
+        raise ValueError("Input p_min in solve_lp_pyomo_sizing must be a float, int, \
+                          list or numpy.array")
+
+    # Build Concrete Model in Pyomo
+    model = pyo.ConcreteModel()
+
+    # Design variables
+    if prod1.p_max is None:
+        model.x1 = pyo.Var(domain=pyo.NonNegativeReals)
+    else:
+        model.x1 = pyo.Var(bounds=(prod1.p_max, prod1.p_max))
+
+    if prod2.p_max is None:
+        model.x2 = pyo.Var(domain=pyo.NonNegativeReals)
+    else:
+        model.x2 = pyo.Var(bounds=(prod2.p_max, prod2.p_max))
+
+    if stor1.p_cap is None:
+        model.p_cap1 = pyo.Var(domain=pyo.NonNegativeReals)
+    else:
+        model.p_cap1 = pyo.Var(bounds=(stor1.p_cap, stor1.p_cap))
+
+    if stor2.p_cap is None:
+        model.p_cap2 = pyo.Var(domain=pyo.NonNegativeReals)
+    else:
+        model.p_cap2 = pyo.Var(bounds=(stor2.p_cap, stor2.p_cap))
+
+    model.e_cap1 = pyo.Expression(expr=stor1.duration * model.p_cap1)
+    model.e_cap2 = pyo.Expression(expr=stor2.duration * model.p_cap2)
+
+    # Operation variables
+    model.vec_n = pyo.Set(initialize=list(range(n)))
+    model.vec_np1 = pyo.Set(initialize=list(range(n+1)))
+    model.vec_nm1 = pyo.Set(initialize=list(range(n-1)))
+
+    model.p_vec1 = pyo.Var(model.vec_n)
+    model.e_vec1 = pyo.Var(model.vec_np1, domain=pyo.NonNegativeReals)
+    model.p_vec2 = pyo.Var(model.vec_n)
+    model.e_vec2 = pyo.Var(model.vec_np1, domain=pyo.NonNegativeReals)
+    model.p_cur = pyo.Var(model.vec_n, domain=pyo.NonNegativeReals)
+
+    # Objective function
+    factor = npf.npv(discount_rate, np.ones(n_year)) - 1
+    model.obj = pyo.Objective(
+        expr=365 * 24 / n * factor * sum(
+            (price_ts.data[t] + beta_obj) *
+            (model.x1 * prof1_unit.data[t]
+             + model.x2 * prof2_unit.data[t]
+             + model.p_vec1[t]
+             + model.p_vec2[t]
+             - model.p_cur[t])
+            for t in model.vec_n)
+        # Fixed OPEX: discounted annual cost
+        - factor * (prod1.opex_fix * model.x1
+                    + prod2.opex_fix * model.x2)
+        # CAPEX: pre-annualized by the caller
+        - prod1.p_cost * model.x1
+        - prod2.p_cost * model.x2
+        - stor1.p_cost * model.p_cap1
+        - stor1.e_cost * model.e_cap1
+        - stor2.p_cost * model.p_cap2
+        - stor2.e_cost * model.e_cap2,
+        sense=pyo.maximize)
+
+    # Rule functions for the constraints
+    def rule_e_model_charge1(model, i):
+        return model.e_vec1[i+1] - model.e_vec1[i] \
+            <= - dt * stor1.eff_in * model.p_vec1[i]
+
+    def rule_e_model_discharge1(model, i):
+        return model.e_vec1[i+1] - model.e_vec1[i] \
+            <= - dt / stor1.eff_out * model.p_vec1[i]
+
+    def rule_p_max1(model, i):
+        return model.p_vec1[i] <= model.p_cap1
+
+    def rule_p_min1(model, i):
+        return model.p_vec1[i] >= -model.p_cap1
+
+    def rule_e_max1(model, i):
+        return model.e_vec1[i] <= model.e_cap1 * stor1.soc_max
+
+    def rule_e_min1(model, i):
+        return model.e_vec1[i] >= model.e_cap1 * stor1.soc_min
+
+    def rule_e_model_charge2(model, i):
+        return model.e_vec2[i+1] - model.e_vec2[i] \
+            <= - dt * stor2.eff_in * model.p_vec2[i]
+
+    def rule_e_model_discharge2(model, i):
+        return model.e_vec2[i+1] - model.e_vec2[i] \
+            <= - dt / stor2.eff_out * model.p_vec2[i]
+
+    def rule_p_max2(model, i):
+        return model.p_vec2[i] <= model.p_cap2
+
+    def rule_p_min2(model, i):
+        return model.p_vec2[i] >= -model.p_cap2
+
+    def rule_e_max2(model, i):
+        return model.e_vec2[i] <= model.e_cap2 * stor2.soc_max
+
+    def rule_e_min2(model, i):
+        return model.e_vec2[i] >= model.e_cap2 * stor2.soc_min
+
+    def rule_p_tot_min(model, i):
+        return (model.x1 * prof1_unit.data[i]
+                + model.x2 * prof2_unit.data[i]
+                + model.p_vec1[i]
+                + model.p_vec2[i]
+                - model.p_cur[i]) >= p_min_vec[i]
+
+    def rule_p_tot_max_curt(model, i):
+        return (model.x1 * prof1_unit.data[i]
+                + model.x2 * prof2_unit.data[i]
+                + model.p_vec1[i]
+                + model.p_vec2[i]
+                - model.p_cur[i]) <= p_max
+
+    def rule_p_cur_lim(model, i):
+        return model.p_cur[i] <= (model.x1 * prof1_unit.data[i]
+                                  + model.x2 * prof2_unit.data[i])
+
+    # Constraint for each storage type
+    # The initial state-of-charge is constrained to be equal to the last one.
+    model.e_start_end1 = pyo.Constraint(expr=model.e_vec1[0] == model.e_vec1[n])
+    model.e_start_end2 = pyo.Constraint(expr=model.e_vec2[0] == model.e_vec2[n])
+
+    # Inter-year continuity: if a fixed SoC fraction is supplied, constrain the starting state-of-charge
+    if e_start1 is not None:
+        model.e_fix_start1 = pyo.Constraint(expr=model.e_vec1[0] == e_start1)
+    if e_start2 is not None:
+        model.e_fix_start2 = pyo.Constraint(expr=model.e_vec2[0] == e_start2)
+
+
+    model.e_model_charge1 = pyo.Constraint(model.vec_n, rule=rule_e_model_charge1)
+    model.e_model_discharge1 = pyo.Constraint(model.vec_n, rule=rule_e_model_discharge1)
+
+    model.p_min1 = pyo.Constraint(model.vec_n, rule=rule_p_min1)
+    model.p_max1 = pyo.Constraint(model.vec_n, rule=rule_p_max1)
+    model.e_max1 = pyo.Constraint(model.vec_n, rule=rule_e_max1)
+    model.e_min1 = pyo.Constraint(model.vec_n, rule=rule_e_min1)
+
+    model.e_model_charge2 = pyo.Constraint(model.vec_n, rule=rule_e_model_charge2)
+    model.e_model_discharge2 = pyo.Constraint(model.vec_n, rule=rule_e_model_discharge2)
+
+    model.p_min2 = pyo.Constraint(model.vec_n, rule=rule_p_min2)
+    model.p_max2 = pyo.Constraint(model.vec_n, rule=rule_p_max2)
+    model.e_max2 = pyo.Constraint(model.vec_n, rule=rule_e_max2)
+    model.e_min2 = pyo.Constraint(model.vec_n, rule=rule_e_min2)
+
+    # Ramp limitation constraint
+    if dp_min is not None:
+        def rule_dp_tot_min(model, i):
+            return (
+                (model.p_vec1[i+1] + model.p_vec2[i+1])
+                - (model.p_vec1[i] + model.p_vec2[i])
+                - (model.p_cur[i+1] - model.p_cur[i])
+                >= dp_min
+                   - (model.x1 * prof1_unit.data[i+1] - model.x1 * prof1_unit.data[i])
+                   - (model.x2 * prof2_unit.data[i+1] - model.x2 * prof2_unit.data[i])
+            )
+        model.dp_tot_min = pyo.Constraint(model.vec_nm1, rule=rule_dp_tot_min)
+
+    if dp_max is not None:
+        def rule_dp_tot_max(model, i):
+            return (
+                (model.p_vec1[i+1] + model.p_vec2[i+1])
+                - (model.p_vec1[i] + model.p_vec2[i])
+                - (model.p_cur[i+1] - model.p_cur[i])
+                <= dp_max
+                   - (model.x1 * prof1_unit.data[i+1] - model.x1 * prof1_unit.data[i])
+                   - (model.x2 * prof2_unit.data[i+1] - model.x2 * prof2_unit.data[i])
+            )
+        model.dp_tot_max = pyo.Constraint(model.vec_nm1, rule=rule_dp_tot_max)    
+
+    # Other constraints
+    model.p_tot_min = pyo.Constraint(model.vec_n, rule=rule_p_tot_min)
+    model.p_tot_max_curt = pyo.Constraint(model.vec_n, rule=rule_p_tot_max_curt)
+    model.p_cur_lim = pyo.Constraint(model.vec_n, rule=rule_p_cur_lim)
+
+    # Optional constraints
+    if p_grid_max is not None:
+        def rule_p_grid_max(model, i):
+            return (model.x1 * prof1_unit.data[i]
+                    + model.x2 * prof2_unit.data[i]
+                    + model.p_vec1[i]
+                    + model.p_vec2[i]
+                    - model.p_cur[i]) <= p_grid_max
+        model.p_grid_max = pyo.Constraint(model.vec_n, rule=rule_p_grid_max)
+
+    if i_max is not None:
+        model.i_cap = pyo.Constraint(
+            expr=prod1.p_cost * model.x1
+                 + prod2.p_cost * model.x2
+                 + stor1.p_cost * model.p_cap1
+                 + stor1.e_cost * model.e_cap1
+                 + stor2.p_cost * model.p_cap2
+                 + stor2.e_cost * model.e_cap2
+                 <= i_max)
+
+    # Solve problem
+    # Gap D: declare dual Suffix BEFORE solve so the solver populates shadow prices
+    if return_duals:
+        model.dual = pyo.Suffix(direction=pyo.Suffix.IMPORT)
+        model.rc = pyo.Suffix(direction=pyo.Suffix.IMPORT)  # reduced costs for e_cap1 cross-check
+
+
+    opt = pyo.SolverFactory(name_solver)
+    if 'gurobi' in name_solver:
+        opt.options['OutputFlag'] = 0
+    elif 'mosek' in name_solver:
+        opt.options['dparam.optimizer_max_time'] = TIME_LIMIT_SHORT
+    elif 'cplex' in name_solver:
+        opt.options['timelimit'] = TIME_LIMIT_SHORT
+
+    if verbose:
+        results = opt.solve(model, tee=True)
+        model.display()
+    else:
+        results = opt.solve(model, tee=False)
+
+    # Check if the problem was solved correctly
+    if (results.solver.status is not pyo.SolverStatus.ok) or \
+        (results.solver.termination_condition is not
+         pyo.TerminationCondition.optimal):
+        raise RuntimeError
+
+    # Extract optimum
+    p_cur = [pyo.value(model.p_cur[e]) for e in model.p_cur]
+
+    e_vec1 = [pyo.value(model.e_vec1[e]) for e in model.e_vec1]
+    p_vec1 = [pyo.value(model.p_vec1[e]) for e in model.p_vec1]
+    e_cap1 = pyo.value(model.e_cap1)
+    p_cap1 = pyo.value(model.p_cap1)
+
+    e_vec2 = [pyo.value(model.e_vec2[e]) for e in model.e_vec2]
+    p_vec2 = [pyo.value(model.p_vec2[e]) for e in model.p_vec2]
+    e_cap2 = pyo.value(model.e_cap2)
+    p_cap2 = pyo.value(model.p_cap2)
+
+    x1 = pyo.value(model.x1)
+    x2 = pyo.value(model.x2)
+
+    # Calculate power losses
+    power_losses_bat = []
+    power_losses_h2 = []
+    for i in range(n):
+        power_losses_bat.append(-(e_vec1[i+1] - e_vec1[i] + dt*p_vec1[i])/dt)
+        power_losses_h2.append(-(e_vec2[i+1] - e_vec2[i] + dt*p_vec2[i])/dt)
+
+    # Build Storage objects for the optimum
+    stor1_res = Storage(e_cap=e_cap1,
+                        p_cap=p_cap1,
+                        eff_in=stor1.eff_in,
+                        eff_out=stor1.eff_out,
+                        p_cost=stor1.p_cost,
+                        e_cost=stor1.e_cost,
+                        soc_min=stor1.soc_min,
+                        soc_max=stor1.soc_max,
+                        lifetime=stor1.lifetime,
+                        opex_fix=stor1.opex_fix,
+                        opex_var=stor1.opex_var,
+                        duration=stor1.duration)
+    stor2_res = Storage(e_cap=e_cap2,
+                        p_cap=p_cap2,
+                        eff_in=stor2.eff_in,
+                        eff_out=stor2.eff_out,
+                        p_cost=stor2.p_cost,
+                        e_cost=stor2.e_cost,
+                        soc_min=stor2.soc_min,
+                        soc_max=stor2.soc_max,
+                        lifetime=stor2.lifetime,
+                        opex_fix=stor2.opex_fix,
+                        opex_var=stor2.opex_var,
+                        duration=stor2.duration)
+
+    # Post-solve check: formulating the storage headroom constraint with
+    # variable capacity production objects results in a MILP, so I do not
+    # enforce the constraint explicitly. The economics of curtailment and
+    # sub-unity round-trip efficiency should make violations unprofitable,
+    # so the program just checks whether the constraint is satisfied. If
+    # not, a warning is issued.
+    A_opt = np.array(prof1_unit.data[:n]) * x1 + np.array(prof2_unit.data[:n]) * x2
+    headroom = np.maximum(p_max - A_opt, 0.0)
+    p_stor_net = np.array(p_vec1) + np.array(p_vec2)
+    violation = p_stor_net - headroom
+    max_violation = float(np.max(violation))
+    if max_violation > 1e-6:
+        warnings.warn(
+            f"Storage headroom violated by {max_violation:.6g} MW in "
+            f"solve_lp_pyomo_sizing. Optimal dispatch may be infeasible. ",
+            RuntimeWarning,
+        )
+
+    # Build the realized production profiles and attribute curtailment
+    # proportionally to each asset's instantaneous available power.
+    prod1_avail = np.array(prof1_unit.data[:n]) * x1
+    prod2_avail = np.array(prof2_unit.data[:n]) * x2
+    total_avail = prod1_avail + prod2_avail
+    frac1 = np.zeros_like(total_avail)
+    mask = total_avail > 0
+    frac1[mask] = prod1_avail[mask] / total_avail[mask]
+    p_cur1 = np.array(p_cur) * frac1
+    p_cur2 = np.array(p_cur) - p_cur1
+
+    prod1_res = Production(power_ts=TimeSeries(prod1_avail - p_cur1, dt),
+                           p_cost=prod1.p_cost,
+                           p_max=x1,
+                           opex_fix=prod1.opex_fix,
+                           opex_var=prod1.opex_var)
+    prod2_res = Production(power_ts=TimeSeries(prod2_avail - p_cur2, dt),
+                           p_cost=prod2.p_cost,
+                           p_max=x2,
+                           opex_fix=prod2.opex_fix,
+                           opex_var=prod2.opex_var)
+
+    os_res = OpSchedule(production_list=[prod1_res, prod2_res],
+                        storage_list=[stor1_res, stor2_res],
+                        production_p=[TimeSeries(prod1_avail - p_cur1, dt),
+                                      TimeSeries(prod2_avail - p_cur2, dt)],
+                        storage_p=[TimeSeries(p_vec1, dt),
+                                   TimeSeries(p_vec2, dt)],
+                        storage_e=[TimeSeries(e_vec1[:n], dt),
+                                   TimeSeries(e_vec2[:n], dt)],
+                        price=price_ts.data[:n])
+
+    os_res.get_npv_irr(discount_rate, n_year)
+    os_res.npv_objective = pyo.value(model.obj) * 1e-6
+
+    os_res.losses = [np.array(power_losses_bat), np.array(power_losses_h2)]
+
+    # Check that the power losses match the storage model
+    if not os_res.check_losses(1e-4):
+        print('Failed error check')
+        os_res.check_losses(1e-4, True)
+        warnings.warn('Failed error check in solve_lp_pyomo_sizing', RuntimeWarning)
+
+    # Extract solve time
+    if name_solver in ('mosek', 'mosek_direct', 'cplex_direct'):
+        os_res.time = results.solver[0]['Wallclock time']
+    elif name_solver == 'gurobi':
+        os_res.time = float(results.solver[0]['Wall time'])
+    elif name_solver == 'cplex':
+        os_res.time = results.solver[0]['Time']
+    else:
+        os_res.time = None    
+
+    # Extract duals
+    os_res.dual_prices = None
+    if return_duals:
+        try:
+            dual_e_min1     = np.array([model.dual.get(model.e_min1[i],              0.0) for i in range(n)])
+            dual_e_max1     = np.array([model.dual.get(model.e_max1[i],              0.0) for i in range(n)])
+            dual_charge1    = np.array([model.dual.get(model.e_model_charge1[i],     0.0) for i in range(n)])
+            dual_discharge1 = np.array([model.dual.get(model.e_model_discharge1[i],  0.0) for i in range(n)])
+            os_res.dual_prices = {
+                "dual_e_min1":     dual_e_min1,
+                "dual_e_max1":     dual_e_max1,
+                "dual_charge1":    dual_charge1,
+                "dual_discharge1": dual_discharge1,
+                "dual_energy1":    dual_charge1 + dual_discharge1,
+            }
+        except Exception as exc:
+            warnings.warn(f"Dual extraction failed: {exc}", RuntimeWarning)
+            os_res.dual_prices = None
+
+    return os_res
