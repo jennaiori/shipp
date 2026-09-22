@@ -8,6 +8,8 @@ docs/_build/
 *.pyc
 docs/apidocs/
 build/
+wrapper/cache
+wrapper/__pycache__/
 # Ignore data files and figures
 experiments/hyb24_bl_hpp/figures
 experiments/we25_robust_dispatch/data/mars_ptf*
