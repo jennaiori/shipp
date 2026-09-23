@@ -1065,11 +1065,10 @@ def solve_lp_pyomo_sizing(price_ts: TimeSeries, prod1: Production, prod2: Produc
                           prof1_unit: TimeSeries, prof2_unit: TimeSeries,
                           stor1: Storage, stor2: Storage,
                           discount_rate: float, n_year: int,
-                          p_max: float, n: int,
+                          p_grid_max: float, n: int,
                           p_min: float = 0,
                           dp_min: float = None,
                           dp_max: float = None,
-                          p_grid_max: float = None,
                           i_max: float = None,
                           i_min: float = None,
                           beta_obj: float = 1e-4,
@@ -1106,15 +1105,13 @@ def solve_lp_pyomo_sizing(price_ts: TimeSeries, prod1: Production, prod2: Produc
         stor2 (Storage): Object describing storage 2, with `duration` set.
         discount_rate (float): Discount rate for the NPV calculation [-].
         n_year (int): Number of years of operation [-].
-        p_max (float): Maximum power requirement [MW].
+        p_grid_max (float): Maximum power constraint [MW].
         n (int): Number of time steps to consider in the optimization [-].
         p_min (float or np.ndarray): Minimum power requirement [MW]. Default is 0.
         dp_min (float): Limit for the ramp limitation [MW/h] (down, should be negative).
             If None, no lower ramp constraint is applied. Default is None.
         dp_max (float): Limit for the ramp limitation [MW/h] (up, should be positive).
             If None, no upper ramp constraint is applied. Default is None.
-        p_grid_max (float): Optional explicit grid connection limit [MW].
-            If None, only p_max is used.
         i_max (float): Optional investment budget upper limit [currency]. If
             None, no upper budget constraint is applied.
         i_min (float): Optional investment budget lower limit [currency]. If
@@ -1205,7 +1202,6 @@ def solve_lp_pyomo_sizing(price_ts: TimeSeries, prod1: Production, prod2: Produc
     assert np.isfinite(stor1.e_cost)
     assert np.isfinite(stor2.e_cost)
 
-    assert np.isfinite(p_max)
     assert np.isfinite(dt)
     assert np.isfinite(discount_rate)
     assert 0 <= discount_rate <= 1
@@ -1227,8 +1223,6 @@ def solve_lp_pyomo_sizing(price_ts: TimeSeries, prod1: Production, prod2: Produc
     if stor2.p_cap is not None:
         assert np.isfinite(stor2.p_cap)
 
-    if p_grid_max is not None:
-        assert np.isfinite(p_grid_max)
     if i_max is not None:
         assert np.isfinite(i_max)
         assert i_max >= 0
@@ -1373,7 +1367,7 @@ def solve_lp_pyomo_sizing(price_ts: TimeSeries, prod1: Production, prod2: Produc
                 + model.x2 * prof2_unit.data[i]
                 + model.p_vec1[i]
                 + model.p_vec2[i]
-                - model.p_cur[i]) <= p_max
+                - model.p_cur[i]) <= p_grid_max
 
     def rule_p_cur_lim(model, i):
         return model.p_cur[i] <= (model.x1 * prof1_unit.data[i]
@@ -1434,19 +1428,11 @@ def solve_lp_pyomo_sizing(price_ts: TimeSeries, prod1: Production, prod2: Produc
 
     # Other constraints
     model.p_tot_min = pyo.Constraint(model.vec_n, rule=rule_p_tot_min)
-    model.p_tot_max_curt = pyo.Constraint(model.vec_n, rule=rule_p_tot_max_curt)
+    if p_grid_max is not None:  
+        model.p_tot_max_curt = pyo.Constraint(model.vec_n, rule=rule_p_tot_max_curt)
     model.p_cur_lim = pyo.Constraint(model.vec_n, rule=rule_p_cur_lim)
 
     # Optional constraints
-    if p_grid_max is not None:
-        def rule_p_grid_max(model, i):
-            return (model.x1 * prof1_unit.data[i]
-                    + model.x2 * prof2_unit.data[i]
-                    + model.p_vec1[i]
-                    + model.p_vec2[i]
-                    - model.p_cur[i]) <= p_grid_max
-        model.p_grid_max = pyo.Constraint(model.vec_n, rule=rule_p_grid_max)
-
     capex_expr = (
         prod1.p_cost * model.x1
         + prod2.p_cost * model.x2
@@ -1555,17 +1541,18 @@ def solve_lp_pyomo_sizing(price_ts: TimeSeries, prod1: Production, prod2: Produc
     # sub-unity round-trip efficiency should make violations unprofitable,
     # so the program just checks whether the constraint is satisfied. If
     # not, a warning is issued.
-    A_opt = np.array(prof1_unit.data[:n]) * x1 + np.array(prof2_unit.data[:n]) * x2
-    headroom = np.maximum(p_max - A_opt, 0.0)
-    p_stor_net = np.array(p_vec1) + np.array(p_vec2)
-    violation = p_stor_net - headroom
-    max_violation = float(np.max(violation))
-    if max_violation > 1e-6:
-        warnings.warn(
-            f"Storage headroom violated by {max_violation:.6g} MW in "
-            f"solve_lp_pyomo_sizing. Optimal dispatch may be infeasible. ",
-            RuntimeWarning,
-        )
+    if p_grid_max is not None:
+        A_opt = np.array(prof1_unit.data[:n]) * x1 + np.array(prof2_unit.data[:n]) * x2
+        headroom = np.maximum(p_grid_max - A_opt, 0.0)
+        p_stor_net = np.array(p_vec1) + np.array(p_vec2)
+        violation = p_stor_net - headroom - np.array(p_cur)
+        max_violation = float(np.max(violation))
+        if max_violation > 1e-6:
+            warnings.warn(
+                f"Storage headroom violated by {max_violation:.6g} MW in "
+                f"solve_lp_pyomo_sizing. Optimal dispatch may be infeasible. ",
+                RuntimeWarning,
+            )
 
     # Build the realized production profiles and attribute curtailment
     # proportionally to each asset's instantaneous available power.
@@ -1597,7 +1584,8 @@ def solve_lp_pyomo_sizing(price_ts: TimeSeries, prod1: Production, prod2: Produc
                                    TimeSeries(p_vec2, dt)],
                         storage_e=[TimeSeries(e_vec1[:n], dt),
                                    TimeSeries(e_vec2[:n], dt)],
-                        price=price_ts.data[:n])
+                        price=price_ts.data[:n],
+                        p_curtail=TimeSeries(p_cur, dt))
 
     os_res.get_npv_irr(discount_rate, n_year)
     os_res.npv_objective = pyo.value(model.obj) * 1e-6
