@@ -147,7 +147,7 @@ For the `lp_alt` formulation, the objective function is:
 
 
 ### In `solve_lp_pyomo`
-The dispatch optimization in `solve_lp_pyomo` is currently only implemented using the `lp_alt` formulation. The design variables of the problem are the storage system components energy and power capacities, the time series of storage power and energy, and the time series of curtailed power, i.e., $\boldsymbol{x} = [\boldsymbol{p}^c, (\bar{P}^s, \bar{E}^s, \boldsymbol{p}^s, \boldsymbol{e}^s)_{s\in{1,2}}]$.  If `fixed_cap = True`, the storage capacities are either removed from the list of design variables or fixed to their initial values, i.e., $\boldsymbol{x} = [\boldsymbol{p}^c, (\boldsymbol{p}^s, \boldsymbol{e}^s)_{s\in{1,2}}]$.
+Similar to  `solve_lp_sparse`, The design variables of the problem are the storage system components energy and power capacities, the time series of storage power and energy, and the time series of curtailed power, i.e., $\boldsymbol{x} = [\boldsymbol{p}^c, (\bar{P}^s, \bar{E}^s, \boldsymbol{p}^s, \boldsymbol{e}^s)_{s\in{1,2}}]$.  If `fixed_cap = True`, the storage capacities are either removed from the list of design variables or fixed to their initial values, i.e., $\boldsymbol{x} = [\boldsymbol{p}^c, (\boldsymbol{p}^s, \boldsymbol{e}^s)_{s\in{1,2}}]$.
 
 The objective function of the problem aims to maximize the added NPV, i.e., the contribution of the storage system components to the total NPV,
 
@@ -272,5 +272,6 @@ The code implement different dispatch optimization problems through three routin
 | Routine name | Formulation | Objective function | Constraints| Optimization algorithm |
 | ------------ | ----------- |------------------- |----------- |----------------- |
 | `solve_lp_sparse` | lp, lp-alp, milp | NPV or Revenues      | Baseload  | `scipy.linprog` |
-| `solve_lp_pyomo`| lp_alt | NPV       | Baseload, Ramp-limit  | pyomo-compatible (mosek, cplex, gurobi, etc.) |
+| `solve_lp_pyomo`| lp, lp-alp, milp | NPV       | Baseload, Ramp-limit  | pyomo-compatible (mosek, cplex, gurobi, etc.) |
 | `solve_dispatch_pyomo`| lp_alt | Trade off between revenues and reliability | Baseload, Ramp-limit      | pyomo-compatible (mosek, cplex, gurobi, etc.) |
+

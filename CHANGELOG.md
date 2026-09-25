@@ -5,6 +5,9 @@
 - Add degradation model
 - Change NPV formulation in the dispatch optimization problem to include OPEX and storage replacement
 
+## Current
+- Changed function `solve_lp_pyomo` with the addition of the formulations `lp` and `milp`
+- Use of `np.isclose` in the test function for `kernel_pyomo` instead of strict equality assertions
 
 ## [1.2.2] - 2026-09-15
 - Changed class `Storage`: the depth-of-charge parameter `dod` is replaced by a minimum and maximum state-of-charge `soc_min` and `soc_max`.

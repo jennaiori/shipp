@@ -71,7 +71,7 @@ kmin =  np.argmin(dpower[:n-1]) # Index of minimum ramp
 kmax =  np.argmax(dpower[:n-1]) # Index of maximum ramp
 
 # Solve the sizing optimization problem with perfect and unliminited information (PI-U)
-os =  solve_lp_pyomo(price_dam, prod, prod_null, stor, stor_null, discount_rate, n_year, p_max, n, dp_min = dp_min, dp_max = dp_max, options = dict(name_solver =pyo_solver, fixed_cap = False,  verbose = False))
+os =  solve_lp_pyomo(price_dam, prod, prod_null, stor, stor_null, discount_rate, n_year, p_max, n, dp_min = dp_min, dp_max = dp_max, options = dict(name_solver =pyo_solver, fixed_cap = False,  verbose = False, formulation='lp_alt'))
 
 power_piu = np.array(os.power_out.data)
 dpower_piu = np.diff(power_piu)
@@ -195,16 +195,16 @@ for t in range(nt):
     ax[2, t].plot([x for x in range(t, t+n_for)], e_vec[0,:n_for] , '--')
     ax[3, t].plot([x for x in range(t, t+n_for)], p_cur[0,:], '--' )
 
-    print('----------')
-    print('TIME STEP', t)
-    print('----------')
-    print('forec=', [float(x) for x in forecast_perfect[t][0][:3]])
-    print('p_vec=', p_vec[0,:3])
-    print('e_vec=', e_vec[0, :4])
-    print('p_cur=', p_cur[0, :3])
-    print('bin_vec=', bin_vec[:3])
-    print('p2grid =', p_vec[0,0:3] + data_power[t:t+3] - p_cur[0,:3])
-    print()
+    # print('----------')
+    # print('TIME STEP', t)
+    # print('----------')
+    # print('forec=', [float(x) for x in forecast_perfect[t][0][:3]])
+    # print('p_vec=', p_vec[0,:3])
+    # print('e_vec=', e_vec[0, :4])
+    # print('p_cur=', p_cur[0, :3])
+    # print('bin_vec=', bin_vec[:3])
+    # print('p2grid =', p_vec[0,0:3] + data_power[t:t+3] - p_cur[0,:3])
+    # print()
 
 rel_res = 1/nt*sum(bin_res)
 rev_res = sum([data_price[i]*(p_res[i]-p_cur_res[i]) for i in range(nt)])

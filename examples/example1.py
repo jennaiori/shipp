@@ -42,6 +42,7 @@ time = np.arange(0, n)/24
 power = mean_power*(1.0+np.sin(time * 2*np.pi * frequency_power))
 
 # The price is represented by the combinaison of a sine function of time and a random variation
+np.random.seed(0)
 price = np.random.uniform(price_low, price_high, n) + \
         10*np.sin(np.arange(0, n)/24 * 2*np.pi * frequency_price)
 

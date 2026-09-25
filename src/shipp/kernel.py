@@ -21,7 +21,7 @@ from shipp.timeseries import TimeSeries
 
 TOL = 1e-4 # tolerance for checking the losses of the storage system
 DEFAULT_ALPHA_OBJ = (1-1e-6)
-BIG_M = 100
+BIG_M = 1000
 
 def build_lp_obj_npv(price: np.ndarray, n: int, stor1_p_cost: float, stor1_e_cost: float, stor2_p_cost: float, stor2_e_cost: float, discount_rate: float, n_year: int, options: dict = None) -> np.ndarray:
     """Build the objective function vector for NPV maximization for the LP formulation.
@@ -115,13 +115,13 @@ def build_lp_obj_npv(price: np.ndarray, n: int, stor1_p_cost: float, stor1_e_cos
             assert (formulation == 'lp_alt') or (formulation == 'lp') or (formulation == 'milp')
         if 'epsilon' in options.keys():
             epsilon = options['epsilon']
-            assert isinstance(epsilon, float)
+            assert isinstance(epsilon, (float,int))
         if 'alpha_obj' in options.keys():
             alpha_obj = options['alpha_obj']
-            assert isinstance(alpha_obj, float)
+            assert isinstance(alpha_obj, (float,int))
         if 'beta_obj' in options.keys():
             beta_obj = options['beta_obj']
-            assert isinstance(beta_obj, float)
+            assert isinstance(beta_obj, (float,int))
     
 
     factor = npf.npv(discount_rate, np.ones(n_year))-1
@@ -247,13 +247,13 @@ def build_lp_obj_revenues(price: np.ndarray, n: int, options: dict = None) -> np
             assert (formulation == 'lp_alt') or (formulation == 'lp') or (formulation == 'milp')
         if 'epsilon' in options.keys():
             epsilon = options['epsilon']
-            assert isinstance(epsilon, float)
+            assert isinstance(epsilon, (float,int))
         if 'alpha_obj' in options.keys():
             alpha_obj = options['alpha_obj']
-            assert isinstance(alpha_obj, float)
+            assert isinstance(alpha_obj, (float,int))
         if 'beta_obj' in options.keys():
             beta_obj = options['beta_obj']
-            assert isinstance(beta_obj, float)
+            assert isinstance(beta_obj, (float,int))
 
     if formulation ==  'lp_alt':
         vec_obj = np.vstack((-np.reshape(price[:n], (n,1)),             # Power from Storage 1
@@ -957,6 +957,7 @@ def solve_lp_sparse(price_ts: TimeSeries, prod1: Production,
                                      TimeSeries(stor2_p, dt)],
                         storage_e = [TimeSeries(stor1_e[:n], dt),
                                      TimeSeries(stor2_e[:n], dt)],
+                        # curtailment_p = TimeSeries(p_curtail, dt),
                         price = price_ts.data[:n])
 
     os_res.get_npv_irr(discount_rate, n_year)
