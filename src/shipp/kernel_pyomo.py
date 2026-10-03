@@ -13,6 +13,7 @@ Functions:
 TIME_LIMIT_SHORT = 2  # 2 seconds - time limit for solving small problems
 TIME_LIMIT_LONG = 180   # 3 minutes - time limit for solving larger problems
 DEFAULT_ALPHA_OBJ = (1-1e-6)
+BIG_M = 1000
 
 import numpy as np
 import numpy_financial as npf
@@ -45,9 +46,11 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod1: Production, prod2: Production, s
         options (dict): list of options for the problem formulation
         
             - name_solver (str): Name of optimization solver to be used with pyomo. Default is 'mosek'.
+            - formulation (str): Problem formulation for the storage model. Allowed values are 'lp', 'lp_alt', 'milp'. Default is lp_alt.
             - fixed_cap (bool): True if the storage capacity is fixed during the optimization. Default is False.
             - alpha_obj (float): penalty factor for the curtailed power in the objective function proportional to the price. Default is (1+1e-6)
             - beta_obj (float): penalty factor for the curtailed power in the objective function. Default is 0
+             - epsilon (float): penalty factor to avoid simultaneous charge and discharge for the lp formulation. Default is 1e-3.
             - e_start1 (float): initial state-of-charge for storage 1. If None, the initial state-of-charge is not constrained. Default is None.
             - e_start2 (float): initial state-of-charge for storage 2. If None, the initial state-of-charge is not constrained. Default is None.
             - verbose (bool): If true, prints the output of the optimization algorithm.
@@ -72,9 +75,11 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod1: Production, prod2: Production, s
 
     # Default values for the options
     name_solver = 'mosek'
+    formulation = 'lp_alt'
     fixed_cap = False
     alpha_obj = DEFAULT_ALPHA_OBJ
     beta_obj = 0
+    epsilon = 1e-3
     verbose = False
     return_duals = False 
     e_start1 = None
@@ -83,6 +88,9 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod1: Production, prod2: Production, s
     if options is not None:
         if 'name_solver' in options.keys():
             name_solver = options['name_solver']
+        if 'formulation' in options.keys():
+            formulation = options['formulation']
+            assert (formulation == 'lp_alt') or (formulation == 'lp') or (formulation == 'milp')
         if 'fixed_cap' in options.keys():
             fixed_cap = options['fixed_cap']
             assert isinstance(fixed_cap, bool)
@@ -92,6 +100,9 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod1: Production, prod2: Production, s
         if 'beta_obj' in options.keys():
             beta_obj = options['beta_obj']
             assert isinstance(beta_obj, (float, int))
+        if 'epsilon' in options.keys():
+            epsilon = options['epsilon']
+            assert isinstance(epsilon, (float, int))
         if 'e_start1' in options.keys():
             e_start1 = options['e_start1']
             assert isinstance(e_start1, (float, int))
@@ -153,9 +164,16 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod1: Production, prod2: Production, s
     model.vec_np1 = pyo.Set(initialize=list(range(n+1))) # n plus 1
     model.vec_nm1 = pyo.Set(initialize=list(range(n-1))) # n minus 1
 
-    model.p_vec1 = pyo.Var(model.vec_n)
+    if formulation == 'lp_alt':
+        model.p_vec1 = pyo.Var(model.vec_n)
+        model.p_vec2 = pyo.Var(model.vec_n)
+    else:
+        model.p_vec1_charge = pyo.Var(model.vec_n, domain = pyo.NonNegativeReals)
+        model.p_vec1_discharge = pyo.Var(model.vec_n, domain = pyo.NonNegativeReals)
+        model.p_vec2_charge = pyo.Var(model.vec_n, domain = pyo.NonNegativeReals)
+        model.p_vec2_discharge = pyo.Var(model.vec_n, domain = pyo.NonNegativeReals)
+
     model.e_vec1 = pyo.Var(model.vec_np1, domain = pyo.NonNegativeReals)
-    model.p_vec2 = pyo.Var(model.vec_n)
     model.e_vec2 = pyo.Var(model.vec_np1, domain = pyo.NonNegativeReals)
     model.p_cur = pyo.Var(model.vec_n, domain = pyo.NonNegativeReals) # curtailed power
 
@@ -187,50 +205,115 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod1: Production, prod2: Production, s
     else:
         model.e_cap2 = pyo.Var(bounds = (0, stor2.e_cap))
 
+    if formulation == 'milp': 
+        # Binary variable indicating if the storage is charging (z=0) or discharging (z=1)
+        model.bin1 = pyo.Var(model.vec_n, within = pyo.Binary)
+        model.bin2 = pyo.Var(model.vec_n, within = pyo.Binary)
+
     # Objective function
     factor = npf.npv(discount_rate, np.ones(n_year))-1
-    model.obj = pyo.Objective(expr=  365 * 24/n*factor* sum([p*(model.p_vec1[n]
-                 + model.p_vec2[k] - alpha_obj *model.p_cur[l]) for p, n, k,l in zip(price_ts.data[:n], model.p_vec1, model.p_vec2, model.p_cur)]) 
-                 - beta_obj* sum(model.p_cur[l] for l in model.p_cur) 
-                 - p_cost1*model.p_cap1 
-                 - e_cost1*model.e_cap1 
-                 - p_cost2*model.p_cap2 
-                 - e_cost2*model.e_cap2, sense = pyo.maximize)
+
+    if formulation == 'lp_alt':
+        model.obj = pyo.Objective(expr=  365 * 24/n*factor* sum([p*(model.p_vec1[n]
+                    + model.p_vec2[k] - alpha_obj *model.p_cur[l]) for p, n, k,l in zip(price_ts.data[:n], model.p_vec1, model.p_vec2, model.p_cur)]) 
+                    - beta_obj* sum(model.p_cur[l] for l in model.p_cur) 
+                    - p_cost1*model.p_cap1 
+                    - e_cost1*model.e_cap1 
+                    - p_cost2*model.p_cap2 
+                    - e_cost2*model.e_cap2, sense = pyo.maximize)
+    else:
+        model.obj = pyo.Objective(expr=  365 * 24/n*factor * 
+                            sum([p*(model.p_vec1_discharge[n] - model.p_vec1_charge[n] 
+                                  + model.p_vec2_discharge[k] - model.p_vec2_charge[k] 
+                                  - alpha_obj *model.p_cur[l]) 
+                                for p, n, k,l in zip(price_ts.data[:n], model.p_vec1_discharge, model.p_vec2_discharge, model.p_cur)])
+                            - beta_obj* sum(model.p_cur[l] for l in model.p_cur)
+                            - epsilon*sum([model.p_vec1_discharge[n]+model.p_vec1_charge[n] 
+                                          +model.p_vec2_discharge[k]+model.p_vec2_charge[k] 
+                                        for  n, k in zip(model.p_vec1_discharge, model.p_vec2_discharge )])
+                            - p_cost1*model.p_cap1 
+                            - e_cost1*model.e_cap1 
+                            - p_cost2*model.p_cap2 
+                            - e_cost2*model.e_cap2, 
+                            sense = pyo.maximize)
 
     # Rule functions for the constraints
-    def rule_e_model_charge1(model, i):
-        return model.e_vec1[i+1]-model.e_vec1[i] \
-            <= - dt * eta1_in * model.p_vec1[i]
+    ## Storage system model:
+    if formulation == 'lp_alt':
+        def rule_p_max1(model, i):
+            return model.p_vec1[i] <= model.p_cap1
+        def rule_p_min1(model, i):
+            return model.p_vec1[i] >= -model.p_cap1
+        def rule_p_max2(model, i):
+            return model.p_vec2[i] <= model.p_cap2
+        def rule_p_min2(model, i):
+            return model.p_vec2[i] >= -model.p_cap2
+        
+        model.p_min1 = pyo.Constraint(model.vec_n, rule=rule_p_min1)
+        model.p_max1 = pyo.Constraint(model.vec_n, rule=rule_p_max1)
+        model.p_min2 = pyo.Constraint(model.vec_n, rule=rule_p_min2)
+        model.p_max2 = pyo.Constraint(model.vec_n, rule=rule_p_max2)
 
-    def rule_e_model_discharge1(model, i):
-        return model.e_vec1[i+1]-model.e_vec1[i] \
-            <= - dt/eta1_out * model.p_vec1[i]
+        def rule_e_model_charge1(model, i):
+            return model.e_vec1[i+1]-model.e_vec1[i] <= - dt * eta1_in * model.p_vec1[i]
+        def rule_e_model_discharge1(model, i):
+            return model.e_vec1[i+1]-model.e_vec1[i]  <= - dt/eta1_out * model.p_vec1[i]
+        def rule_e_model_charge2(model, i):
+            return model.e_vec2[i+1]-model.e_vec2[i] <= - dt * eta2_in * model.p_vec2[i]
+        def rule_e_model_discharge2(model, i):
+            return model.e_vec2[i+1]-model.e_vec2[i] <= - dt/eta2_out * model.p_vec2[i]
 
-    def rule_p_max1(model, i):
-        return model.p_vec1[i] <= model.p_cap1
+        model.e_model_charge1 = pyo.Constraint(model.vec_n, rule=rule_e_model_charge1)
+        model.e_model_discharge1 = pyo.Constraint(model.vec_n, rule=rule_e_model_discharge1)
+        model.e_model_charge2 = pyo.Constraint(model.vec_n, rule=rule_e_model_charge2)
+        model.e_model_discharge2 = pyo.Constraint(model.vec_n, rule=rule_e_model_discharge2)
+    else:
 
-    def rule_p_min1(model, i):
-        return model.p_vec1[i] >= -model.p_cap1
+        def rule_p_max1(model, i):
+            return model.p_vec1_charge[i] <= model.p_cap1
+        def rule_p_min1(model, i):
+            return model.p_vec1_discharge[i] <= model.p_cap1
+        def rule_p_max2(model, i):
+            return model.p_vec2_charge[i] <= model.p_cap2
+        def rule_p_min2(model, i):
+            return model.p_vec2_discharge[i] <= model.p_cap2
+        
+        model.p_min1 = pyo.Constraint(model.vec_n, rule=rule_p_min1)
+        model.p_max1 = pyo.Constraint(model.vec_n, rule=rule_p_max1)
+        model.p_min2 = pyo.Constraint(model.vec_n, rule=rule_p_min2)
+        model.p_max2 = pyo.Constraint(model.vec_n, rule=rule_p_max2)
 
+        def rule_e_model1(model, i):
+            return model.e_vec1[i+1]-model.e_vec1[i] == dt * eta1_in * model.p_vec1_charge[i] - dt/eta1_out * model.p_vec1_discharge[i]
+        def rule_e_model2(model, i):
+                return model.e_vec2[i+1]-model.e_vec2[i] == dt * eta2_in * model.p_vec2_charge[i] - dt/eta2_out * model.p_vec2_discharge[i]
+
+        model.e_model1 = pyo.Constraint(model.vec_n, rule=rule_e_model1)
+        model.e_model2 = pyo.Constraint(model.vec_n, rule=rule_e_model2)
+
+        if formulation == 'milp':
+            def rule_bin_charge1(model, i):
+                return model.p_vec1_charge[i] <= BIG_M*p_max * (1 - model.bin1[i])
+            def rule_bin_discharge1(model, i):
+                return model.p_vec1_discharge[i] <= BIG_M*p_max *  model.bin1[i]
+            def rule_bin_charge2(model, i):
+                return model.p_vec2_charge[i] <= BIG_M*p_max * (1 - model.bin2[i])
+            def rule_bin_discharge2(model, i):
+                return model.p_vec2_discharge[i] <= BIG_M*p_max * model.bin2[i]
+
+            model.bin_charge1 = pyo.Constraint(model.vec_n, rule=rule_bin_charge1)
+            model.bin_discharge1 = pyo.Constraint(model.vec_n, rule=rule_bin_discharge1)
+            model.bin_charge2 = pyo.Constraint(model.vec_n, rule=rule_bin_charge2)
+            model.bin_discharge2 = pyo.Constraint(model.vec_n, rule=rule_bin_discharge2)
+
+
+
+    ## Bounds on energy
     def rule_e_max1(model, i):
         return model.e_vec1[i] <= model.e_cap1 * stor1.soc_max
-    
+
     def rule_e_min1(model, i):
         return model.e_vec1[i] >= model.e_cap1 * stor1.soc_min
-
-    def rule_e_model_charge2(model, i):
-        return model.e_vec2[i+1]-model.e_vec2[i] \
-            <= - dt * eta2_in * model.p_vec2[i]
-
-    def rule_e_model_discharge2(model, i):
-        return model.e_vec2[i+1]-model.e_vec2[i] \
-            <= - dt/eta2_out * model.p_vec2[i]
-
-    def rule_p_max2(model, i):
-        return model.p_vec2[i] <= model.p_cap2
-
-    def rule_p_min2(model, i):
-        return model.p_vec2[i] >= -model.p_cap2
 
     def rule_e_max2(model, i):
         return model.e_vec2[i] <= model.e_cap2 * stor2.soc_max
@@ -238,17 +321,37 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod1: Production, prod2: Production, s
     def rule_e_min2(model, i):
         return model.e_vec2[i] >= model.e_cap2* stor2.soc_min
 
-    def rule_p_tot_min(model, i):
-        return model.p_vec1[i] + model.p_vec2[i] - model.p_cur[i] >= p_min_vec[i]- power_res[i]
- 
-    def rule_p_tot_max_storage(model, i):
-        return model.p_vec1[i] + model.p_vec2[i] <= max(p_max - power_res[i], 0)
+    model.e_max1 = pyo.Constraint(model.vec_n, rule=rule_e_max1)
+    model.e_min1 = pyo.Constraint(model.vec_n, rule=rule_e_min1)
+    model.e_max2 = pyo.Constraint(model.vec_n, rule=rule_e_max2)
+    model.e_min2 = pyo.Constraint(model.vec_n, rule=rule_e_min2)
 
-    def rule_p_tot_max_curt(model, i):
-        return model.p_vec1[i] + model.p_vec2[i] - model.p_cur[i]  <= p_max - power_res[i]
-    
+    ## Minimum and maximum power bounds, considering curtailment
+    if formulation == 'lp_alt':
+        def rule_p_tot_min(model, i):
+            return model.p_vec1[i] + model.p_vec2[i] - model.p_cur[i] >= p_min_vec[i]- power_res[i]
+        def rule_p_tot_max_storage(model, i):
+            return model.p_vec1[i] + model.p_vec2[i] <= max(p_max - power_res[i], 0)
+        def rule_p_tot_max_curt(model, i):
+            return model.p_vec1[i] + model.p_vec2[i] - model.p_cur[i]  <= p_max - power_res[i]
+
+    else:
+        def rule_p_tot_min(model, i):
+            return model.p_vec1_discharge[i] - model.p_vec1_charge[i] + model.p_vec2_discharge[i] - model.p_vec2_charge[i] - model.p_cur[i] >= p_min_vec[i]- power_res[i]
+        def rule_p_tot_max_storage(model, i):
+            return model.p_vec1_discharge[i] - model.p_vec1_charge[i] + model.p_vec2_discharge[i] - model.p_vec2_charge[i] <= max(p_max - power_res[i], 0)
+        def rule_p_tot_max_curt(model, i):
+            return model.p_vec1_discharge[i] - model.p_vec1_charge[i] + model.p_vec2_discharge[i] - model.p_vec2_charge[i] - model.p_cur[i]  <= p_max - power_res[i]
+
+
+    model.p_tot_min = pyo.Constraint(model.vec_n, rule=rule_p_tot_min)
+    model.p_tot_max_storage = pyo.Constraint(model.vec_n, rule=rule_p_tot_max_storage)
+    model.p_tot_max_curt = pyo.Constraint(model.vec_n, rule=rule_p_tot_max_curt)
+
+    # Bound on curtailement
     def rule_p_cur_lim(model, i):
         return model.p_cur[i] <= power_res[i]
+    model.p_cur_lim = pyo.Constraint(model.vec_n, rule=rule_p_cur_lim)
 
     # Constraint for each storage type
     # The initial state-of-charge is constrained to be equal to the last one.
@@ -261,46 +364,35 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod1: Production, prod2: Production, s
     if e_start2 is not None:
         model.e_fix_start2 = pyo.Constraint(expr = model.e_vec2[0] == e_start2)
 
-    model.e_model_charge1 = pyo.Constraint(model.vec_n, rule=rule_e_model_charge1)
-    model.e_model_discharge1 = pyo.Constraint(model.vec_n, rule=rule_e_model_discharge1)
-
-    model.p_min1 = pyo.Constraint(model.vec_n, rule=rule_p_min1)
-    model.p_max1 = pyo.Constraint(model.vec_n, rule=rule_p_max1)
-    model.e_max1 = pyo.Constraint(model.vec_n, rule=rule_e_max1)
-    model.e_min1 = pyo.Constraint(model.vec_n, rule=rule_e_min1)
-
-    model.e_model_charge2 = pyo.Constraint(model.vec_n, rule=rule_e_model_charge2)
-    model.e_model_discharge2 = pyo.Constraint(model.vec_n, rule=rule_e_model_discharge2)
-
-    model.p_min2 = pyo.Constraint(model.vec_n, rule=rule_p_min2)
-    model.p_max2 = pyo.Constraint(model.vec_n, rule=rule_p_max2)
-    model.e_max2 = pyo.Constraint(model.vec_n, rule=rule_e_max2)
-    model.e_min2 = pyo.Constraint(model.vec_n, rule=rule_e_min2)
-
     # Ramp limitation constraint
     if dp_min is not None: 
-        def rule_dp_tot_min(model, i):
-            return model.p_vec1[i+1] + model.p_vec2[i+1] - model.p_vec1[i] - model.p_vec2[i] - (model.p_cur[i+1] - model.p_cur[i])>= dp_min - power_res[i+1] + power_res[i]
+        if formulation == 'lp_alt':
+            def rule_dp_tot_min(model, i):
+                return model.p_vec1[i+1] + model.p_vec2[i+1] - model.p_vec1[i] - model.p_vec2[i] - (model.p_cur[i+1] - model.p_cur[i])>= dp_min - power_res[i+1] + power_res[i]
+        else: 
+            def rule_dp_tot_min(model, i):
+                return (model.p_vec1_discharge[i+1] - model.p_vec1_charge[i+1]) + (model.p_vec2_discharge[i+1] - model.p_vec2_charge[i+1]) - (model.p_vec1_discharge[i] - model.p_vec1_charge[i]) - (model.p_vec2_discharge[i] - model.p_vec2_charge[i]) - (model.p_cur[i+1] - model.p_cur[i])>= dp_min - power_res[i+1] + power_res[i]
+
         model.dp_tot_min = pyo.Constraint(model.vec_nm1, rule=rule_dp_tot_min)
     
     if dp_max is not None:   
-        def rule_dp_tot_max(model, i):
-            return model.p_vec1[i+1] + model.p_vec2[i+1] - model.p_vec1[i] - model.p_vec2[i] - (model.p_cur[i+1] - model.p_cur[i])<= dp_max - power_res[i+1] + power_res[i]
+        if formulation == 'lp_alt':
+            def rule_dp_tot_max(model, i):
+                return model.p_vec1[i+1] + model.p_vec2[i+1] - model.p_vec1[i] - model.p_vec2[i] - (model.p_cur[i+1] - model.p_cur[i])<= dp_max - power_res[i+1] + power_res[i]
+        else:
+            def rule_dp_tot_max(model, i):
+                return (model.p_vec1_discharge[i+1] - model.p_vec1_charge[i+1]) + (model.p_vec2_discharge[i+1] - model.p_vec2_charge[i+1]) - (model.p_vec1_discharge[i] - model.p_vec1_charge[i]) - (model.p_vec2_discharge[i] - model.p_vec2_charge[i]) - (model.p_cur[i+1] - model.p_cur[i]) <= dp_max - power_res[i+1] + power_res[i]
+            
         model.dp_tot_max = pyo.Constraint(model.vec_nm1, rule=rule_dp_tot_max)
 
     # Other constraints
-    model.p_tot_min = pyo.Constraint(model.vec_n, rule=rule_p_tot_min)
-    model.p_tot_max_storage = pyo.Constraint(model.vec_n, rule=rule_p_tot_max_storage)
-    model.p_tot_max_curt = pyo.Constraint(model.vec_n, rule=rule_p_tot_max_curt)
-    model.p_cur_lim = pyo.Constraint(model.vec_n, rule=rule_p_cur_lim)
 
-    # Solve problem
-    # Gap D: declare dual Suffix BEFORE solve so the solver populates shadow prices
+    # Option to return the dual variale of the problem.
     if return_duals:
         model.dual = pyo.Suffix(direction=pyo.Suffix.IMPORT)
         model.rc   = pyo.Suffix(direction=pyo.Suffix.IMPORT)   # reduced costs for e_cap1 cross-check
 
-
+    # Solve problem
     if verbose:
         results = pyo.SolverFactory(name_solver).solve(model, tee = True)
         model.display()
@@ -317,15 +409,20 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod1: Production, prod2: Production, s
     p_cur = [pyo.value(model.p_cur[e]) for e in model.p_cur]
 
     e_vec1 = [pyo.value(model.e_vec1[e]) for e in model.e_vec1]
-    p_vec1 = [pyo.value(model.p_vec1[e]) for e in model.p_vec1]
     e_cap1 = pyo.value(model.e_cap1)
     p_cap1 = pyo.value(model.p_cap1)
 
     e_vec2 = [pyo.value(model.e_vec2[e]) for e in model.e_vec2]
-    p_vec2 = [pyo.value(model.p_vec2[e]) for e in model.p_vec2]
     e_cap2 = pyo.value(model.e_cap2)
     p_cap2 = pyo.value(model.p_cap2)
 
+    if formulation == 'lp_alt':
+        p_vec1 = [pyo.value(model.p_vec1[e]) for e in model.p_vec1]
+        p_vec2 = [pyo.value(model.p_vec2[e]) for e in model.p_vec2]
+    else: 
+        p_vec1 = [pyo.value(model.p_vec1_discharge[e]) - pyo.value(model.p_vec1_charge[f]) for e, f in zip(model.p_vec1_discharge, model.p_vec1_charge)]
+        p_vec2 = [pyo.value(model.p_vec2_discharge[e]) - pyo.value(model.p_vec2_charge[f]) for e, f in zip(model.p_vec2_discharge, model.p_vec2_charge)]
+        
 
     # Calculate power losses
     power_res_new = []
@@ -374,6 +471,7 @@ def solve_lp_pyomo(price_ts: TimeSeries, prod1: Production, prod2: Production, s
                              TimeSeries(p_vec2, dt)],
                 storage_e = [TimeSeries(e_vec1[:n], dt),
                              TimeSeries(e_vec2[:n], dt)],
+                # curtailment_p = TimeSeries(p_curtail, dt),
                 price = price_ts.data[:n])
 
     os_res.get_npv_irr(discount_rate, n_year)

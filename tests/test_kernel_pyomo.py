@@ -143,6 +143,416 @@ def test_solve_lp_pyomo():
 
     assert (energy_in -(energy_delivered + energy_lost + dt*sum(p_curtail))) <= tol
 
+def test_solve_lp_pyomo_lp():
+    power = np.array([2,1,2, 2, 3])
+    n = len(power)
+    dt = 1.0
+    price = np.array([0.1, 0.1, 0.2, 0.1, 0.1])
+    p_min = 0.5
+    p_min_vec = np.array([0.5,0.5,0.5,0.5,0.5])
+    p_max = 4.0
+    dp_lim = 0.5
+
+    power_ts = TimeSeries(0.5*power, dt)
+    price_ts = TimeSeries(price, dt)
+    stor_batt = Storage(1,1,1,1,1,1)
+    stor_h2 = Storage(1,1,1,1,1,1)
+    discount_rate = 0.03
+    n_year = 20
+
+    prod_wind = Production(power_ts, p_cost = 1)
+    prod_pv = Production(power_ts, p_cost = 1)
+
+    # Test the function with p_min as a scalar
+    _ = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                        discount_rate, n_year,  p_max, n, p_min, options=dict(formulation='lp'))
+
+    # Test the function with p_min as a vector
+    _ = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                        discount_rate, n_year, p_max, n, p_min_vec, options=dict(formulation='lp'))
+
+    # Raise an error if the length of p_min_vec is not equal to the number of time steps
+    try:
+        _ = solve_lp_pyomo(TimeSeries(price, 2*dt), prod_wind, prod_pv,
+                            stor_batt, stor_h2, discount_rate, n_year, p_max, n,
+                            p_min_vec, options=dict(formulation='lp'))
+    except AssertionError:
+        assert True
+    else:
+        assert False
+
+    # Raise an error if the optimization does not converge
+    try:
+        _ = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                           discount_rate, n_year, 0.0, n, 2.0, options=dict(formulation='lp'))
+    except RuntimeError:
+        assert True
+    else:
+        assert False
+
+    # Test if the capacity changes when the input fixed_cap is True
+    os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                        discount_rate, n_year, p_max, n, p_min, options=dict(fixed_cap=True, formulation= 'lp'))
+    assert os.storage_list[0].p_cap == 1
+    assert os.storage_list[1].p_cap == 1
+    assert os.storage_list[0].e_cap == 1
+    assert os.storage_list[1].e_cap == 1
+
+    # Test the function with the parameter dp_min / dp_max
+    _ = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                        discount_rate, n_year, p_max, n, dp_min = -dp_lim, options=dict(formulation='lp'))  
+    _ = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                        discount_rate, n_year, p_max, n, dp_max = dp_lim, options=dict(formulation='lp'))   
+    
+    # Test the function with an incorrect value for dp_min / dp_max
+    try:
+        _ = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                        discount_rate, n_year, p_max, n, dp_min = 0.5, options=dict(formulation='lp'))   
+
+    except AssertionError:
+        assert True
+    else:
+        assert False
+
+    try:
+        _ = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                        discount_rate, n_year, p_max, n, dp_max = -0.5, options=dict(formulation='lp'))   
+
+    except AssertionError:
+        assert True
+    else:
+        assert False
+
+    # Check that curtailment is correctly implemented
+    p_max_curt = 2
+    os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                        discount_rate, n_year, p_max_curt, n, options=dict(fixed_cap=True, formulation='lp'))
+    assert( max(os.power_out.data) <= p_max_curt)
+
+    # Check that the depth of discharge is correctly implemented
+
+    tol = 1e-5
+    stor_soc = Storage(1,1,1,1,1,1, soc_min = 0.1)
+    stor_null = Storage(e_cap = 0, p_cap = 0)
+
+    os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_soc, stor_null,
+                        discount_rate, n_year, p_max, n, p_min = p_min, options=dict(formulation='lp'))
+    assert min(os.storage_e[0].data) >= stor_soc.e_cap*stor_soc.soc_min-tol
+    assert os.storage_list[0].soc_min == 0.1
+
+    os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_null, stor_soc, 
+                        discount_rate, n_year, p_max, n, p_min = p_min, options=dict(formulation='lp'))
+    assert min(os.storage_e[1].data) >= stor_soc.e_cap*stor_soc.soc_min-tol
+    assert os.storage_list[1].soc_min == 0.1
+
+    stor_soc = Storage(1,1,1,1,1,1, soc_max = 0.9)
+    stor_null = Storage(e_cap = 0, p_cap = 0)
+
+    os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_soc, stor_null,
+                        discount_rate, n_year,  p_max, n, p_min = p_min, options=dict(formulation='lp'))
+    assert max(os.storage_e[0].data) <= stor_soc.e_cap*stor_soc.soc_max + tol
+    assert os.storage_list[0].soc_max == 0.9
+
+    os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_null, stor_soc, 
+                        discount_rate, n_year,  p_max, n, p_min = p_min, options=dict(formulation='lp'))
+    assert min(os.storage_e[1].data) <=  stor_soc.e_cap*stor_soc.soc_max + tol
+    assert os.storage_list[1].soc_max == 0.9
+
+    # Check energy balance
+    os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                        discount_rate, n_year,  p_max, n,  options = dict(fixed_cap=True, formulation= 'lp'))
+    
+    energy_in = dt*(sum(prod_wind.power.data) + sum(prod_pv.power.data))
+    energy_delivered= dt*(sum(os.power_out.data))
+    energy_lost = dt*(sum(os.losses[0])+ sum(os.losses[1]))
+    assert (energy_in - (energy_delivered + energy_lost)) <= tol
+
+    # Check energy balance in case of curtailment
+    
+    os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                        discount_rate, n_year, p_max_curt, n,  options = dict(fixed_cap=True,formulation='lp'))
+    
+    energy_in = dt*(sum(prod_wind.power.data) + sum(prod_pv.power.data))
+    energy_delivered= dt*(sum(os.power_out.data))
+    energy_lost = dt*(sum(os.losses[0])+ sum(os.losses[1]))
+    assert energy_in >= energy_delivered + energy_lost
+    
+    p_curtail = prod_wind.power.data - os.production_p[0].data
+
+    assert (energy_in -(energy_delivered + energy_lost + dt*sum(p_curtail))) <= tol
+
+def test_solve_lp_pyomo_milp():
+    power = np.array([2,1,2, 2, 3])
+    n = len(power)
+    dt = 1.0
+    price = np.array([0.1, 0.1, 0.2, 0.1, 0.1])
+    p_min = 0.5
+    p_min_vec = np.array([0.5,0.5,0.5,0.5,0.5])
+    p_max = 4.0
+    dp_lim = 0.5
+
+    power_ts = TimeSeries(0.5*power, dt)
+    price_ts = TimeSeries(price, dt)
+    stor_batt = Storage(1,1,1,1,1,1)
+    stor_h2 = Storage(1,1,1,1,1,1)
+    discount_rate = 0.03
+    n_year = 20
+
+    prod_wind = Production(power_ts, p_cost = 1)
+    prod_pv = Production(power_ts, p_cost = 1)
+
+    # Test the function with p_min as a scalar
+    _ = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                        discount_rate, n_year,  p_max, n, p_min, options=dict(formulation='milp'))
+
+    # Test the function with p_min as a vector
+    _ = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                        discount_rate, n_year, p_max, n, p_min_vec, options=dict(formulation='milp'))
+
+    # Raise an error if the length of p_min_vec is not equal to the number of time steps
+    try:
+        _ = solve_lp_pyomo(TimeSeries(price, 2*dt), prod_wind, prod_pv,
+                            stor_batt, stor_h2, discount_rate, n_year, p_max, n,
+                            p_min_vec, options=dict(formulation='milp'))
+    except AssertionError:
+        assert True
+    else:
+        assert False
+
+    # Raise an error if the optimization does not converge
+    try:
+        _ = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                           discount_rate, n_year, 0.0, n, 2.0, options=dict(formulation='milp'))
+    except RuntimeError:
+        assert True
+    else:
+        assert False
+
+    # Test if the capacity changes when the input fixed_cap is True
+    os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                        discount_rate, n_year, p_max, n, p_min, options=dict(fixed_cap=True, formulation= 'milp'))
+    assert os.storage_list[0].p_cap == 1
+    assert os.storage_list[1].p_cap == 1
+    assert os.storage_list[0].e_cap == 1
+    assert os.storage_list[1].e_cap == 1
+
+    # Test the function with the parameter dp_min / dp_max
+    _ = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                        discount_rate, n_year, p_max, n, dp_min = -dp_lim, options=dict(formulation='milp'))  
+    _ = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                        discount_rate, n_year, p_max, n, dp_max = dp_lim, options=dict(formulation='milp'))   
+    
+    # Test the function with an incorrect value for dp_min / dp_max
+    try:
+        _ = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                        discount_rate, n_year, p_max, n, dp_min = 0.5, options=dict(formulation='milp'))   
+
+    except AssertionError:
+        assert True
+    else:
+        assert False
+
+    try:
+        _ = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                        discount_rate, n_year, p_max, n, dp_max = -0.5, options=dict(formulation='milp'))   
+
+    except AssertionError:
+        assert True
+    else:
+        assert False
+
+    # Check that curtailment is correctly implemented
+    p_max_curt = 2
+    os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                        discount_rate, n_year, p_max_curt, n, options=dict(fixed_cap=True, formulation='milp'))
+    assert( max(os.power_out.data) <= p_max_curt)
+
+    # Check that the depth of discharge is correctly implemented
+
+    tol = 1e-5
+    stor_soc = Storage(1,1,1,1,1,1, soc_min = 0.1)
+    stor_null = Storage(e_cap = 0, p_cap = 0)
+
+    os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_soc, stor_null,
+                        discount_rate, n_year, p_max, n, p_min = p_min, options=dict(formulation='milp'))
+    assert min(os.storage_e[0].data) >= stor_soc.e_cap*stor_soc.soc_min-tol
+    assert os.storage_list[0].soc_min == 0.1
+
+    os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_null, stor_soc, 
+                        discount_rate, n_year, p_max, n, p_min = p_min, options=dict(formulation='milp'))
+    assert min(os.storage_e[1].data) >= stor_soc.e_cap*stor_soc.soc_min-tol
+    assert os.storage_list[1].soc_min == 0.1
+
+    stor_soc = Storage(1,1,1,1,1,1, soc_max = 0.9)
+    stor_null = Storage(e_cap = 0, p_cap = 0)
+
+    os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_soc, stor_null,
+                        discount_rate, n_year,  p_max, n, p_min = p_min, options=dict(formulation='milp'))
+    assert max(os.storage_e[0].data) <= stor_soc.e_cap*stor_soc.soc_max + tol
+    assert os.storage_list[0].soc_max == 0.9
+
+    os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_null, stor_soc, 
+                        discount_rate, n_year,  p_max, n, p_min = p_min, options=dict(formulation='milp'))
+    assert min(os.storage_e[1].data) <=  stor_soc.e_cap*stor_soc.soc_max + tol
+    assert os.storage_list[1].soc_max == 0.9
+
+    # Check energy balance
+    os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                        discount_rate, n_year,  p_max, n,  options = dict(fixed_cap=True, formulation= 'milp'))
+    
+    energy_in = dt*(sum(prod_wind.power.data) + sum(prod_pv.power.data))
+    energy_delivered= dt*(sum(os.power_out.data))
+    energy_lost = dt*(sum(os.losses[0])+ sum(os.losses[1]))
+    assert (energy_in - (energy_delivered + energy_lost)) <= tol
+
+    # Check energy balance in case of curtailment
+    
+    os = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor_batt, stor_h2,
+                        discount_rate, n_year, p_max_curt, n,  options = dict(fixed_cap=True,formulation='milp'))
+    
+    energy_in = dt*(sum(prod_wind.power.data) + sum(prod_pv.power.data))
+    energy_delivered= dt*(sum(os.power_out.data))
+    energy_lost = dt*(sum(os.losses[0])+ sum(os.losses[1]))
+    assert energy_in >= energy_delivered + energy_lost
+    
+    p_curtail = prod_wind.power.data - os.production_p[0].data
+
+    assert (energy_in -(energy_delivered + energy_lost + dt*sum(p_curtail))) <= tol
+
+# def test_solve_lp_pyomo_formulation_alt():
+#     '''Test of function solve_lp_pyomo comparing the three possible formulations'''
+#     power = np.array([0.5,1,2, 2, 3])
+#     n = len(power)
+#     dt = 1.0
+#     price = [0.05, 0.1, 0.2, 0.3, 0.35]
+#     p_min = 0.5
+#     p_max = 4.0
+
+#     tol = 1e-7
+
+#     assert isinstance(price, list)
+#     assert all(isinstance(p, (int, float)) for p in price)
+
+#     power_ts = TimeSeries(0.5*power, dt)
+#     price_ts = TimeSeries(price, dt)
+#     stor2 = Storage(0.5,0.5,1.0,1.0,1,1)
+#     stor1 = Storage(1.0,1.0,0.5,0.5,10,10)
+
+#     discount_rate = 0.03
+#     n_year = 20
+
+#     prod_wind = Production(power_ts, p_cost = 1)
+#     prod_pv = Production(power_ts, p_cost = 1)
+
+
+#     # check that the formulation is the same as in solve_lp_sparse
+#     from shipp.kernel import solve_lp_sparse
+#     for p_min, p_max in zip([0, 0.1, 0.2, 0.2], [4.0, 4.0, 4.0, 2.5]):
+#         for formulation in [ 'lp_alt']:
+#             os_pyo = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor1, stor2,
+#                             discount_rate, n_year, p_max, n, p_min = p_min, options = dict(fixed_cap = True, formulation = formulation, epsilon = 0.0, alpha_obj = 0, beta_obj = 1))
+#             os_sparse = solve_lp_sparse(price_ts, prod_wind, prod_pv, stor1, stor2,
+#                             discount_rate, n_year, p_max, n, p_min = p_min, options = dict(fixed_cap = True, formulation = formulation, epsilon = 0.0, alpha_obj = 0, beta_obj = 1))
+
+#             assert np.isclose(os_pyo.production_p[0].data, os_sparse.production_p[0].data, atol=tol).all(), print(formulation, os_pyo.production_p[0].data, os_sparse.production_p[0].data)
+#             assert np.isclose(os_pyo.production_p[1].data, os_sparse.production_p[1].data, atol=tol).all(), print(formulation, os_pyo.production_p[0].data, os_sparse.production_p[0].data)
+
+#             assert abs(os_pyo.storage_list[0].p_cap - os_sparse.storage_list[0].p_cap) <tol, print(formulation, os_pyo.storage_list[0].p_cap, os_sparse.storage_list[0].p_cap)
+#             assert abs(os_pyo.storage_list[0].e_cap - os_sparse.storage_list[0].e_cap)<tol, print(formulation, os_pyo.storage_list[0].e_cap, os_sparse.storage_list[0].e_cap)
+#             assert abs(os_pyo.storage_list[1].p_cap-os_sparse.storage_list[1].p_cap)<tol, print(formulation, os_pyo.storage_list[0], '\n', os_pyo.storage_list[1], '\n', os_sparse.storage_list[0] ,'\n', os_sparse.storage_list[1])
+#             assert abs(os_pyo.storage_list[1].e_cap-os_sparse.storage_list[1].e_cap)<tol, print(formulation, os_pyo.storage_list[1].e_cap, os_sparse.storage_list[1].e_cap)
+
+#             assert np.isclose(os_pyo.storage_p[0].data, os_sparse.storage_p[0].data, atol=tol).all(), print(formulation, p_min, p_max, os_pyo.storage_p[0].data, os_sparse.storage_p[0].data)
+#             assert np.isclose(os_pyo.storage_p[1].data, os_sparse.storage_p[1].data, atol=tol).all(), print(formulation, p_min, p_max,'\n os1\n', os_pyo.storage_list[0], os_pyo.storage_list[1], '\n', os_pyo.storage_p[0].data, os_pyo.storage_p[1].data,'\n', os_pyo.power_out.data, '\n os_sparse\n', os_sparse.storage_list[0], os_sparse.storage_list[1], '\n', os_sparse.storage_p[0].data , os_sparse.storage_p[1].data,'\n', os_sparse.power_out.data)
+#             assert np.isclose(os_pyo.storage_e[0].data, os_sparse.storage_e[0].data, atol=tol).all()
+#             assert np.isclose(os_pyo.storage_e[1].data, os_sparse.storage_e[1].data, atol=tol).all()
+
+
+def test_solve_lp_pyomo_formulation():
+    '''Test of function solve_lp_pyomo comparing the two possible formulations: lp and milp'''
+    power = np.array([0.5,1,2, 2, 3])
+    n = len(power)
+    dt = 1.0
+    price = [0.05, 0.1, 0.2, 0.3, 0.35]
+    p_min = 0.5
+    p_max = 4.0
+
+    tol = 1e-7
+
+    assert isinstance(price, list)
+    assert all(isinstance(p, (int, float)) for p in price)
+
+    power_ts = TimeSeries(0.5*power, dt)
+    price_ts = TimeSeries(price, dt)
+    stor2 = Storage(0.5,0.5,1.0,1.0,1,1)
+    stor1 = Storage(1.0,1.0,0.5,0.5,10,10)
+
+    discount_rate = 0.03
+    n_year = 20
+
+    prod_wind = Production(power_ts, p_cost = 1)
+    prod_pv = Production(power_ts, p_cost = 1)
+
+
+    # check that the formulation is the same as in solve_lp_sparse
+    from shipp.kernel import solve_lp_sparse
+    for p_min, p_max in zip([0, 0.1, 0.2, 0.2], [4.0, 4.0, 4.0, 2.5]):
+        for formulation in ['milp', 'lp']:
+            os_pyo = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor1, stor2,
+                            discount_rate, n_year, p_max, n, p_min = p_min, options = dict(fixed_cap = True, formulation = formulation, epsilon = 0.0, alpha_obj = 1-1e-3, beta_obj = 0))
+            os_sparse = solve_lp_sparse(price_ts, prod_wind, prod_pv, stor1, stor2,
+                            discount_rate, n_year, p_max, n, p_min = p_min, options = dict(fixed_cap = True, formulation = formulation, epsilon = 0.0, alpha_obj = 1-1e-3, beta_obj = 0))
+
+            assert np.isclose(os_pyo.production_p[0].data, os_sparse.production_p[0].data, atol=tol).all(), print(formulation, os_pyo.production_p[0].data, os_sparse.production_p[0].data)
+            assert np.isclose(os_pyo.production_p[1].data, os_sparse.production_p[1].data, atol=tol).all(), print(formulation, os_pyo.production_p[0].data, os_sparse.production_p[0].data)
+
+            assert abs(os_pyo.storage_list[0].p_cap - os_sparse.storage_list[0].p_cap) <tol, print(formulation, os_pyo.storage_list[0].p_cap, os_sparse.storage_list[0].p_cap)
+            assert abs(os_pyo.storage_list[0].e_cap - os_sparse.storage_list[0].e_cap)<tol, print(formulation, os_pyo.storage_list[0].e_cap, os_sparse.storage_list[0].e_cap)
+            assert abs(os_pyo.storage_list[1].p_cap-os_sparse.storage_list[1].p_cap)<tol, print(formulation, os_pyo.storage_list[0], '\n', os_pyo.storage_list[1], '\n', os_sparse.storage_list[0] ,'\n', os_sparse.storage_list[1])
+            assert abs(os_pyo.storage_list[1].e_cap-os_sparse.storage_list[1].e_cap)<tol, print(formulation, os_pyo.storage_list[1].e_cap, os_sparse.storage_list[1].e_cap)
+
+            assert np.isclose(os_pyo.storage_p[0].data, os_sparse.storage_p[0].data, atol=tol).all(), print(formulation, p_min, p_max, os_pyo.storage_p[0].data, os_sparse.storage_p[0].data)
+            assert np.isclose(os_pyo.storage_p[1].data, os_sparse.storage_p[1].data, atol=tol).all(), print(formulation, p_min, p_max,'\n os1\n', os_pyo.storage_list[0], os_pyo.storage_list[1], '\n', os_pyo.storage_p[0].data, os_pyo.storage_p[1].data,'\n', os_pyo.power_out.data, '\n os_sparse\n', os_sparse.storage_list[0], os_sparse.storage_list[1], '\n', os_sparse.storage_p[0].data , os_sparse.storage_p[1].data,'\n', os_sparse.power_out.data)
+            assert np.isclose(os_pyo.storage_e[0].data, os_sparse.storage_e[0].data, atol=tol).all()
+            assert np.isclose(os_pyo.storage_e[1].data, os_sparse.storage_e[1].data, atol=tol).all()
+            
+    
+    for p_min, p_max in zip([0, 0.1, 0.2, 0.2], [4.0, 4.0, 4.0, 2.5]):
+
+        os1 = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor1, stor2,
+                            discount_rate, n_year, p_max, n, p_min = p_min, options = dict(fixed_cap = True, formulation = 'lp', epsilon = 0.0))
+
+        os3 = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor1, stor2,
+                            discount_rate, n_year, p_max, n, p_min = p_min, options = dict(fixed_cap = True, formulation = 'milp', epsilon = 0.0))
+  
+        assert np.isclose(os1.production_p[0].data, os3.production_p[0].data, atol=tol).all()
+        assert np.isclose(os1.production_p[1].data, os3.production_p[1].data, atol=tol).all()
+        assert np.isclose(os1.storage_p[0].data, os3.storage_p[0].data, atol=tol).all(), print(p_min, p_max, os1.storage_p[0].data, os3.storage_p[0].data)
+        assert np.isclose(os1.storage_p[1].data, os3.storage_p[1].data, atol=tol).all(), print(p_min, p_max,'\n os1\n', os1.storage_list[0], os1.storage_list[1], '\n', os1.storage_p[0].data, os1.storage_p[1].data,'\n', os1.power_out.data, '\n os3\n', os3.storage_list[0], os3.storage_list[1], '\n', os3.storage_p[0].data , os3.storage_p[1].data,'\n', os3.power_out.data)
+        assert np.isclose(os1.storage_e[0].data, os3.storage_e[0].data, atol=tol).all()
+        assert np.isclose(os1.storage_e[1].data, os3.storage_e[1].data, atol=tol).all()
+
+        os1 = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor1, stor2,
+                            discount_rate, n_year, p_max, n, p_min=p_min, options = dict(fixed_cap = False, formulation = 'lp', epsilon = 1e-6, alpha_obj = 1.0))
+
+
+        os3 = solve_lp_pyomo(price_ts, prod_wind, prod_pv, stor1, stor2,
+                            discount_rate, n_year, p_max, n, p_min=p_min, options = dict(fixed_cap = False, formulation = 'milp', epsilon = 0.0, alpha_obj = 1.0))
+  
+        assert np.isclose(os1.production_p[0].data, os3.production_p[0].data, atol = tol).all()
+        assert np.isclose(os1.production_p[1].data, os3.production_p[1].data, atol = tol).all()
+        assert abs(os1.storage_list[0].p_cap - os3.storage_list[0].p_cap)<tol, print(os1.storage_list[0].p_cap, os3.storage_list[0].p_cap)
+        assert abs(os1.storage_list[0].e_cap - os3.storage_list[0].e_cap)<tol, print(os1.storage_list[0].e_cap, os3.storage_list[0].e_cap)
+        assert abs(os1.storage_list[1].p_cap - os3.storage_list[1].p_cap)<tol, print(os1.storage_list[0], '\n', os1.storage_list[1], '\n', os3.storage_list[0] ,'\n', os3.storage_list[1])
+        assert abs(os1.storage_list[1].e_cap - os3.storage_list[1].e_cap)<tol, print(os1.storage_list[1].e_cap, os3.storage_list[1].e_cap)
+        assert np.isclose(os1.storage_p[0].data, os3.storage_p[0].data, atol = tol).all(), print(os1.storage_p[0].data, os3.storage_p[0].data)
+        assert np.isclose(os1.storage_p[1].data, os3.storage_p[1].data, atol = tol).all()
+        assert np.isclose(os1.storage_e[0].data, os3.storage_e[0].data, atol = tol).all()
+        assert np.isclose(os1.storage_e[1].data, os3.storage_e[1].data, atol = tol).all()
+        
+
+
+
 
 def test_run_storage_operation():
     power = [2, 1, 2, 2, 3, 5]
