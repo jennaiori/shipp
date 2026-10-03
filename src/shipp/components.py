@@ -41,9 +41,9 @@ class Storage:
                  p_cost: float = 0, soc_min: float = 0, soc_max: float = 1, lifetime: int = 8, opex_fix: float = 0, opex_var: float = 0,
                  duration: float = None) -> None:
         if e_cap is not None:
-            assert e_cap >=0
+            assert e_cap >= -1e-6 # added a small tolerance for solver precision, Gurobi may sometimes return 10^-13 instead of 0 :)
         if p_cap is not None:
-            assert p_cap >=0
+            assert p_cap >= -1e-6
         assert 1 >= soc_min >= 0
         assert 1 >= soc_max >= 0
         assert  soc_max >= soc_min
