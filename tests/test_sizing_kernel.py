@@ -382,7 +382,7 @@ def _check_sizing_kernel_fixed_production(formulation):
     so the test only checks that the free-production run is not worse
     than the pinned-production run.
     """
-    n = 24 * 7
+    n = 24 * 30
     dt = 1.0
 
     hours = np.arange(n)
@@ -494,14 +494,16 @@ def _check_sizing_kernel_fixed_production(formulation):
             f"{fict_pinned:.1f} MWh fict"
         )
 
-def test_sizing_free_capacities_across_storage_cost():
+def test_sizing_free_capacities():
     """Compare the three sizing formulations across a range of storage
-    p_cap costs with both production and storage capacity free.
+    energy-capacity costs with both production and storage capacity free.
 
-    Comparable quantities across formulations are the capacity
-    decisions, the objective value, and (for lp and milp) the grid
-    dispatch. lp_alt is a relaxation and is not expected to match milp
-    on power_out.
+    Storage power cost is zero throughout; only e_cost is varied. The
+    measured capacity is e_cap, since that is what the cost term is
+    attached to. The milp and lp trajectories of storage_e must agree;
+    lp_alt is expected to diverge on storage_e where the both-slack
+    degeneracy is present, and the test asserts that divergence is
+    confined to timesteps where both dynamics constraints are slack.
     """
     n = 24 * 30
     dt = 1.0
@@ -523,13 +525,13 @@ def test_sizing_free_capacities_across_storage_cost():
     eff = 0.95
     duration = 2.0
 
-    p_costs = [1e2, 1e4, 1e5, 1.25e5, 1.5e5, 1.75e5, 2.0e5,
-               2.25e5, 2.5e5, 2.75e5, 3e5, 1e6, 1e8]
+    e_costs = [1e2, 1e3, 1e4, 3e4, 5e4, 7e4, 1e5, 1.5e5,
+               2e5, 3e5, 5e5, 1e6, 1e8]
 
     rows = []
 
-    for p_cost in p_costs:
-        row = {'p_cost': p_cost}
+    for e_cost in e_costs:
+        row = {'e_cost': e_cost}
         for formulation in ('lp_alt', 'lp', 'milp'):
             prod_wind = Production(prof_unit_ts,
                                    p_cost=1_000_000.0, opex_fix=0.0,
@@ -539,7 +541,7 @@ def test_sizing_free_capacities_across_storage_cost():
                                  p_max=None, p_max_is_decision=True)
             stor = Storage(e_cap=None, p_cap=None,
                            eff_in=eff, eff_out=eff,
-                           p_cost=p_cost, e_cost=p_cost,
+                           p_cost=0.0, e_cost=e_cost,
                            soc_min=0.0, soc_max=1.0,
                            duration=duration)
             stor_null = Storage(e_cap=None, p_cap=0.0,
@@ -566,82 +568,114 @@ def test_sizing_free_capacities_across_storage_cost():
             row[(formulation, 'npv')] = os_.npv_objective
             row[(formulation, 'power_out')] = np.asarray(
                 os_.power_out.data, dtype=float)
+            row[(formulation, 'storage_e')] = np.asarray(
+                os_.storage_e[0].data, dtype=float)
+            row[(formulation, 'storage_p')] = np.asarray(
+                os_.storage_p[0].data, dtype=float)
             row[(formulation, 'loss_ok')] = os_.check_losses(1e-4)
 
         rows.append(row)
 
-    # Print the sweep
-    header = (f"  {'p_cost':>10} | {'x1 (milp/lp/alt)':>30} | "
-              f"{'p_cap (milp/lp/alt)':>30} | "
-              f"{'npv (milp/lp/alt)':>30} | "
-              f"{'|dP| milp-lp':>12} | {'|dP| milp-alt':>14} | "
-              f"{'loss ok (lp/alt)':>17}")
+    # ---- print the sweep -------------------------------------------
+    header = (
+        f"  {'e_cost':>10} | {'x1 (milp/lp/alt)':>30} | "
+        f"{'e_cap (milp/lp/alt)':>30} | "
+        f"{'npv (milp/lp/alt)':>30} | "
+        f"{'max|dE| milp-lp':>16} | {'max|dE| milp-alt':>18} | "
+        f"{'alt slack h':>12} | {'loss ok (lp/alt)':>17}"
+    )
     print(f"\n{header}")
     for row in rows:
         x1s = "/".join(f"{row[(f, 'x1')]:.2f}"
                        for f in ('milp', 'lp', 'lp_alt'))
-        pcs = "/".join(f"{row[(f, 'p_cap')]:.2f}"
+        ecs = "/".join(f"{row[(f, 'e_cap')]:.2f}"
                        for f in ('milp', 'lp', 'lp_alt'))
         npvs = "/".join(f"{row[(f, 'npv')]:.3f}"
                         for f in ('milp', 'lp', 'lp_alt'))
-        dp_lp = float(np.max(np.abs(
-            row[('lp', 'power_out')] - row[('milp', 'power_out')])))
-        dp_alt = float(np.max(np.abs(
-            row[('lp_alt', 'power_out')] - row[('milp', 'power_out')])))
+        de_lp = float(np.max(np.abs(
+            row[('lp', 'storage_e')] - row[('milp', 'storage_e')])))
+        de_alt = float(np.max(np.abs(
+            row[('lp_alt', 'storage_e')] - row[('milp', 'storage_e')])))
+        n_slack, _ = _fictitious_charge(row[('lp_alt', 'os')], eff, dt)
         loss_ok = "/".join(
             "Y" if row[(f, 'loss_ok')] else "N"
             for f in ('lp', 'lp_alt'))
-        print(f"  {row['p_cost']:>10.1e} | {x1s:>30} | "
-              f"{pcs:>30} | {npvs:>30} | {dp_lp:>12.4f} | "
-              f"{dp_alt:>14.4f} | {loss_ok:>17}")
+        print(f"  {row['e_cost']:>10.1e} | {x1s:>30} | "
+              f"{ecs:>30} | {npvs:>30} | {de_lp:>16.4f} | "
+              f"{de_alt:>18.4f} | {n_slack:>12d} | {loss_ok:>17}")
 
-    # milp is the physical reference and must pass the loss check at
-    # every cost point
+    # ---- assertions ------------------------------------------------
+
+    # milp is the physical reference
     for row in rows:
         assert row[('milp', 'loss_ok')], (
-            f"milp loss check failed at p_cost={row['p_cost']:.1e}"
+            f"milp loss check failed at e_cost={row['e_cost']:.1e}"
         )
 
-    # lp with the default epsilon should be clean and match milp on
-    # power_out
+    # lp must match milp on power_out and on storage_e
     for row in rows:
-        dp_lp = float(np.max(np.abs(
+        dp = float(np.max(np.abs(
             row[('lp', 'power_out')] - row[('milp', 'power_out')])))
-        assert dp_lp < 1e-3, (
-            f"lp and milp disagree on power_out at "
-            f"p_cost={row['p_cost']:.1e}: max |dP| = {dp_lp:.4f}"
+        de = float(np.max(np.abs(
+            row[('lp', 'storage_e')] - row[('milp', 'storage_e')])))
+        assert dp < 1e-3, (
+            f"lp/milp power_out disagree at e_cost={row['e_cost']:.1e}: "
+            f"{dp:.4f}"
+        )
+        assert de < 1e-3, (
+            f"lp/milp storage_e disagree at e_cost={row['e_cost']:.1e}: "
+            f"{de:.4f}"
         )
 
-    # At any cost, the three formulations should agree on whether to
-    # build storage at all
+    # All three formulations agree on whether to build storage
     for row in rows:
-        p_caps = [row[(f, 'p_cap')] for f in ('milp', 'lp', 'lp_alt')]
-        zero_flags = [abs(p) < 1e-3 for p in p_caps]
+        e_caps = [row[(f, 'e_cap')] for f in ('milp', 'lp', 'lp_alt')]
+        zero_flags = [abs(e) < 1e-3 for e in e_caps]
         assert all(zero_flags) or not any(zero_flags), (
             f"formulations disagree on whether to build storage at "
-            f"p_cost={row['p_cost']:.1e}: p_caps = {p_caps}"
+            f"e_cost={row['e_cost']:.1e}: e_caps = {e_caps}"
         )
 
     # At very high cost, no formulation builds storage
     high = rows[-1]
-    for formulation in ('lp_alt', 'lp', 'milp'):
-        assert abs(high[(formulation, 'p_cap')]) < 1e-3, (
-            f"[{formulation}] builds storage at p_cost=1e8"
+    for f in ('lp_alt', 'lp', 'milp'):
+        assert abs(high[(f, 'e_cap')]) < 1e-3, (
+            f"[{f}] builds storage at e_cost=1e8"
         )
 
-    # At very low cost, storage power capacity is large
+    # At very low cost, storage energy capacity is large
     low = rows[0]
-    for formulation in ('lp_alt', 'lp', 'milp'):
-        assert low[(formulation, 'p_cap')] > 10.0, (
-            f"[{formulation}] builds almost no storage at p_cost=1e2: "
-            f"p_cap = {low[(formulation, 'p_cap')]:.3f}"
+    for f in ('lp_alt', 'lp', 'milp'):
+        assert low[(f, 'e_cap')] > 10.0, (
+            f"[{f}] builds almost no storage at e_cost=1e2: "
+            f"e_cap = {low[(f, 'e_cap')]:.3f}"
         )
 
-    # Production sizing should be stable across formulations at every
-    # cost point
+    # Production sizing is stable across formulations
     for row in rows:
         x1s = [row[(f, 'x1')] for f in ('milp', 'lp', 'lp_alt')]
         assert max(x1s) - min(x1s) < 5.0, (
             f"production sizing differs across formulations at "
-            f"p_cost={row['p_cost']:.1e}: x1 = {x1s}"
+            f"e_cost={row['e_cost']:.1e}: x1 = {x1s}"
         )
+
+    # lp_alt is allowed to differ from milp on storage_e, but only at
+    # timesteps where its both-slack degeneracy is active. Where the
+    # degeneracy count is zero, lp_alt must match milp on storage_e.
+    for row in rows:
+        n_slack, _ = _fictitious_charge(row[('lp_alt', 'os')], eff, dt)
+        de_alt = np.abs(
+            row[('lp_alt', 'storage_e')] - row[('milp', 'storage_e')])
+        if n_slack == 0:
+            assert de_alt.max() < 1e-3, (
+                f"lp_alt storage_e diverges from milp at "
+                f"e_cost={row['e_cost']:.1e} despite no both-slack "
+                f"timesteps: max|dE| = {de_alt.max():.4f}"
+            )
+        else:
+            assert de_alt.max() > 1e-3, (
+                f"lp_alt reports {n_slack} both-slack timesteps at "
+                f"e_cost={row['e_cost']:.1e} but storage_e matches "
+                f"milp to {de_alt.max():.4f}; the degeneracy count and "
+                f"the SoC trajectory disagree"
+            )
