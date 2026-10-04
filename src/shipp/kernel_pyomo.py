@@ -1265,7 +1265,7 @@ def solve_lp_pyomo_sizing(price_ts: TimeSeries, prod1: Production, prod2: Produc
 
     # Default values for the options
     name_solver = 'gurobi'
-    formulation = 'lp_alt'
+    formulation = 'milp'
     epsilon = 1e-3
     verbose = False
     return_duals = False
@@ -1614,13 +1614,12 @@ def solve_lp_pyomo_sizing(price_ts: TimeSeries, prod1: Production, prod2: Produc
     if i_min is not None:
         model.i_cap_min = pyo.Constraint(expr=-capex_expr >= i_min)
 
-    # Solve problem
-    # Gap D: declare dual Suffix BEFORE solve so the solver populates shadow prices
+    # Option to return the dual variables of the problem
     if return_duals:
         model.dual = pyo.Suffix(direction=pyo.Suffix.IMPORT)
         model.rc = pyo.Suffix(direction=pyo.Suffix.IMPORT)  # reduced costs for e_cap1 cross-check
 
-
+    # Solve problem
     opt = pyo.SolverFactory(name_solver)
     if 'gurobi' in name_solver:
         opt.options['OutputFlag'] = 0
@@ -1710,11 +1709,10 @@ def solve_lp_pyomo_sizing(price_ts: TimeSeries, prod1: Production, prod2: Produc
                         duration=stor2.duration)
 
     # Post-solve check: formulating the storage headroom constraint with
-    # variable capacity production objects results in a MILP, so I do not
-    # enforce the constraint explicitly. The economics of curtailment and
+    # variable capacity production objects results in a MILP, so the
+    # constraint is not enforced. The economics of curtailment and
     # sub-unity round-trip efficiency should make violations unprofitable,
-    # so the program just checks whether the constraint is satisfied. If
-    # not, a warning is issued.
+    # so the program just checks whether the constraint is satisfied.
     if p_grid_max is not None:
         A_opt = np.array(prof1_unit.data[:n]) * x1 + np.array(prof2_unit.data[:n]) * x2
         headroom = np.maximum(p_grid_max - A_opt, 0.0)
