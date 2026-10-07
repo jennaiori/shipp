@@ -279,3 +279,101 @@ def load_technology_parameters(csv_path, country, year):
 
     grouped = df.groupby(['technology', 'parameter'])['value'].mean()
     return {key: float(val) for key, val in grouped.items()}
+
+### Sensitivity sweep plots
+
+def plot_sweep_decision_vars(df, sweep_keys, title=None):
+    """Small multiples of decision variables vs the first swept key.
+
+    One column per variable in (x_wind_mw, x_pv_mw, e_stor_mwh). One line
+    per value of the second swept key. Rows with status != 'ok' are dropped.
+
+    Args:
+        df (pd.DataFrame): sweep results.
+        sweep_keys (list[str]): two keys, the first varies along x, the
+            second becomes one line per value.
+        title (str): figure suptitle.
+    """
+    import matplotlib.pyplot as plt
+
+    x_key, series_key = sweep_keys
+    ok = df[df['status'] == 'ok'].copy()
+
+    variables = [
+        ('x_wind_mw', 'Wind [MW]'),
+        ('x_pv_mw', 'PV [MW]'),
+        ('e_stor_mwh', 'Storage energy [MWh]'),
+    ]
+
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4), sharex=True)
+    for ax, (col, label) in zip(axes, variables):
+        for series_val, sub in ok.groupby(series_key):
+            sub = sub.sort_values(x_key)
+            ax.plot(sub[x_key] * 1e-6, sub[col],
+                    marker='o', label=f"{series_key}={series_val}")
+        ax.set_xlabel(f"{x_key} [M]")
+        ax.set_ylabel(label)
+        ax.grid(alpha=0.3)
+    axes[0].legend(fontsize=8)
+    if title:
+        fig.suptitle(title)
+    fig.tight_layout()
+    plt.show()
+
+
+def plot_sweep_npv_per_capex(df, sweep_keys, title=None):
+    """NPV per nominal capex vs the first swept key, one line per value of
+    the second swept key. Points where e_stor_mwh > 0 are marked.
+
+    Args:
+        df (pd.DataFrame): sweep results.
+        sweep_keys (list[str]): two keys, same convention as the previous plot.
+        title (str): figure suptitle.
+    """
+    import matplotlib.pyplot as plt
+
+    x_key, series_key = sweep_keys
+    ok = df[df['status'] == 'ok'].copy()
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    for series_val, sub in ok.groupby(series_key):
+        sub = sub.sort_values(x_key)
+        ax.plot(sub[x_key] * 1e-6, sub['npv_per_capex'],
+                marker='o', label=f"{series_key}={series_val}")
+        stor = sub[sub['e_stor_mwh'] > 0]
+        if len(stor):
+            ax.scatter(stor[x_key] * 1e-6, stor['npv_per_capex'],
+                       marker='*', s=180, zorder=5,
+                       edgecolor='k',
+                       label=f"{series_key}={series_val} (storage on)")
+    ax.set_xlabel(f"{x_key} [M]")
+    ax.set_ylabel("NPV / nominal capex [-]")
+    ax.grid(alpha=0.3)
+    ax.legend(fontsize=8)
+    if title:
+        fig.suptitle(title)
+    fig.tight_layout()
+    plt.show()
+
+
+def plot_npv_per_capex_vs_grid_cap(df, title=None):
+    """NPV / nominal capex vs grid cap, one point per grid cap, labelled."""
+    import matplotlib.pyplot as plt
+
+    ok = df[df['status'] == 'ok'].sort_values('p_grid_max')
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    for _, row in ok.iterrows():
+        ax.scatter(row['p_grid_max'], row['npv_per_capex'],
+                   label=f"{int(row['p_grid_max'])} MW")
+
+    ax.set_xlabel("Grid cap [MW]")
+    ax.set_ylabel("NPV / nominal capex [-]")
+    ax.set_xlim(left=0)
+    ax.set_ylim(bottom=0)
+    ax.grid(alpha=0.3)
+    ax.legend(fontsize=8, title="p_grid_max")
+    if title:
+        fig.suptitle(title)
+    fig.tight_layout()
+    plt.show()

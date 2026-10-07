@@ -1169,6 +1169,7 @@ def solve_lp_pyomo_sizing(price_ts: TimeSeries, prod1: Production, prod2: Produc
                           dp_max: float = None,
                           i_max: float = None,
                           i_min: float = None,
+                          nominal_costs: dict = None,
                           beta_obj: float = 1e-4,
                           options: dict = None) -> OpSchedule:
     """Build and solve an integrated sizing and dispatch optimization problem
@@ -1211,11 +1212,21 @@ def solve_lp_pyomo_sizing(price_ts: TimeSeries, prod1: Production, prod2: Produc
         dp_max (float): Limit for the ramp limitation [MW/h] (up, should be positive).
             If None, no upper ramp constraint is applied. Default is None.
         i_max (float): Optional investment budget upper limit [currency]. If
-            None, no upper budget constraint is applied.
+            None, no upper budget constraint is applied. The basis is the
+            effective (pre-annualized) capex seen by the objective unless
+            `nominal_costs` is passed, in which case the basis is nominal
+            spend.
         i_min (float): Optional investment budget lower limit [currency]. If
             None, no lower budget constraint is applied. Together with i_max,
             this enforces an approximate spending target (e.g. i_min and i_max
-            set to BUDGET * (1 +- tol)).
+            set to BUDGET * (1 +- tol)). Same basis convention as i_max.
+        nominal_costs (dict): Optional per-unit nominal costs used only for
+            the budget constraints. Keys: 'prod1', 'prod2' (currency/MW),
+            'stor1_p', 'stor2_p' (currency/MW), 'stor1_e', 'stor2_e'
+            (currency/MWh). When provided, `i_max` and `i_min` are applied to
+            a nominal capex expression built from these values instead of the
+            effective `capex_expr` in the objective. Default is None, which
+            keeps the effective-capex basis.
         beta_obj (float): Additive penalty factor for the curtailed power in the
             objective function [currency/MWh]. Default is 1e-4.
         options (dict): list of options for the problem formulation
@@ -1608,11 +1619,23 @@ def solve_lp_pyomo_sizing(price_ts: TimeSeries, prod1: Production, prod2: Produc
     model.p_cur_lim = pyo.Constraint(model.vec_n, rule=rule_p_cur_lim)
 
     # Investment budget constraints
+
+    if nominal_costs is not None:
+        nominal_capex_expr = (- nominal_costs['prod1'] * model.x1
+                            - nominal_costs['prod2'] * model.x2
+                            - nominal_costs['stor1_p'] * model.p_cap1
+                            - nominal_costs['stor1_e'] * model.e_cap1
+                            - nominal_costs['stor2_p'] * model.p_cap2
+                            - nominal_costs['stor2_e'] * model.e_cap2)
+    else:
+        nominal_capex_expr = None
+    budget_expr = nominal_capex_expr if nominal_capex_expr is not None else capex_expr
+
     if i_max is not None:
-        model.i_cap_max = pyo.Constraint(expr=-capex_expr <= i_max)
+        model.i_cap_max = pyo.Constraint(expr=-budget_expr <= i_max)
 
     if i_min is not None:
-        model.i_cap_min = pyo.Constraint(expr=-capex_expr >= i_min)
+        model.i_cap_min = pyo.Constraint(expr=-budget_expr >= i_min)
 
     # Option to return the dual variables of the problem
     if return_duals:
