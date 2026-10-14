@@ -12,6 +12,7 @@ from auxiliary_functions import (
     load_price_from_csv,
     load_technology_parameters,
     BETA_OBJ_DEFAULT,
+    plot_dispatch,
 )
 from shipp.components import Production, Storage
 from shipp.timeseries import TimeSeries
@@ -207,6 +208,14 @@ def run_case(case):
 
         'loss_check_ok': os_result.check_losses(1e-4),
     }
+
+    if case.get('plot_dispatch', False):
+        plot_dispatch(os_result, price=price_ts.data,
+              grid_cap=case['p_grid_max'],
+              h_start=0, h_end=21*24,
+              title="Dispatch")
+
+
     return os_result, summary
 
 
@@ -227,6 +236,7 @@ if __name__ == '__main__':
         'formulation': 'milp', 'name_solver': 'gurobi',
         'beta_obj': BETA_OBJ_DEFAULT,
         'summarize': True,
+        'plot_dispatch': True,
     }
     os_result, summary = run_case(case)
     if summary is not None:

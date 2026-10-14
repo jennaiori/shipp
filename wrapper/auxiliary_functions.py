@@ -12,6 +12,7 @@ from shipp.timeseries import TimeSeries
 from shipp.io_functions import api_request_rninja
 import json
 import requests
+import matplotlib.pyplot as plt
 
 BETA_OBJ_DEFAULT = 1e-4
 DEFAULT_CACHE_DIR = os.path.join(
@@ -280,6 +281,85 @@ def load_technology_parameters(csv_path, country, year):
     grouped = df.groupby(['technology', 'parameter'])['value'].mean()
     return {key: float(val) for key, val in grouped.items()}
 
+### Runner dispatch plot
+
+def plot_dispatch(os_result, price=None, grid_cap=None, title=None,
+                  h_start=0, h_end=None):
+    """Dispatch plot, stacked bars, with price overlaid.
+
+    Positive bars stack delivered production and storage discharge;
+    negative bars show storage charge. The curtailed fraction of production
+    is subtracted before plotting so the bars sum to what goes to the grid.
+    Price is drawn on a twin axis as a line.
+    """
+    n_total = len(os_result.power_out.data)
+    if h_end is None:
+        h_end = n_total
+    sl = slice(h_start, h_end)
+
+    dt = os_result.power_out.dt
+    t = np.arange(h_start, h_end) * dt
+
+    prod = [p.data[sl] for p in os_result.production_p]
+    stor = [s.data[sl] for s in os_result.storage_p]
+    p_cur = os_result.p_curtail.data[sl]
+
+    # Distribute curtailment across production assets proportionally to their
+    # instantaneous available power, then subtract from each production bar.
+    total_avail = sum(prod)
+    frac = np.zeros_like(total_avail)
+    mask = total_avail > 0
+    frac[mask] = p_cur[mask] / total_avail[mask]
+    prod_net = [p * (1 - frac) for p in prod]
+
+    n = h_end - h_start
+
+    fig, ax = plt.subplots(figsize=(12, 5))
+
+    bottom_pos = np.zeros(n)
+    prod_colors = ['tab:blue', 'tab:cyan']
+    for i, p in enumerate(prod_net):
+        ax.bar(t, p, width=dt, bottom=bottom_pos,
+               label=f'production {i+1}', color=prod_colors[i % len(prod_colors)],
+               align='edge')
+        bottom_pos = bottom_pos + p
+
+    discharge = np.maximum(stor[0], 0)
+    ax.bar(t, discharge, width=dt, bottom=bottom_pos,
+           label='storage discharge', color='tab:orange', align='edge')
+
+    charge = np.minimum(stor[0], 0)
+    ax.bar(t, charge, width=dt,
+           label='storage charge', color='tab:red', align='edge')
+
+    if grid_cap is not None:
+        ax.axhline(grid_cap, color='black', linestyle='--', linewidth=1,
+                   label='grid cap')
+    ax.axhline(0, color='black', linewidth=0.5)
+    ax.set_xlabel("Time [h]")
+    ax.set_ylabel("Power [MW]")
+    ax.grid(alpha=0.3)
+
+    if price is not None:
+        price_arr = np.asarray(price)[sl]
+        ax2 = ax.twinx()
+        ax2.plot(t, price_arr, color='grey', linewidth=0.8, alpha=0.8,
+                 label='price')
+        ax2.set_ylabel("Price [EUR/MWh]", color='grey')
+        ax2.tick_params(axis='y', colors='grey')
+
+        h1, l1 = ax.get_legend_handles_labels()
+        h2, l2 = ax2.get_legend_handles_labels()
+        ax.legend(h1 + h2, l1 + l2, fontsize=8, loc='upper left')
+    else:
+        ax.legend(fontsize=8, loc='upper left')
+
+    if title:
+        fig.suptitle(title)
+    fig.tight_layout()
+    plt.show()
+    return fig
+
 ### Sensitivity sweep plots
 
 def plot_sweep_decision_vars(df, sweep_keys, title=None):
@@ -294,7 +374,6 @@ def plot_sweep_decision_vars(df, sweep_keys, title=None):
             second becomes one line per value.
         title (str): figure suptitle.
     """
-    import matplotlib.pyplot as plt
 
     x_key, series_key = sweep_keys
     ok = df[df['status'] == 'ok'].copy()
@@ -330,7 +409,6 @@ def plot_sweep_npv_per_capex(df, sweep_keys, title=None):
         sweep_keys (list[str]): two keys, same convention as the previous plot.
         title (str): figure suptitle.
     """
-    import matplotlib.pyplot as plt
 
     x_key, series_key = sweep_keys
     ok = df[df['status'] == 'ok'].copy()
@@ -358,7 +436,6 @@ def plot_sweep_npv_per_capex(df, sweep_keys, title=None):
 
 def plot_npv_per_capex_vs_grid_cap(df, title=None):
     """NPV / nominal capex vs grid cap, one point per grid cap, labelled."""
-    import matplotlib.pyplot as plt
 
     ok = df[df['status'] == 'ok'].sort_values('p_grid_max')
 
