@@ -23,49 +23,68 @@ def run_case(case):
     """Run a single sizing/dispatch case.
 
     Args:
-        case (dict): flat case description.
+        case (dict): nested case description with 'scenario', 'techs', and
+            'technical' levels.
 
     Returns:
-        (os_result, summary) where summary is None when case['summarize'] is False.
+        (os_result, summary) where summary is None when
+        case['technical']['summarize'] is False.
     """
-    n = case['n']
-    dt = case.get('dt', 1.0)
-    n_year = case['n_year']
+    sc = case['scenario']
+    tx = case['techs']
+    tn = case['technical']
+
+    n = sc['n']
+    dt = sc.get('dt', 1.0)
+    n_year = sc['n_year']
 
     # --- profiles ---
     wind_ts = fetch_profile(
-        'wind', case['lat'], case['lon'],
-        case['date_from'], case['date_to'], case['token'],
-        height=case['wind_height'], turbine=case['wind_turbine'])
+        'wind', sc['lat'], sc['lon'],
+        sc['date_from'], sc['date_to'], tn['token'],
+        height=tx['wind_height'], turbine=tx['wind_turbine'])
     pv_ts = fetch_profile(
-        'pv', case['lat'], case['lon'],
-        case['date_from'], case['date_to'], case['token'],
-        tilt=case['pv_tilt'], azim=case['pv_azim'])
+        'pv', sc['lat'], sc['lon'],
+        sc['date_from'], sc['date_to'], tn['token'],
+        tilt=tx['pv_tilt'], azim=tx['pv_azim'])
     price_ts = load_price_from_csv(
-        case['price_iso3'], case['price_year'], case['price_csv'])
+        sc['price_iso3'], sc['price_year'], sc['price_csv'])
 
     wind_ts = TimeSeries(wind_ts.data[:n], dt)
     pv_ts = TimeSeries(pv_ts.data[:n], dt)
     price_ts = TimeSeries(price_ts.data[:n], dt)
 
-    tech = load_technology_parameters(
-        case['tech_csv'], case['country'], case['param_year'])
+    wind_tech = load_technology_parameters(
+        tx['tech_csv'], tx['wind_costs_year'],
+        tx['inflation_csv'], sc['price_year'], technology='wind')
+
+    pv_tech = load_technology_parameters(
+        tx['tech_csv'], tx['pv_costs_year'],
+        tx['inflation_csv'], sc['price_year'], technology='pv')
+
+    stor1_tech = load_technology_parameters(
+        tx['tech_csv'], tx['stor_1_costs_year'],
+        tx['inflation_csv'], sc['price_year'], technology='lfp')
+
+    stor2_tech = load_technology_parameters(
+        tx['tech_csv'], tx['stor_2_costs_year'],
+        tx['inflation_csv'], sc['price_year'], technology='lfp')
 
     # --- assets ---
-    wind_life = tech[('wind', 'lifetime')]
-    pv_life = tech[('pv', 'lifetime')]
-    lfp_life = tech[('lfp', 'lifetime')]
+    wind_life = wind_tech[('wind', 'lifetime')]
+    pv_life = pv_tech[('pv', 'lifetime')]
+    lfp_life = stor1_tech[('lfp', 'lifetime')]
 
-    wind_nominal = tech[('wind', 'capex')]
-    pv_nominal = tech[('pv', 'capex')]
-    lfp_e_nominal = tech[('lfp', 'capex')]
+    wind_nominal = wind_tech[('wind', 'capex')]
+    pv_nominal = pv_tech[('pv', 'capex')]
+    lfp_e_nominal = stor1_tech[('lfp', 'capex')]
 
     wind = Production(
         power_ts=wind_ts,
         p_cost=wind_nominal * n_year / wind_life,
         p_max=None,
         p_max_is_decision=True,
-        opex_fix=tech[('wind', 'opex')],
+        opex_fix=wind_tech[('wind', 'opex')],
         opex_var=0.0,
     )
     pv = Production(
@@ -73,10 +92,10 @@ def run_case(case):
         p_cost=pv_nominal * n_year / pv_life,
         p_max=None,
         p_max_is_decision=True,
-        opex_fix=tech[('pv', 'opex')],
+        opex_fix=pv_tech[('pv', 'opex')],
         opex_var=0.0,
     )
-    eff_half = math.sqrt(tech[('lfp', 'eff_rt_ac')])
+    eff_half = math.sqrt(stor1_tech[('lfp', 'eff_rt_ac')])
     lfp = Storage(
         e_cap=None,
         p_cap=None,
@@ -89,7 +108,7 @@ def run_case(case):
         lifetime=int(lfp_life),
         opex_fix=0.0,
         opex_var=0.0,
-        duration=tech[('lfp', 'duration')],
+        duration=stor1_tech[('lfp', 'duration')],
     )
 
     null_prod = Production(
@@ -105,9 +124,9 @@ def run_case(case):
     }
 
     # --- budget ---
-    budget = case.get('budget')
+    budget = sc.get('budget')
     if budget is not None:
-        tol = case.get('budget_tol', 1e-4)
+        tol = tn.get('budget_tol', 1e-4)
         i_max = budget * (1 + tol)
         i_min = budget * (1 - tol)
         nominal_costs = dict(
@@ -132,21 +151,21 @@ def run_case(case):
             prod1=wind, prod2=pv,
             prof1_unit=wind_ts, prof2_unit=pv_ts,
             stor1=lfp, stor2=null_stor,
-            discount_rate=case['discount_rate'], n_year=n_year,
-            p_grid_max=case['p_grid_max'], n=n,
+            discount_rate=sc['discount_rate'], n_year=n_year,
+            p_grid_max=sc['p_grid_max'], n=n,
             i_max=i_max, i_min=i_min,
             nominal_costs=nominal_costs,
-            beta_obj=case.get('beta_obj', BETA_OBJ_DEFAULT),
+            beta_obj=tn.get('beta_obj', BETA_OBJ_DEFAULT),
             options=dict(
-                name_solver=case.get('name_solver', 'gurobi'),
-                formulation=case.get('formulation', 'milp')),
+                name_solver=tn.get('name_solver', 'gurobi'),
+                formulation=tn.get('formulation', 'milp')),
         )
     t_wall = time.perf_counter() - t0
 
-    if not case.get('summarize', True):
+    if not tn.get('summarize', True):
         return os_result, None
 
-    # --- summary ---
+    # --- Summary ---
     x_wind = os_result.production_list[0].p_max
     x_pv = os_result.production_list[1].p_max
     p_stor = os_result.storage_list[0].p_cap
@@ -170,11 +189,11 @@ def run_case(case):
         + nominal['lfp_per_mwh'] * e_stor
     )
     opex_total = wind.opex_fix * x_wind + pv.opex_fix * x_pv
-    factor = npf.npv(case['discount_rate'], np.ones(n_year)) - 1
+    factor = npf.npv(sc['discount_rate'], np.ones(n_year)) - 1
 
     summary = {
-        'formulation': case.get('formulation', 'milp'),
-        'solver': case.get('name_solver', 'gurobi'),
+        'formulation': tn.get('formulation', 'milp'),
+        'solver': tn.get('name_solver', 'gurobi'),
         'wall_time_s': t_wall,
         'solver_time_s': getattr(os_result, 'time', None),
         'warnings': [str(w.message) for w in caught],
@@ -200,7 +219,7 @@ def run_case(case):
         'revenue_meur': os_result.revenue * 1e-6,
         'npv_objective_meur': os_result.npv_objective,
         'npv_legacy_meur': os_result.npv,
-                'npv_per_capex': (
+        'npv_per_capex': (
             os_result.npv_objective
             / (capex_nominal * 1e-6)
             if capex_nominal > 0 else None
@@ -209,34 +228,46 @@ def run_case(case):
         'loss_check_ok': os_result.check_losses(1e-4),
     }
 
-    if case.get('plot_dispatch', False):
+    if tn.get('plot_dispatch', False):
         plot_dispatch(os_result, price=price_ts.data,
-              grid_cap=case['p_grid_max'],
-              h_start=0, h_end=21*24,
-              title="Dispatch")
-
+                      grid_cap=sc['p_grid_max'],
+                      h_start=0, h_end=21 * 24,
+                      title="Dispatch")
 
     return os_result, summary
 
-
 if __name__ == '__main__':
     case = {
-        'token': '96e53647b34ef4fb37b6958e9285eff9938ad7ce',
-        'lat': 52.52, 'lon': 4.90,
-        'date_from': '2023-01-01', 'date_to': '2024-01-01',
-        'price_iso3': 'NLD', 'price_year': 2023,
-        'price_csv': 'ember_prices.csv',
-        'tech_csv': 'technology_parameters.csv',
-        'country': 'DNK', 'param_year': 2025,
-        'n': 24 * 365, 'n_year': 25, 'discount_rate': 0.03,
-        'p_grid_max': 200,
-        'budget': 300e6, 'budget_tol': 1e-4,
-        'wind_height': 90, 'wind_turbine': 'Vestas V150 4500',
-        'pv_tilt': 35, 'pv_azim': 180,
-        'formulation': 'milp', 'name_solver': 'gurobi',
-        'beta_obj': BETA_OBJ_DEFAULT,
-        'summarize': True,
-        'plot_dispatch': True,
+        'scenario': {
+            'lat': 56.24, 'lon': 9.22,
+            'date_from': '2023-01-01', 'date_to': '2024-01-01',
+            'price_iso3': 'DNK', 'price_year': 2023,
+            'price_csv': 'ember_prices.csv',
+            'p_grid_max': 300,
+            'budget': None,
+            'n': 24 * 365,
+            'n_year': 25,
+            'discount_rate': 0.07,
+        },
+        'techs': {
+            'tech_csv': 'technology_parameters.csv',
+            'inflation_csv': 'inflation.csv',
+            'pv_costs_year': 2025,
+            'pv_tilt': 35, 'pv_azim': 180,
+            'wind_costs_year': 2020,
+            'wind_height': 90, 'wind_turbine': 'Vestas V150 4500',
+            'stor_1_costs_year': 2020,
+            'stor_2_costs_year': 2020,
+        },
+        'technical': {
+            'token': '96e53647b34ef4fb37b6958e9285eff9938ad7ce',
+            'budget_tol': 1e-4,
+            'formulation': 'milp',
+            'name_solver': 'gurobi',
+            'beta_obj': BETA_OBJ_DEFAULT,
+            'summarize': True,
+            'plot_dispatch': True,
+        },
     }
     os_result, summary = run_case(case)
     if summary is not None:

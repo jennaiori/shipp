@@ -1,8 +1,7 @@
 """
 Auxiliary functions for HPP eco-design.
 
-Functions:
-    to_iso3: normalize a country identifier to its ISO3 code.
+
 """
 
 import os
@@ -250,36 +249,60 @@ def fetch_profile(generator_type, lat, lon, date_from, date_to, token,
     return TimeSeries(data, 1.0)
 
 
-### Fetching technology parameters
+### Fetching and adjusting technology parameters
 
-def load_technology_parameters(csv_path, country, year):
-    """Load technology parameters from the CSV into a flat dictionary.
+def load_technology_parameters(csv_path, year, inflation_csv, price_year,
+                               technology=None):
+    """Load technology parameters and adjust capex/opex to price_year.
 
     Args:
         csv_path (str): path to the technology parameters CSV.
-        country (str): country ISO3 code (e.g. 'NLD').
-        year (int): year as it appears in the CSV.
+        year (int): year the parameters were quoted in.
+        inflation_csv (str): path to the inflation factor CSV.
+        price_year (int): reference year for cost adjustment.
+        technology (str, optional): if given, only return parameters for
+            this technology.
 
     Returns:
-        dict: {(technology, parameter): value}.
+        dict: {(technology, parameter): value}, with capex and opex scaled
+            from `year` to `price_year`.
 
     Raises:
-        FileNotFoundError: if the CSV does not exist.
-        ValueError: if no rows match the given country and year.
+        FileNotFoundError: if either CSV does not exist.
+        KeyError: if either year is missing from the inflation table.
     """
     if not os.path.isfile(csv_path):
         raise FileNotFoundError('CSV not found at {}'.format(csv_path))
 
     df = pd.read_csv(csv_path)
-    mask = (df['country'] == country) & (df['year'] == year)
+    mask = (df['year'] == year)
+    if technology is not None:
+        mask &= (df['technology'] == technology)
     df = df.loc[mask]
-    if len(df) == 0:
-        raise ValueError(
-            'No rows in {} for country={} year={}'.format(
-                csv_path, country, year))
 
     grouped = df.groupby(['technology', 'parameter'])['value'].mean()
-    return {key: float(val) for key, val in grouped.items()}
+    tech = {key: float(val) for key, val in grouped.items()}
+
+    if not os.path.isfile(inflation_csv):
+        raise FileNotFoundError(
+            'Inflation CSV not found at {}'.format(inflation_csv))
+    infl_df = pd.read_csv(inflation_csv)
+    infl_df['year'] = infl_df['year'].astype(int)
+    inflation = dict(zip(infl_df['year'], infl_df['factor'].astype(float)))
+
+    if year not in inflation:
+        raise KeyError(
+            'Missing inflation factor for param_year {}'.format(year))
+    if price_year not in inflation:
+        raise KeyError(
+            'Missing inflation factor for price_year {}'.format(price_year))
+
+    ratio = inflation[price_year] / inflation[year]
+    for key in list(tech.keys()):
+        if key[1] in ('capex', 'opex'):
+            tech[key] = tech[key] * ratio
+
+    return tech
 
 ### Runner dispatch plot
 
