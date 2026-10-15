@@ -6,7 +6,6 @@ import time
 import pandas as pd
 
 from runner import run_case
-from auxiliary_functions import plot_npv_per_capex_vs_grid_cap
 
 COUNTRY_SITES = {
     'AUT': (47.5, 14.5),
