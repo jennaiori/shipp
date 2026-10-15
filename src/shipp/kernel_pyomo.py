@@ -1679,12 +1679,24 @@ def solve_lp_pyomo_sizing(price_ts: TimeSeries, prod1: Production, prod2: Produc
     p_cur = [pyo.value(model.p_cur[e]) for e in model.p_cur]
 
     e_vec1 = [pyo.value(model.e_vec1[e]) for e in model.e_vec1]
-    e_cap1 = pyo.value(model.e_cap1)
-    p_cap1 = pyo.value(model.p_cap1)
+    p_cap1_raw = pyo.value(model.p_cap1)
+    e_cap1_raw = pyo.value(model.e_cap1)
+    if p_cap1_raw < -1e-6 or e_cap1_raw < -1e-6:
+        raise RuntimeError(
+            f"Negative storage capacity at extract: "
+            f"p_cap1 = {p_cap1_raw:.6g}, e_cap1 = {e_cap1_raw:.6g}") # clipping small negative values caused by solver noise to zero
+    p_cap1 = max(p_cap1_raw, 0.0)
+    e_cap1 = max(e_cap1_raw, 0.0)
 
     e_vec2 = [pyo.value(model.e_vec2[e]) for e in model.e_vec2]
-    e_cap2 = pyo.value(model.e_cap2)
-    p_cap2 = pyo.value(model.p_cap2)
+    p_cap2_raw = pyo.value(model.p_cap2)
+    e_cap2_raw = pyo.value(model.e_cap2)
+    if p_cap2_raw < -1e-6 or e_cap2_raw < -1e-6:
+        raise RuntimeError(
+            f"Negative storage capacity at extract: "
+            f"p_cap2 = {p_cap2_raw:.6g}, e_cap2 = {e_cap2_raw:.6g}")
+    p_cap2 = max(p_cap2_raw, 0.0)
+    e_cap2 = max(e_cap2_raw, 0.0)
 
     if formulation == 'lp_alt':
         p_vec1 = [pyo.value(model.p_vec1[e]) for e in model.vec_n]
