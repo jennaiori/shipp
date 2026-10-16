@@ -1,0 +1,15 @@
+technology,parameter,country,year,source,value_type,value,unit,url,notes
+pv_module,capex,CHN,2025,Sheng et al. (2025),mean,463000,kgCO2eq/MW,https://doi.org/10.1016/j.resconrec.2025.108373,TOPCon N-type mono-Si module manufactured in China
+pv_module,opex,CHN,2025,Sheng et al. (2025),mean,0,kgCO2eq/MW/y,https://doi.org/10.1016/j.resconrec.2025.108373,TOPCon N-type mono-Si module manufactured in China
+pv_inverter,capex,EUR,2016,Tschumperlin et al. (2016),mean,73750,kgCO2eq/MW,https://treeze.ch/fileadmin/user_upload/downloads/Publications/Case_Studies/Energy/174-Update_Inverter_IEA_PVPS_v1.1.pdf,20 kW inverter manufactured in Europe
+pv_inverter,opex,EUR,2016,Tschumperlin et al. (2016),mean,0,kgCO2eq/MW/y,https://treeze.ch/fileadmin/user_upload/downloads/Publications/Case_Studies/Energy/174-Update_Inverter_IEA_PVPS_v1.1.pdf,20 kW inverter manufactured in Europe
+pv_other,capex,,,,mean,0,kgCO2eq/MW,,all emissions allocated to module and inverter
+pv_other,opex,,,,mean,0,kgCO2eq/MW/y,,all emissions allocated to module and inverter
+wind,capex,EUR,2022,Vestas (2022),mean,438400,kgCO2eq/MW,https://www.vestas.com/en/sustainability/environment/lifecycle-assessments,LCA for Vestas V150-4.2 MW turbine with 4.5MW extension and 90m hub height
+wind,opex,EUR,2022,Vestas (2022),mean,0,kgCO2eq/MW/y,https://www.vestas.com/en/sustainability/environment/lifecycle-assessments,LCA for Vestas V150-4.2 MW turbine with 4.5MW extension and 90m hub height
+lfp,capex,EUR,2016,Baumann et al. (2016),mean,158000,kgCO2eq/MWh,https://doi.org/10.1002/ente.201600622,unclear system boundaries and assumptions
+lfp,opex,EUR,2016,Baumann et al. (2016),mean,0,kgCO2eq/MWh/y,https://doi.org/10.1002/ente.201600622,unclear system boundaries and assumptions
+caes,capex,,,,mean,,kgCO2eq/MWh,,no data available
+caes,opex,,,,mean,,kgCO2eq/MWh/y,,no data available
+vrfb,capex,EUR,2016,Baumann et al. (2016),mean,183000,kgCO2eq/MWh,https://doi.org/10.1002/ente.201600622,unclear system boundaries and assumptions and very old data
+vrfb,opex,EUR,2016,Baumann et al. (2016),mean,0,kgCO2eq/MWh/y,https://doi.org/10.1002/ente.201600622,unclear system boundaries and assumptions and very old data

@@ -1,0 +1,15 @@
+technology,parameter,country,year,source,value_type,value,unit,url,notes
+pv_module,capex,DNK,2025,DEA TC,mean,156000,EUR/MW,https://ens.dk/en/analyses-and-statistics/technology-catalogues,costs for 2025 system in 2025 EUR
+pv_module,opex,DNK,2025,DEA TC,mean,10030,EUR/MW/y,https://ens.dk/en/analyses-and-statistics/technology-catalogues,costs for 2025 system in 2025 EUR with all array OPEX included
+pv_inverter,capex,DNK,2025,DEA TC,mean,26000,EUR/MW,https://ens.dk/en/analyses-and-statistics/technology-catalogues,costs for 2025 system in 2025 EUR
+pv_inverter,opex,DNK,2025,DEA TC,mean,0,EUR/MW/y,https://ens.dk/en/analyses-and-statistics/technology-catalogues,costs for 2025 system in 2025 EUR
+pv_other,capex,DNK,2025,DEA TC,mean,413400,EUR/MW,https://ens.dk/en/analyses-and-statistics/technology-catalogues,costs for 2025 system in 2025 EUR
+pv_other,opex,DNK,2025,DEA TC,mean,0,EUR/MW/y,https://ens.dk/en/analyses-and-statistics/technology-catalogues,costs for 2025 system in 2025 EUR
+wind,capex,DNK,2020,DEA TC,mean,1184632,EUR/MW,https://ens.dk/en/analyses-and-statistics/technology-catalogues,costs for 2025 system in 2020 EUR
+wind,opex,DNK,2020,DEA TC,mean,17387,EUR/MW/y,https://ens.dk/en/analyses-and-statistics/technology-catalogues,costs for 2025 system in 2020 EUR not including variable OPEX
+lfp,capex,DNK,2020,DEA TC,mean,288000,EUR/MWh,https://ens.dk/en/analyses-and-statistics/technology-catalogues,costs for 2025 system in 2020 EUR
+lfp,opex,DNK,2020,DEA TC,mean,8352,EUR/MWh/y,https://ens.dk/en/analyses-and-statistics/technology-catalogues,costs for 2025 system in 2020 EUR
+caes,capex,DNK,2020,DEA TC,mean,691210,EUR/MWh,https://ens.dk/en/analyses-and-statistics/technology-catalogues,costs for 2020 system in 2020 EUR
+caes,opex,DNK,2020,DEA TC,mean,2616,EUR/MWh/y,https://ens.dk/en/analyses-and-statistics/technology-catalogues,costs for 2020 system in 2020 EUR not including variable OPEX
+vrfb,capex,DNK,2020,DEA TC,mean,530000,EUR/MWh,https://ens.dk/en/analyses-and-statistics/technology-catalogues,costs for 2025 system in 2020 EUR
+vrfb,opex,DNK,2020,DEA TC,mean,3975,EUR/MWh/y,https://ens.dk/en/analyses-and-statistics/technology-catalogues,costs for 2025 system in 2020 EUR not including variable OPEX
