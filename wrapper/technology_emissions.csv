@@ -1,15 +1,15 @@
 technology,parameter,country,year,source,value_type,value,unit,url,notes
-pv_module,capex,CHN,2025,Sheng et al. (2025),mean,463000,kgCO2eq/MW,https://doi.org/10.1016/j.resconrec.2025.108373,TOPCon N-type mono-Si module manufactured in China
-pv_module,opex,CHN,2025,Sheng et al. (2025),mean,0,kgCO2eq/MW/y,https://doi.org/10.1016/j.resconrec.2025.108373,TOPCon N-type mono-Si module manufactured in China
-pv_inverter,capex,EUR,2016,Tschumperlin et al. (2016),mean,73750,kgCO2eq/MW,https://treeze.ch/fileadmin/user_upload/downloads/Publications/Case_Studies/Energy/174-Update_Inverter_IEA_PVPS_v1.1.pdf,20 kW inverter manufactured in Europe
-pv_inverter,opex,EUR,2016,Tschumperlin et al. (2016),mean,0,kgCO2eq/MW/y,https://treeze.ch/fileadmin/user_upload/downloads/Publications/Case_Studies/Energy/174-Update_Inverter_IEA_PVPS_v1.1.pdf,20 kW inverter manufactured in Europe
-pv_other,capex,,,,mean,0,kgCO2eq/MW,,all emissions allocated to module and inverter
-pv_other,opex,,,,mean,0,kgCO2eq/MW/y,,all emissions allocated to module and inverter
-wind,capex,EUR,2022,Vestas (2022),mean,438400,kgCO2eq/MW,https://www.vestas.com/en/sustainability/environment/lifecycle-assessments,LCA for Vestas V150-4.2 MW turbine with 4.5MW extension and 90m hub height
-wind,opex,EUR,2022,Vestas (2022),mean,0,kgCO2eq/MW/y,https://www.vestas.com/en/sustainability/environment/lifecycle-assessments,LCA for Vestas V150-4.2 MW turbine with 4.5MW extension and 90m hub height
-lfp,capex,EUR,2016,Baumann et al. (2016),mean,158000,kgCO2eq/MWh,https://doi.org/10.1002/ente.201600622,unclear system boundaries and assumptions
-lfp,opex,EUR,2016,Baumann et al. (2016),mean,0,kgCO2eq/MWh/y,https://doi.org/10.1002/ente.201600622,unclear system boundaries and assumptions
+pv_module,capex,CHN,2026,Sun et al. (2026),mean,546000,kgCO2eq/MW,https://doi.org/10.1016/j.esd.2026.102098,best-practices estimate for TOPCon mono-Si glass-glass module manufactured in China multiplied from 420kgCO2eq/kWp per-DC module estimate to per-AC with ILR=1.3
+pv_module,opex,CHN,2026,Sun et al. (2026),mean,0,kgCO2eq/MW/y,https://doi.org/10.1016/j.esd.2026.102098,best-practices estimate for TOPCon mono-Si glass-glass module manufactured in China multiplied from 420kgCO2eq/kWp per-DC module estimate to per-AC with ILR=1.3
+pv_inverter,capex,CHN,2026,Sun et al. (2026),mean,2364,kgCO2eq/MW,https://doi.org/10.1016/j.esd.2026.102098,780kgCO2eq per 330kW inverter
+pv_inverter,opex,CHN,2026,Sun et al. (2026),mean,0,kgCO2eq/MW/y,https://doi.org/10.1016/j.esd.2026.102098,780kgCO2eq per 330kW inverter
+pv_other,capex,CHN,2026,Sun et al. (2026),mean,164380,kgCO2eq/MW,https://doi.org/10.1016/j.esd.2026.102098,10000kgCO2eq for a 2000kVA transformer on the AC side and 32.86 kg steel mounting per 670Wp module on the DC side multiplied to per-AC with ILR=1.3
+pv_other,opex,CHN,2026,Sun et al. (2026),mean,0,kgCO2eq/MW/y,https://doi.org/10.1016/j.esd.2026.102098,10000kgCO2eq for a 2000kVA transformer on the AC side and 32.86 kg steel mounting per 670Wp module on the DC side multiplied to per-AC with ILR=1.3
+wind,capex,EUR,2025,Sierra-Montoya et al. (2025),mean,480500,kgCO2eq/MW,https://doi.org/10.1111/jiec.70114,interpolation of parametric model for 4.45MW with 80-100m hub height partially based on original LCA but including cabling
+wind,opex,EUR,2025,Sierra-Montoya et al. (2025),mean,0,kgCO2eq/MW/y,https://doi.org/10.1111/jiec.70114,interpolation of parametric model for 4.45MW with 80-100m hub height partially based on original LCA but including cabling
+lfp,capex,EUR,2026,Jasper et al. (2026),mean,151000,kgCO2eq/MWh,https://doi.org/10.1039/d5ya00341e,based on 1MW/2MWh air-cooled containerized system with 15 year lifetime including balance-of-plant
+lfp,opex,EUR,2026,Jasper et al. (2026),mean,0,kgCO2eq/MWh/y,https://doi.org/10.1039/d5ya00341e,based on 1MW/2MWh air-cooled containerized system with 15 year lifetime including balance-of-plant
 caes,capex,,,,mean,,kgCO2eq/MWh,,no data available
 caes,opex,,,,mean,,kgCO2eq/MWh/y,,no data available
-vrfb,capex,EUR,2016,Baumann et al. (2016),mean,183000,kgCO2eq/MWh,https://doi.org/10.1002/ente.201600622,unclear system boundaries and assumptions and very old data
-vrfb,opex,EUR,2016,Baumann et al. (2016),mean,0,kgCO2eq/MWh/y,https://doi.org/10.1002/ente.201600622,unclear system boundaries and assumptions and very old data
+vrfb,capex,EUR,2020,He et al. (2020),mean,184000,kgCO2eq/MWh,https://doi.org/10.1016/j.jclepro.2020.121740,based on full system estimate including balance-of-plant
+vrfb,opex,EUR,2020,He et al. (2020),mean,0,kgCO2eq/MWh/y,https://doi.org/10.1016/j.jclepro.2020.121740,based on full system estimate including balance-of-plant

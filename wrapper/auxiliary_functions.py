@@ -14,6 +14,17 @@ import json
 import requests
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
+import warnings
+from pathlib import Path
+import pvlib
+import pyarrow
+from pvlib.bifacial.infinite_sheds import get_irradiance
+from pvlib.temperature import faiman
+import pvlib.ivtools.sdm as sdm
+from pvlib.pvsystem import PVSystem
+from pvlib.location import Location
+from pvlib.modelchain import ModelChain
+from pvlib.temperature import TEMPERATURE_MODEL_PARAMETERS
 
 BETA_OBJ_DEFAULT = 1e-4
 DEFAULT_CACHE_DIR = os.path.join(
@@ -204,94 +215,69 @@ def load_mdf_from_csv(csv_path, year, cache_dir=DEFAULT_CACHE_DIR):
 ### Fetching normalized generation profiles
 
 def get_profile(spec, sc, tx, tn):
-    """Return a normalized production profile for one production asset.
+    """Return a normalised production profile for one production asset.
 
-    Dispatches on spec['source']. spec['name'] selects the physics (wind
-    vs pv). The profile is derated by the 'losses' parameter of the
-    corresponding technology before being returned.
+    Dispatches on spec['name']. Each technology has a single source:
+    wind from renewables.ninja, pv from pvlib. Wind profiles are derated
+    by the 'losses' parameter of the 'wind' technology before being
+    returned; pv profiles already include system losses.
 
     Args:
-        spec (dict): production asset spec, with keys 'name', 'source'.
+        spec (dict): production asset spec, with key 'name'.
         sc (dict): scenario dict.
         tx (dict): techs dict.
         tn (dict): technical dict.
 
     Returns:
-        TimeSeries: normalized, loss-derated profile [MW/MW], dt=1.0.
+        TimeSeries: normalised profile [MW/MW], dt=1.0.
 
     Raises:
-        ValueError: if source or name is not recognized.
+        ValueError: if name is not 'wind' or 'pv'.
     """
-    source = spec['source']
     name = spec['name']
 
-    if source == 'rninja':
-        if name == 'wind':
-            ts = fetch_profile_from_rninja(
-                'wind', sc['lat'], sc['lon'],
-                sc['date_from'], sc['date_to'], tn['token'],
-                height=tx['wind_height'], turbine=tx['wind_turbine'])
-        elif name == 'pv':
-            ts = fetch_profile_from_rninja(
-                'pv', sc['lat'], sc['lon'],
-                sc['date_from'], sc['date_to'], tn['token'],
-                tilt=tx['pv_tilt'], azim=tx['pv_azim'])
-        else:
-            raise ValueError(
-                "name must be 'wind' or 'pv', got '{}'".format(name))
-    else:
-        raise ValueError(
-            "source must be 'rninja', got '{}'".format(source))
+    if name == 'wind':
+        perf = load_parameters(tx['params_json'], 'wind_turbine')
+        ts = fetch_profile_from_rninja(
+            sc['lat'], sc['lon'],
+            sc['date_from'], sc['date_to'], tn['token'],
+            height=perf['hub_height'], turbine=perf['name'])
+        losses = perf.get('losses', 0.0)
+        return TimeSeries(ts.data * (1.0 - losses), ts.dt)
 
-    tech_key = 'wind' if name == 'wind' else 'pv_module'
-    perf = load_parameters(tx['params_csv'], tech_key)
-    losses = perf.get('losses', 0.0)
-    derated = TimeSeries(ts.data * (1.0 - losses), ts.dt)
-    return derated
+    if name == 'pv':
+        series = pv_generation_profile(
+            sc['lat'], sc['lon'], sc['price_year'], tx['params_json'],
+            tilt=tx.get('pv_tilt'), azimuth=tx.get('pv_azim'))
+        return TimeSeries(series.to_numpy(dtype=float), 1.0)
 
-def fetch_profile_from_rninja(kind, lat, lon, date_from, date_to, token,
-                  height=None, turbine=None,
-                  tilt=None, azim=None, module=None,
-                  tracking=0, system_loss=0,
-                  dataset='merra2', cache_dir=DEFAULT_CACHE_DIR):
-    """Fetch a normalized production profile from renewables.ninja.
+    raise ValueError(
+        "name must be 'wind' or 'pv', got '{}'".format(name))
+
+def fetch_profile_from_rninja(lat, lon, date_from, date_to, token,
+                              height, turbine,
+                              dataset='merra2', cache_dir=DEFAULT_CACHE_DIR):
+    """Fetch a normalised wind profile from renewables.ninja.
 
     Args:
-        kind (str): 'wind' or 'pv'.
         lat, lon (float): site coordinates.
         date_from, date_to (str): ISO date range, start inclusive, end
             exclusive.
         token (str): renewables.ninja API token.
-        height, turbine: required for kind='wind'.
-        tilt, azim: required for kind='pv'.
-        module, tracking, system_loss: used for kind='pv'. System loss
-        assumed to be zero, losses are applied to the profile after
-        fetching according to DEA data.
+        height (float): hub height [m].
+        turbine (str): turbine model name.
         dataset (str): 'merra2' or 'sarah'.
         cache_dir (str): cache directory.
 
     Returns:
-        TimeSeries: hourly normalized production [MW/MW], dt=1.0.
+        TimeSeries: hourly normalised production [MW/MW], dt=1.0.
 
     Raises:
-        ValueError: if kind is not 'wind' or 'pv', or if a required
-            model-specific parameter is missing.
         RuntimeError: if the API returns a non-200 status.
     """
-    if kind == 'wind':
-        if height is None or turbine is None:
-            raise ValueError("kind='wind' requires height and turbine")
-        model_params = dict(height=height, turbine=turbine)
-    elif kind == 'pv':
-        if tilt is None or azim is None:
-            raise ValueError("kind='pv' requires tilt and azim")
-        model_params = dict(tilt=tilt, azim=azim, module=module,
-                            tracking=tracking, system_loss=system_loss)
-    else:
-        raise ValueError(
-            "kind must be 'wind' or 'pv', got '{}'".format(kind))
+    model_params = dict(height=height, turbine=turbine)
 
-    cache_file = cache_path(cache_dir, kind, lat=lat, lon=lon,
+    cache_file = cache_path(cache_dir, 'wind', lat=lat, lon=lon,
                             date_from=date_from, date_to=date_to,
                             dataset=dataset, **model_params)
     cached = read_cache(cache_file)
@@ -304,21 +290,21 @@ def fetch_profile_from_rninja(kind, lat, lon, date_from, date_to, token,
                           format='json', raw='true', header='true')
     request_params.update(model_params)
 
-    url = 'https://www.renewables.ninja/api/data/' + kind
+    url = 'https://www.renewables.ninja/api/data/wind'
     session = requests.session()
     session.headers = {'Authorization': 'Token ' + token}
     req = session.get(url, params=request_params)
     if req.status_code != 200:
         raise RuntimeError(
-            'renewables.ninja request failed ({}) for kind "{}": {}'.format(
-                req.status_code, kind, req.text[:500]))
+            'renewables.ninja request failed ({}): {}'.format(
+                req.status_code, req.text[:500]))
     payload = json.loads(req.text)
 
     df = pd.DataFrame.from_dict(payload['data'], orient='index')
     df = df.sort_index()
     data = df['electricity'].to_numpy(dtype=float)
 
-    meta = dict(resource=kind, lat=lat, lon=lon,
+    meta = dict(resource='wind', lat=lat, lon=lon,
                 date_from=date_from, date_to=date_to,
                 dataset=dataset, source='renewables.ninja',
                 api_meta=payload.get('metadata', {}),
@@ -330,32 +316,31 @@ def fetch_profile_from_rninja(kind, lat, lon, date_from, date_to, token,
 
 ### Fetching parameters and costs
 
-def load_parameters(csv_path, technology):
-    """Load performance parameters for one technology from the parameters CSV.
-
-    The parameters CSV's year column is ignored: performance parameters do
-    not vary by reference year in this project.
+def load_parameters(params_path, technology):
+    """Load performance parameters for one technology from json.
 
     Args:
-        csv_path (str): path to the parameters CSV.
-        technology (str): technology name, e.g. 'wind', 'pv_module'.
+        params_path (str): path to technology_parameters.json.
+        technology (str): top-level group name, e.g. 'wind_turbine',
+            'pv_module', 'lfp'.
 
     Returns:
-        dict: {parameter: value}.
+        dict: {parameter: value}, without the 'name' and 'note' keys.
 
     Raises:
-        FileNotFoundError: if the CSV does not exist.
-        KeyError: if no rows match the technology.
+        FileNotFoundError: if the file does not exist.
+        KeyError: if the group is missing.
     """
-    if not os.path.isfile(csv_path):
-        raise FileNotFoundError('CSV not found at {}'.format(csv_path))
-    df = pd.read_csv(csv_path)
-    df = df[df['technology'] == technology]
-    if len(df) == 0:
+    if not os.path.isfile(params_path):
+        raise FileNotFoundError(
+            'Technology parameters not found at {}'.format(params_path))
+    with open(params_path, 'r') as f:
+        params = json.load(f)
+    if technology not in params:
         raise KeyError(
-            'No rows for technology {} in {}'.format(technology, csv_path))
-    grouped = df.groupby('parameter')['value'].mean()
-    return {param: float(val) for param, val in grouped.items()}
+            "Group '{}' missing from {}".format(technology, params_path))
+    return {k: v for k, v in params[technology].items()
+            if k != 'note'}
 
 
 def load_costs(csv_path, technology, costs_year, inflation_csv, price_year):
@@ -437,17 +422,26 @@ def load_emissions(csv_path, technology):
 
 ### Build production and storage objects
 
-def build_production(name, params_csv, costs_csv, emissions_csv,
+def build_production(name, mode, params_json, costs_csv, emissions_csv,
                      inflation_csv, price_year, costs_year,
                      power_ts, n_year):
     """Return (Production, annual_cost_eco, annual_cost_env,
     capex_nominal_eco, capex_nominal_env) for a named technology.
 
-    annual_cost_* are per unit of installed capacity times n_year /
-    lifetime. capex_nominal_* are per unit of installed capacity, un-
-    annualized. Economic values are in currency adjusted to price_year;
-    environmental values are in kgCO2e.
+    The Production object's p_cost is taken from the cost basis of
+    `mode`. Both economic and environmental values are returned for
+    reporting. annual_cost_* are per unit of installed capacity times
+    n_year / lifetime. capex_nominal_* are per unit of installed
+    capacity, un-annualized. Economic values are in currency adjusted to
+    price_year; environmental values are in kgCO2e.
+
+    Raises:
+        ValueError: if mode is not 'economic' or 'environmental'.
     """
+    if mode not in ('economic', 'environmental'):
+        raise ValueError(
+            "mode must be 'economic' or 'environmental', got '{}'".format(mode))
+
     if name == 'pv':
         components = ['pv_module', 'pv_inverter', 'pv_other']
         annual_eco = 0.0
@@ -459,7 +453,7 @@ def build_production(name, params_csv, costs_csv, emissions_csv,
             c_eco = load_costs(costs_csv, comp, costs_year,
                                inflation_csv, price_year)
             c_env = load_emissions(emissions_csv, comp)
-            p = load_parameters(params_csv, comp)
+            p = load_parameters(params_json, comp)
             annual_eco += c_eco['capex'] * n_year / p['lifetime']
             annual_env += c_env['capex'] * n_year / p['lifetime']
             opex_eco += c_eco['opex']
@@ -469,16 +463,19 @@ def build_production(name, params_csv, costs_csv, emissions_csv,
         c_eco = load_costs(costs_csv, name, costs_year,
                            inflation_csv, price_year)
         c_env = load_emissions(emissions_csv, name)
-        p = load_parameters(params_csv, name)
+        group = 'wind_turbine' if name == 'wind' else name
+        p = load_parameters(params_json, group)
         annual_eco = c_eco['capex'] * n_year / p['lifetime']
         annual_env = c_env['capex'] * n_year / p['lifetime']
         opex_eco = c_eco['opex']
         capex_eco = c_eco['capex']
         capex_env = c_env['capex']
 
+    p_cost = annual_eco if mode == 'economic' else annual_env
+
     prod = Production(
         power_ts=power_ts,
-        p_cost=annual_eco,
+        p_cost=p_cost,
         p_max=None,
         p_max_is_decision=True,
         opex_fix=opex_eco,
@@ -487,23 +484,34 @@ def build_production(name, params_csv, costs_csv, emissions_csv,
     return prod, annual_eco, annual_env, capex_eco, capex_env
 
 
-def build_storage(name, params_csv, costs_csv, emissions_csv,
+def build_storage(name, mode, params_json, costs_csv, emissions_csv,
                   inflation_csv, price_year, costs_year, n_year):
     """Return (Storage, annual_cost_eco, annual_cost_env,
     capex_nominal_eco, capex_nominal_env) for a named technology.
 
+    The Storage object's e_cost is taken from the cost basis of `mode`.
+    Both economic and environmental values are returned for reporting.
     annual_cost_* are e_cost per MWh times n_year / lifetime.
     capex_nominal_* are e_cost per MWh, un-annualized. Economic values
     are in currency adjusted to price_year; environmental values are in
     kgCO2e.
+
+    Raises:
+        ValueError: if mode is not 'economic' or 'environmental'.
     """
+    if mode not in ('economic', 'environmental'):
+        raise ValueError(
+            "mode must be 'economic' or 'environmental', got '{}'".format(mode))
+
     c_eco = load_costs(costs_csv, name, costs_year,
                        inflation_csv, price_year)
     c_env = load_emissions(emissions_csv, name)
-    perf = load_parameters(params_csv, name)
+    perf = load_parameters(params_json, name)
 
     annual_eco = c_eco['capex'] * n_year / perf['lifetime']
     annual_env = c_env['capex'] * n_year / perf['lifetime']
+
+    e_cost = annual_eco if mode == 'economic' else annual_env
 
     stor = Storage(
         e_cap=None,
@@ -511,8 +519,8 @@ def build_storage(name, params_csv, costs_csv, emissions_csv,
         eff_in=perf['eff_charge'],
         eff_out=perf['eff_discharge'],
         p_cost=0.0,
-        e_cost=annual_eco,
-        soc_min=0.0,
+        e_cost=e_cost,
+        soc_min=1.0 - perf['dod'],
         soc_max=1.0,
         lifetime=int(perf['lifetime']),
         opex_fix=0.0,
@@ -658,8 +666,7 @@ def build_summary(mode, tn, os_result, prod1_ts, prod2_ts,
 
     Args:
         mode (str): 'economic' or 'environmental'.
-        tn, sc (dict): technical and scenario dicts.
-        p1_spec, p2_spec, s1_spec, s2_spec (dict): asset specs.
+        tn, (dict): technical dict.
         os_result (OpSchedule): kernel output.
         prod1_ts, prod2_ts (TimeSeries): derated profiles used in the solve.
         price_eco (TimeSeries or None): day-ahead price series, dt=1.0.
@@ -787,3 +794,319 @@ def build_summary(mode, tn, os_result, prod1_ts, prod2_ts,
         # Checks
         'loss_check_ok': os_result.check_losses(1e-4),
     }
+
+### Solar PV modeling with pvlib
+
+def get_pvgis_hourly(lat, lon, year, cache_dir="pvgis_cache"):
+    cache_dir = Path(cache_dir)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    key = f"{lat:.4f}_{lon:.4f}_{year}_horizontal"
+    path = cache_dir / f"{key}.parquet"
+    if path.exists():
+        return pd.read_parquet(path)
+    data, meta = pvlib.iotools.get_pvgis_hourly(
+        latitude=lat, longitude=lon,
+        start=year, end=year,
+        raddatabase="PVGIS-SARAH3",
+        components=False,
+        surface_tilt=0,
+        surface_azimuth=0,
+        map_variables=True,
+    )
+    data.to_parquet(path)
+    return data
+
+
+def pv_generation_profile(lat, lon, year, params_path, tilt=None, azimuth=None,
+                          cache_dir=DEFAULT_CACHE_DIR,
+                          pvgis_cache_dir="pvgis_cache",
+                          dc_model="cec"):
+    """Return a normalized PV AC generation profile from pvlib.
+
+    Args:
+        lat, lon (float): site coordinates.
+        year (int): calendar year of the PVGIS weather data.
+        params_path (str): path to technology_parameters.json. Reads the
+            'pv_module', 'pv_inverter', and 'pv_farm' groups.
+        tilt (float, optional): fixed array tilt [deg]. If None, or if
+            azimuth is also None, tilt and azimuth are chosen by an annual
+            POA sweep.
+        azimuth (float, optional): fixed array azimuth [deg].
+        cache_dir (str): PVGIS cache directory.
+        dc_model (str): 'cec' or 'pvwatts'.
+
+    Returns:
+        pd.Series: hourly AC output per MW of inverter AC nameplate
+            [MW/MWac], dt=1 h, indexed by UTC timestamp.
+
+    Raises:
+        FileNotFoundError: if params_path does not exist.
+        KeyError: if a required group or field is missing from the JSON.
+        ValueError: if dc_model is not 'cec' or 'pvwatts', or if
+            n_inputs_per_mppt does not match n_mppt.
+    """
+
+    ### search for data in the cache 
+    cache_file = cache_path(cache_dir, 'pv',
+                        lat=round(float(lat), 4), lon=round(float(lon), 4),
+                        year=int(year), tilt=tilt, azimuth=azimuth,
+                        dc_model=dc_model)
+    cached = read_cache(cache_file)
+    if cached is not None:
+        data, _ = cached
+        return pd.Series(np.array(data))
+
+
+    ### parameter loading
+    if not os.path.isfile(params_path):
+        raise FileNotFoundError(
+            'Technology parameters not found at {}'.format(params_path))
+    with open(params_path, 'r') as f:
+        params = json.load(f)    
+
+    module   = params['pv_module']
+    inverter = params['pv_inverter']
+    farm     = params['pv_farm']
+
+    albedo = farm['albedo']
+    gcr    = farm['gcr']
+    height = farm['height']
+    ilr    = farm['ilr']
+    u0     = farm['u0']
+    u1     = farm['u1']
+    pitch  = module['length_m'] / gcr
+
+    ### pvgis hourly data and irradiance component calculations 
+    data = get_pvgis_hourly(lat, lon, year, cache_dir=pvgis_cache_dir)
+    ghi = data["poa_global"].clip(lower=0).rename("ghi")
+
+    solpos = pvlib.solarposition.get_solarposition(data.index, lat, lon)
+    solar_zenith = solpos["apparent_zenith"]
+    solar_azimuth = solpos["azimuth"]
+
+    erbs = pvlib.irradiance.erbs(
+        ghi=ghi,
+        zenith=solar_zenith,
+        datetime_or_doy=data.index,
+    )
+    dni = erbs["dni"].clip(lower=0).fillna(0).rename("dni")
+    dhi = erbs["dhi"].clip(lower=0).fillna(0).rename("dhi")
+
+    weather = pd.DataFrame({
+        "ghi": ghi,
+        "dni": dni,
+        "dhi": dhi,
+        "temp_air": data["temp_air"],
+        "wind_speed": data["wind_speed"],
+    })
+    dni_extra = pvlib.irradiance.get_extra_radiation(weather.index)
+
+    ### optimal tilt and azimuth for a bifacial module
+    if tilt is not None and azimuth is not None:
+        best_tilt = tilt
+        best_az = azimuth
+    else:
+        tilts = np.arange(15, 55, 1)
+        azimuths = np.arange(165, 195, 1)
+        rows = []
+        for tlt in tilts:
+            for az in azimuths:
+                poa = get_irradiance(
+                        surface_tilt=tlt,
+                        surface_azimuth=az,
+                        solar_zenith=solar_zenith,
+                        solar_azimuth=solar_azimuth,
+                        gcr=gcr,
+                        height=height,
+                        pitch=pitch,
+                        ghi=weather["ghi"],
+                        dhi=weather["dhi"],
+                        dni=weather["dni"],
+                        albedo=albedo,
+                        dni_extra=dni_extra,
+                        bifaciality=module["bifaciality"],
+                        model="perez",
+                    )
+                annual = poa["poa_global"].sum() / 1000.0
+                rows.append({"tilt": tlt, "azimuth": az, "annual_kwh_m2": annual})
+        sweep_bifacial = pd.DataFrame(rows)
+        best_bifacial = sweep_bifacial.loc[sweep_bifacial["annual_kwh_m2"].idxmax()]
+        best_tilt = float(best_bifacial["tilt"])
+        best_az = float(best_bifacial["azimuth"])
+
+    ### recalculate yearly irradiance time-series for given or optimized tilt and azimuth
+    poa_best = get_irradiance(
+        surface_tilt=best_tilt,
+        surface_azimuth=best_az,
+        solar_zenith=solar_zenith,
+        solar_azimuth=solar_azimuth,
+        gcr=gcr,
+        height=height,
+        pitch=pitch,
+        ghi=weather["ghi"],
+        dhi=weather["dhi"],
+        dni=weather["dni"],
+        albedo=albedo,
+        dni_extra=dni_extra,
+        bifaciality=[module["bifaciality"]],
+        model="perez",
+    )
+
+    effective_irradiance = poa_best["poa_global"].clip(lower=0)
+
+    ### string topology calculation
+    T_STC = 25.0
+    T_cold = weather["temp_air"].min()   # degC, from PVGIS weather
+
+    cell_temp = faiman(
+        poa_global=effective_irradiance,
+        temp_air=weather["temp_air"],
+        wind_speed=weather["wind_speed"],
+        u0=u0,
+        u1=u1,
+    )
+
+    T_hot_cell = float(cell_temp.max()) # degC, using Faiman model
+
+
+    # number of modules
+    p_dc_target = inverter["pac0"] * ilr
+    n_modules_total = int(round(p_dc_target / module["pdc0"]))
+
+    # max string length constrained by inverter max voltage at cold temp
+    v_oc_cold = module["v_oc"] * (1 + module["beta_voc"] * (T_cold - T_STC))
+    n_s_max = int(inverter["v_dc_max"] // v_oc_cold)
+
+    # min string length constrained by mppt lower voltage bound at hot temp
+    v_mp_hot = module["v_mp"] * (1 + module["beta_voc"] * (T_hot_cell - T_STC))
+    n_s_min = int(-(-inverter["v_mppt_min"] // v_mp_hot))   # ceil division
+
+    n_s = n_s_max  # maximize string length to reduce n_p and balance mppt inputs
+
+    # sweep parallel strings and pick the ILR closest to target
+    max_strings_per_mppt_by_imp = int(inverter["i_mppt_max"] // module["i_mp"])
+    max_strings_per_mppt_by_isc = int(inverter["i_sc_mppt_max"] // module["i_sc"])
+    max_strings_per_mppt = min(max_strings_per_mppt_by_imp, max_strings_per_mppt_by_isc)
+    max_strings_per_mppt = min(max_strings_per_mppt, min(inverter["n_inputs_per_mppt"]))
+
+    p_string = n_s * module["pdc0"]  # DC power per string
+
+    best = None  # (abs_err, n_p, ilr_actual)
+    for n_p_cand in range(1, max_strings_per_mppt * inverter["n_mppt"] + 1):
+        ilr_cand = n_p_cand * p_string / inverter["pac0"]
+        err = abs(ilr_cand - ilr)
+        if best is None or err < best[0]:
+            best = (err, n_p_cand, ilr_cand)
+
+    _, n_p, ilr_actual = best
+
+    # distribute n_p across MPPTs, cap respected after remainder
+    strings_per_mppt = [min(max_strings_per_mppt, n_p // inverter["n_mppt"])] * inverter["n_mppt"]
+    remaining = n_p - sum(strings_per_mppt)
+    for i in range(remaining):
+        strings_per_mppt[i] += 1
+
+    ### shared parameters 
+    inverter_parameters = {
+        "pdc0": inverter["pac0"] / inverter["eta_inv_nom"],  # based on pvwatts assumption
+        "eta_inv_nom": inverter["eta_inv_nom"],
+    }
+
+    temperature_model_parameters = {"u0": u0, "u1": u1}
+    location = Location(lat, lon, tz="UTC")
+
+    ### pvsystem and modelchain setup
+    if dc_model == "cec":
+        cec_params = sdm.fit_cec_sam(
+            celltype="monoSi",
+            v_mp=module["v_mp"],
+            i_mp=module["i_mp"],
+            v_oc=module["v_oc"],
+            i_sc=module["i_sc"],
+            alpha_sc=module["alpha_isc"] * module["i_sc"],
+            beta_voc=module["beta_voc"] * module["v_oc"],
+            gamma_pmp=module["gamma_pdc"]*100,
+            cells_in_series=module["cells_in_series"],
+            temp_ref=25,
+        )
+        I_L_ref, I_o_ref, R_s, R_sh_ref, a_ref, Adjust = cec_params
+
+        module_parameters = {
+            "alpha_sc": module["alpha_isc"] * module["i_sc"],        
+            "I_L_ref": I_L_ref,
+            "I_o_ref": I_o_ref,
+            "R_sh_ref": R_sh_ref,
+            "R_s": R_s,
+            "Adjust": Adjust,
+            "a_ref": a_ref,
+            "N": module["cells_in_series"],
+        }
+
+        system = PVSystem(
+            surface_tilt=best_tilt,
+            surface_azimuth=best_az,
+            module_parameters=module_parameters,
+            inverter_parameters=inverter_parameters,
+            temperature_model_parameters=temperature_model_parameters,
+            modules_per_string=n_s,
+            strings_per_inverter=n_p,
+        )
+
+        mc = ModelChain(
+            system, location,
+            aoi_model="no_loss",
+            spectral_model="no_loss",
+            dc_model="cec",
+            ac_model="pvwatts",
+            temperature_model="faiman",
+            losses_model="pvwatts",
+            transposition_model="perez",
+        )
+
+    elif dc_model == "pvwatts":
+        module_parameters = {
+            "pdc0": module["pdc0"],
+            "gamma_pdc": module["gamma_pdc"],
+        }
+
+        system = PVSystem(
+            surface_tilt=best_tilt,
+            surface_azimuth=best_az,
+            module_parameters=module_parameters,
+            inverter_parameters=inverter_parameters,
+            temperature_model_parameters=temperature_model_parameters,
+            modules_per_string=n_s,
+            strings_per_inverter=n_p,
+        )
+
+        location = Location(lat, lon, tz="UTC")
+
+        mc = ModelChain(
+            system, location,
+            aoi_model="no_loss",
+            spectral_model="no_loss",
+            dc_model="pvwatts",
+            ac_model="pvwatts",
+            temperature_model="faiman",
+            losses_model="pvwatts",
+            transposition_model="perez",
+        )
+
+    else:
+        raise ValueError(f"dc_model must be 'cec' or 'pvwatts', got '{dc_model}'")
+
+    ### run the model and return AC generation profile in MW per MW of inverter capacity
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            'ignore', message='invalid value encountered in divide',
+            category=RuntimeWarning)
+        mc.run_model(weather)
+    ac = mc.results.ac["p_mp"].clip(lower=0)
+    ac_per_mwac = ac / inverter["pac0"]
+
+    meta = dict(resource='pv', lat=lat, lon=lon, year=year,
+                tilt=best_tilt, azimuth=best_az,
+                dc_model=dc_model, source='pvlib',
+                fetched_utc=pd.Timestamp.now(tz='UTC').isoformat())
+    write_cache(cache_file, ac_per_mwac.to_numpy(dtype=float), meta)
+    return ac_per_mwac

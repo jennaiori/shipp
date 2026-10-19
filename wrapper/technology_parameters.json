@@ -1,0 +1,78 @@
+{
+  "pv_module": {
+    "name": "Trina Vertex N G3 TSM-NEG19RC.20Q 670 W",
+    "pdc0": 670.0,
+    "bifaciality": 0.85,
+    "cells_in_series": 132,
+    "v_oc": 50.95,
+    "i_sc": 16.60,
+    "v_mp": 42.04,
+    "i_mp": 15.94,
+    "beta_voc": -0.0024,
+    "alpha_isc": 0.0004,
+    "gamma_pdc": -0.0026,
+    "length_m": 2.382,
+    "width_m": 1.134,
+    "lifetime": 40,
+    "note": "Module parameters from Trina Vertex N G3 TSM-NEG19RC.20Q datasheet, lifetime from DEA TC for 2025."
+  },
+  "pv_inverter": {
+    "name": "Huawei SUN2000-330KTL-H1",
+    "pac0": 330000,
+    "eta_inv_nom": 0.988,
+    "v_dc_max": 1500.0,
+    "v_mppt_min": 500.0,
+    "v_mppt_max": 1500.0,
+    "i_mppt_max": 65.0,
+    "i_sc_mppt_max": 115.0,
+    "n_mppt": 6,
+    "n_inputs_per_mppt": [4, 5, 5, 4, 5, 5],
+    "lifetime": 15,
+    "note": "Inverter parameters from Huawei SUN2000-330KTL-H1 datasheet, lifetime from DEA TC for 2025."
+  },
+  "pv_other": {
+    "lifetime": 40,
+    "note": "Balance-of-system lifetime from DEA TC for 2025."
+    },
+  "pv_farm": {
+    "albedo": 0.2,
+    "gcr": 0.517,
+    "height": 1.5,
+    "ilr": 1.3,
+    "u0": 25.0,
+    "u1": 6.84,
+    "note": "ILR and GCR calculated based on DEA TC data for 2025. Height and albedo are assumed values."
+  },
+  "wind_turbine": {
+    "name": "Vestas V150 4500",
+    "rated_power_kw": 4500,
+    "hub_height": 90,
+    "lifetime": 27,
+    "losses": 0.03,
+    "note": "Wind turbine parameters based on DEA TC data for 2025. Losses based on 97% availability."
+  },
+  "lfp": {
+    "duration": 2,
+    "eff_charge": 0.98,
+    "eff_discharge": 0.954,
+    "lifetime": 15,
+    "dod": 0.8,
+    "note": "LFP parameters based on DEA TC data for 2025. Charge efficiency is DC, discharge efficiency is AC assuming symmetric losses. DoD assumed to be 80%. Duration in hours."
+  },
+  "caes": {
+    "duration": 10,
+    "eff_charge": 0.8,
+    "eff_discharge": 0.8,
+    "lifetime": 40,
+    "dod": 0.8,
+    "note": "CAES parameters based on DEA TC data for 2020. Efficiency is DC assuming symmetric losses. DoD assumed to be 80%. Duration in hours."
+  },
+  "vrfb": {
+    "duration": 2,
+    "eff_charge": 0.866,
+    "eff_discharge": 0.866,
+    "lifetime": 25,
+    "dod": 0.8,
+    "note": "VRFB parameters based on DEA TC data for 2025. Efficiency is DC assuming symmetric losses. DoD assumed to be 80%. Duration in hours."
+  }
+}
