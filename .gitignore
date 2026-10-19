@@ -11,6 +11,8 @@ build/
 wrapper/cache
 wrapper/__pycache__/
 wrapper/ember_prices.csv
+wrapper/pvgis_cache
+
 # Ignore data files and figures
 experiments/hyb24_bl_hpp/figures
 experiments/we25_robust_dispatch/data/mars_ptf*
