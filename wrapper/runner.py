@@ -49,9 +49,10 @@ def run_case(case):
             "mode must be 'economic' or 'environmental', got '{}'".format(
                 mode))
     method = tn.get('method', 'SOO')
-    if method not in ('SOO', 'weighted_sum'):
+    if method not in ('SOO', 'weighted_sum', 'augmecon'):
         raise ValueError(
-            "method must be 'SOO' or 'weighted_sum', got '{}'".format(method))
+            "method must be 'SOO', 'weighted_sum' or 'augmecon', got "
+            "'{}'".format(method))
 
     n = sc['n']
     dt = sc.get('dt', 1.0)
@@ -209,8 +210,10 @@ def run_case(case):
             sols = [sol]
         else:
             sols = solve_sizing_MOO(
-                model, meta, method='weighted_sum',
-                weights=tn.get('weight_sweep'))
+                model, meta, method=method,
+                weights=tn.get('weight_sweep'),
+                n_points=tn.get('n_points', 11),
+                verbose=verbose)
     t_wall = time.perf_counter() - t
     if verbose:
         print("{:.2f} s".format(t_wall))
@@ -293,7 +296,7 @@ if __name__ == '__main__':
             'beta_obj': BETA_OBJ_DEFAULT,
             'verbose': True,
             'plot_dispatch': True,
-            'weight_sweep': [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+            'weight_sweep': [0.0, 0.2, 0.4, 0.6, 0.8, 1.0],
         },
     }
     sols, summaries = run_case(case)
@@ -305,12 +308,13 @@ if __name__ == '__main__':
         output_dir, "summary_{}.csv".format(case['technical']['method']))
     df.to_csv(summary_path, index=False)    
 
-    if case['technical']['method'] == 'weighted_sum':
+    if case['technical']['method'] in ('weighted_sum', 'augmecon'):
         path = plot_pareto(
             sols,
             mode=case['technical']['mode'],
             output_dir=output_dir,
-            filename='pareto_front.png',
+            filename='pareto_{}.png'.format(
+                case['technical']['method']),
         )
 
     for s in summaries:

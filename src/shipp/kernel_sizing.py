@@ -4,6 +4,7 @@ import warnings
 import numpy as np
 import numpy_financial as npf
 import pyomo.environ as pyo
+import time
 
 from shipp.components import Storage, Production, OpSchedule
 from shipp.timeseries import TimeSeries
@@ -493,73 +494,93 @@ def solve_sizing_SOO(model, meta, dimension='economic'):
     }
 
 
-def solve_sizing_MOO(model, meta, method='weighted_sum', weights=None):
+def solve_sizing_MOO(model, meta, method='weighted_sum', weights=None,
+                     n_points=11, verbose=False):
     if not meta['env_available']:
         raise ValueError(
             "MOO requires environmental costs; the following assets "
             "have none:\n  - " + "\n  - ".join(meta['env_missing']))
-    if method != 'weighted_sum':
-        raise ValueError(
-            "method must be 'weighted_sum', got '{}'".format(method))
 
-    if weights is None:
-        weights = [0.0, 0.2, 0.4, 0.5, 0.6, 0.8, 1.0]
-    weights = [float(w) for w in weights]
-    for w in weights:
-        if not (0.0 <= w <= 1.0):
+    if method == 'weighted_sum':
+        if weights is None:
+            weights = [0.0, 0.2, 0.4, 0.5, 0.6, 0.8, 1.0]
+        weights = [float(w) for w in weights]
+        for w in weights:
+            if not (0.0 <= w <= 1.0):
+                raise ValueError(
+                    "weight sweep values must be in [0, 1], got {}".format(w))
+
+        sol_eco = solve_sizing_SOO(model, meta, dimension='economic')
+        scale_eco = abs(sol_eco['objectives']['economic'])
+        sol_env = solve_sizing_SOO(model, meta, dimension='environmental')
+        scale_env = abs(sol_env['objectives']['environmental'])
+
+        if scale_eco < 1e-12:
             raise ValueError(
-                "weight sweep values must be in [0, 1], got {}".format(w))
+                "Economic SOO optimum is zero; weighted sum is undefined.")
+        if scale_env < 1e-12:
+            raise ValueError(
+                "Environmental SOO optimum is zero; weighted sum is undefined.")
 
-    sol_eco = solve_sizing_SOO(model, meta, dimension='economic')
-    scale_eco = abs(sol_eco['objectives']['economic'])
-    sol_env = solve_sizing_SOO(model, meta, dimension='environmental')
-    scale_env = abs(sol_env['objectives']['environmental'])
+        solutions = []
+        for w in weights:
+            w_eco = float(w)
+            w_env = 1.0 - w_eco
+            if hasattr(model, 'obj'):
+                model.del_component(model.obj)
+            model.obj = pyo.Objective(
+                expr=w_eco * model.J_eco / scale_eco
+                    + w_env * model.J_env / scale_env,
+                sense=pyo.maximize)
 
-    if scale_eco < 1e-12:
+            if verbose:
+                print("  w={:.2f}...".format(w_eco), end=" ", flush=True)
+            t_w = time.perf_counter()
+
+            opt = pyo.SolverFactory(meta['name_solver'])
+            if 'gurobi' in meta['name_solver']:
+                opt.options['MIPGap'] = 1e-6
+                opt.options['Seed'] = 0
+                opt.options['Threads'] = 1
+                opt.options['StartNodeLimit'] = -3
+                opt.options['NumericFocus'] = 3
+            results = opt.solve(model, tee=meta['verbose'])
+
+            t_solve = time.perf_counter() - t_w
+
+            if (results.solver.status is not pyo.SolverStatus.ok
+                    or results.solver.termination_condition
+                    is not pyo.TerminationCondition.optimal):
+                raise RuntimeError(
+                    "Weighted-sum solve did not return an optimal solution: "
+                    "status={}, termination={}, weight={}".format(
+                        results.solver.status,
+                        results.solver.termination_condition,
+                        w_eco))
+
+            eco_val = pyo.value(model.J_eco)
+            env_val = pyo.value(model.J_env)
+            if verbose:
+                print("{:.2f} s  J_eco={:.4g}  J_env={:.4g}".format(
+                    t_solve, eco_val, env_val))
+
+            solutions.append({
+                'method': 'weighted_sum',
+                'weight': w_eco,
+                'scale_eco': scale_eco,
+                'scale_env': scale_env,
+                'objectives': {'economic': eco_val, 'environmental': env_val},
+                'os_result': extract_solution(model, meta),
+            })
+
+    if method == 'augmecon':
+        raise NotImplementedError(
+            "AUGMECON is not yet implemented.")
+
+    if method != 'weighted_sum' and method != 'augmecon':
         raise ValueError(
-            "Economic SOO optimum is zero; weighted sum is undefined.")
-    if scale_env < 1e-12:
-        raise ValueError(
-            "Environmental SOO optimum is zero; weighted sum is undefined.")
+            "method must be 'weighted_sum' or 'augmecon', got '{}'".format(method))
 
-    solutions = []
-    for w in weights:
-        w_eco = float(w)
-        w_env = 1.0 - w_eco
-        if hasattr(model, 'obj'):
-            model.del_component(model.obj)
-        model.obj = pyo.Objective(
-            expr=w_eco * model.J_eco / scale_eco
-                + w_env * model.J_env / scale_env,
-            sense=pyo.maximize)
-        opt = pyo.SolverFactory(meta['name_solver'])
-        if 'gurobi' in meta['name_solver']:
-            opt.options['MIPGap'] = 1e-6
-            opt.options['Seed'] = 0
-            opt.options['Threads'] = 1
-            opt.options['StartNodeLimit'] = -3
-            opt.options['NumericFocus'] = 3
-        results = opt.solve(model, tee=meta['verbose'])
-        if (results.solver.status is not pyo.SolverStatus.ok
-                or results.solver.termination_condition
-                is not pyo.TerminationCondition.optimal):
-            raise RuntimeError(
-                "Weighted-sum solve did not return an optimal solution: "
-                "status={}, termination={}, weight={}".format(
-                    results.solver.status,
-                    results.solver.termination_condition,
-                    w_eco))
-        solutions.append({
-            'method': 'weighted_sum',
-            'weight': w_eco,
-            'scale_eco': scale_eco,
-            'scale_env': scale_env,
-            'objectives': {
-                'economic': pyo.value(model.J_eco),
-                'environmental': pyo.value(model.J_env),
-            },
-            'os_result': extract_solution(model, meta),
-        })
     return solutions
 
 def extract_solution(
