@@ -221,9 +221,9 @@ def run_case(case):
             os_result,
             price=price_ts.data,
             grid_cap=sc['p_grid_max'],
-            h_start=0, h_end=24 * 14,
+            h_start=0, h_end=24 * 365,
             title=f"{mode.capitalize()} dispatch",
-            max_points=2000,
+            max_points=8760,
             start_datetime=start_dt,
             price_label=price_label,
         )
@@ -234,9 +234,9 @@ def run_case(case):
 if __name__ == '__main__':
     case = {
         'scenario': {
-            'lat': 56.26, 'lon': 9.5,
+            'lat': 52.3, 'lon': 5.3,
             'date_from': '2023-01-01', 'date_to': '2024-01-01',
-            'price_iso3': 'DNK', 'price_year': 2023,
+            'price_iso3': 'NLD', 'price_year': 2023,
             'price_csv': 'ember_prices.csv',
             'p_grid_max': 300,
             'budget': None,
