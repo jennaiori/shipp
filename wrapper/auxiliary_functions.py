@@ -655,6 +655,78 @@ def plot_dispatch(os_result, price=None, grid_cap=None, title=None,
     fig.show()
     return fig
 
+def plot_pareto(sols, mode='economic', output_dir='outputs',
+                filename=None, title=None, annotate_weights=True):
+    """Plot the Pareto front of MOO solutions.
+
+    Args:
+        sols (list[dict]): solution dicts from the kernel, each with
+            'objectives' containing 'economic' and 'environmental' and,
+            for weighted sum, a 'weight' key.
+        mode (str): label used in the title.
+        output_dir (str): directory for the saved PNG. Pass None to skip.
+        filename (str, optional): PNG filename. Defaults to a
+            timestamped name.
+        title (str, optional): figure title.
+        annotate_weights (bool): annotate each point with its weight.
+
+    Returns:
+        str or None: the path to the saved figure, or None if
+        ``output_dir`` is None.
+    """
+    if not sols:
+        raise ValueError('sols is empty; nothing to plot.')
+    for sol in sols:
+        obj = sol.get('objectives') or {}
+        if obj.get('economic') is None or obj.get('environmental') is None:
+            raise ValueError(
+                'Each solution needs both economic and environmental '
+                'objective values.')
+
+    eco = np.array([sol['objectives']['economic'] for sol in sols])
+    env = np.array([sol['objectives']['environmental'] for sol in sols])
+    weights = [sol.get('weight') for sol in sols]
+
+    order = np.argsort(env)
+    eco = eco[order]
+    env = env[order]
+    weights = [weights[i] for i in order]
+
+    fig, ax = plt.subplots(figsize=(6.4, 4.0))
+    if all(w is not None for w in weights):
+        sc = ax.scatter(env, eco, c=weights, cmap='viridis',
+                        edgecolors='k', zorder=3)
+        cbar = fig.colorbar(sc, ax=ax)
+        cbar.set_label('Economic weight')
+    else:
+        ax.scatter(env, eco, edgecolors='k', zorder=3)
+
+    ax.plot(env, eco, color='grey', linewidth=0.8, zorder=2)
+
+    if annotate_weights and all(w is not None for w in weights):
+        for w, e_eco, e_env in zip(weights, eco, env):
+            ax.annotate("w={:.2f}".format(w), (e_env, e_eco),
+                        textcoords="offset points", xytext=(4, 4),
+                        fontsize=8)
+
+    ax.set_xlabel("Net emissions [kgCO2e]")
+    ax.set_ylabel("Net present value [EUR]")
+    ax.set_title(title or "Pareto front")
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+
+    if output_dir is None:
+        plt.close(fig)
+        return None
+
+    os.makedirs(output_dir, exist_ok=True)
+    if filename is None:
+        filename = "pareto_front.png"
+    path = os.path.join(output_dir, filename)
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+    return path
+
 def build_summary(mode, tn, os_result, prod1_ts, prod2_ts,
                   price_eco, price_env,
                   annual_cost_eco, annual_cost_env,

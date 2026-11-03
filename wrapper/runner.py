@@ -1,9 +1,9 @@
 # runner.py
 
 import time
-from turtle import mode
 import warnings
 import pandas as pd
+import os
 
 from auxiliary_functions import (
     load_price_from_csv,
@@ -13,27 +13,30 @@ from auxiliary_functions import (
     get_profile,
     BETA_OBJ_DEFAULT,
     plot_dispatch,
+    plot_pareto,
     build_summary,
 )
 from shipp.components import Storage
 from shipp.timeseries import TimeSeries
-from shipp.kernel_pyomo import solve_lp_pyomo_sizing
+from shipp.kernel_sizing import (
+    build_sizing_model,
+    solve_sizing_SOO,
+    solve_sizing_MOO,
+)
 
 
 def run_case(case):
-    """Run a single sizing/dispatch case.
-
-    mode='economic' uses the day-ahead price as the price series and
-    monetary capex/opex for the assets. mode='environmental' uses the
-    marginal displacement factor series as the price and embedded
-    emissions as the asset costs.
+    """Run a sizing/dispatch case with the configured method.
 
     Args:
         case (dict): nested case description with 'scenario', 'techs',
-            and 'technical' levels.
+            and 'technical' levels. ``technical['method']`` selects
+            'SOO' or 'weighted_sum' (default 'SOO').
 
     Returns:
-        (os_result, summary)
+        (sols, summaries). ``sols`` is the list of solution dicts from
+        the kernel; ``summaries`` is the matching list from
+        ``build_summary``.
     """
     sc = case['scenario']
     tx = case['techs']
@@ -43,7 +46,12 @@ def run_case(case):
     mode = tn['mode']
     if mode not in ('economic', 'environmental'):
         raise ValueError(
-            "mode must be 'economic' or 'environmental', got '{}'".format(mode))
+            "mode must be 'economic' or 'environmental', got '{}'".format(
+                mode))
+    method = tn.get('method', 'SOO')
+    if method not in ('SOO', 'weighted_sum'):
+        raise ValueError(
+            "method must be 'SOO' or 'weighted_sum', got '{}'".format(method))
 
     n = sc['n']
     dt = sc.get('dt', 1.0)
@@ -55,40 +63,30 @@ def run_case(case):
     s1_spec = tx['stor1']
     s2_spec = tx['stor2']
 
-    # --- profiles ---
     if verbose:
         print("Generating profiles...", end=" ", flush=True)
     t = time.perf_counter()
-
     prod1_ts = get_profile(p1_spec, sc, tx, tn)
     prod2_ts = get_profile(p2_spec, sc, tx, tn)
-
     if verbose:
         print("{:.2f} s".format(time.perf_counter() - t))
 
     if verbose:
         print("Loading prices...", end=" ", flush=True)
     t = time.perf_counter()
-
     price_eco = load_price_from_csv(
         sc['price_iso3'], price_year, sc['price_csv'])
     price_env = load_mdf_from_csv(tx['mdf_csv'], price_year)
-
     prod1_ts = TimeSeries(prod1_ts.data[:n], dt)
     prod2_ts = TimeSeries(prod2_ts.data[:n], dt)
     price_eco = TimeSeries(price_eco.data[:n], dt)
     price_env = TimeSeries(price_env.data[:n], dt)
-
-    price_ts = price_eco if mode == 'economic' else price_env
-
     if verbose:
         print("{:.2f} s".format(time.perf_counter() - t))
 
     if verbose:
         print("Building assets...", end=" ", flush=True)
     t = time.perf_counter()
-
-    # --- assets ---
     (prod1, annual_eco_p1, annual_env_p1,
      capex_eco_p1, capex_env_p1) = build_production(
         p1_spec['name'], tn['mode'], tx['params_json'], tx['costs_csv'],
@@ -101,8 +99,13 @@ def run_case(case):
         p2_spec['costs_year'], prod2_ts, n_year)
 
     if s1_spec['name'] is None:
-        stor1 = Storage(e_cap=0, p_cap=0, eff_in=1.0, eff_out=1.0,
-                        p_cost=0.0, e_cost=0.0, duration=1.0)
+        stor1 = Storage(
+            e_cap=0, p_cap=0, eff_in=1.0, eff_out=1.0,
+            p_cost_economic=0.0, p_cost_environmental=0.0,
+            e_cost_economic=0.0, e_cost_environmental=0.0,
+            opex_fix_economic=0.0, opex_fix_environmental=0.0,
+            opex_var_economic=0.0, opex_var_environmental=0.0,
+            duration=1.0)
         annual_eco_s1 = 0.0
         annual_env_s1 = 0.0
         capex_eco_s1 = 0.0
@@ -115,8 +118,13 @@ def run_case(case):
             s1_spec['costs_year'], n_year)
 
     if s2_spec['name'] is None:
-        stor2 = Storage(e_cap=0, p_cap=0, eff_in=1.0, eff_out=1.0,
-                        p_cost=0.0, e_cost=0.0, duration=1.0)
+        stor2 = Storage(
+            e_cap=0, p_cap=0, eff_in=1.0, eff_out=1.0,
+            p_cost_economic=0.0, p_cost_environmental=0.0,
+            e_cost_economic=0.0, e_cost_environmental=0.0,
+            opex_fix_economic=0.0, opex_fix_environmental=0.0,
+            opex_var_economic=0.0, opex_var_environmental=0.0,
+            duration=1.0)
         annual_eco_s2 = 0.0
         annual_env_s2 = 0.0
         capex_eco_s2 = 0.0
@@ -144,19 +152,11 @@ def run_case(case):
         'prod1': capex_env_p1, 'prod2': capex_env_p2,
         'stor1': capex_env_s1, 'stor2': capex_env_s2,
     }
-    opex_eco = {'prod1': prod1.opex_fix, 'prod2': prod2.opex_fix}
+    opex_eco = {'prod1': prod1.opex_fix_economic,
+                'prod2': prod2.opex_fix_economic}
 
-    if mode == 'environmental':
-        for obj in (prod1, prod2, stor1, stor2):
-            obj.p_cost = obj.p_cost_environmental
-            obj.opex_fix = obj.opex_fix_environmental
-            obj.opex_var = obj.opex_var_environmental
-        for stor in (stor1, stor2):
-            stor.e_cost = stor.e_cost_environmental
-
-    # --- budget (economic mode only) ---
     budget = sc.get('budget')
-    if budget is not None and mode == 'economic':
+    if budget is not None:
         tol = tn.get('budget_tol', 1e-4)
         i_max = budget * (1 + tol)
         i_min = budget * (1 - tol)
@@ -176,68 +176,87 @@ def run_case(case):
     if verbose:
         print("{:.2f} s".format(time.perf_counter() - t))
 
-    # --- solve ---
-
     if verbose:
-        print("Running model...", end=" ", flush=True)
-    t0 = time.perf_counter()
-
-    discount_rate = 0.0 if mode == 'environmental' else sc['discount_rate']
-
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        os_result = solve_lp_pyomo_sizing(
-            price_ts=price_ts,
-            prod1=prod1, prod2=prod2,
-            prof1_unit=prod1_ts, prof2_unit=prod2_ts,
-            stor1=stor1, stor2=stor2,
-            discount_rate=discount_rate, n_year=n_year,
-            p_grid_max=sc['p_grid_max'], n=n,
-            i_max=i_max, i_min=i_min,
-            nominal_costs=nominal_costs,
-            beta_obj=tn.get('beta_obj', BETA_OBJ_DEFAULT),
-            options=dict(
-                name_solver=tn.get('name_solver', 'gurobi'),
-                formulation=tn.get('formulation', 'milp')),
-        )
-
-    t_wall = time.perf_counter() - t0
-    if verbose:
-        print("{:.2f} s".format(t_wall))
-
-    summary = build_summary(
-        mode=mode, tn=tn,
-        os_result=os_result,
-        prod1_ts=prod1_ts, prod2_ts=prod2_ts,
-        price_eco=price_eco, price_env=price_env,
-        annual_cost_eco=annual_cost_eco,
-        annual_cost_env=annual_cost_env,
-        opex_eco=opex_eco,
-        capex_nominal_eco=capex_nominal_eco,
-        capex_nominal_env=capex_nominal_env,
+        print("Building model...", end=" ", flush=True)
+    t = time.perf_counter()
+    model, meta = build_sizing_model(
+        price_eco=price_eco,
+        price_env=price_env,
+        prod1=prod1, prod2=prod2,
+        prof1_unit=prod1_ts, prof2_unit=prod2_ts,
+        stor1=stor1, stor2=stor2,
         discount_rate_eco=sc['discount_rate'],
         discount_rate_env=0.0,
         n_year=n_year,
-        t_wall=t_wall, caught=caught,
+        p_grid_max=sc['p_grid_max'], n=n,
+        i_max=i_max, i_min=i_min,
+        nominal_costs=nominal_costs,
+        beta_obj=tn.get('beta_obj', BETA_OBJ_DEFAULT),
+        options=dict(
+            name_solver=tn.get('name_solver', 'gurobi'),
+            formulation=tn.get('formulation', 'milp')),
     )
+    if verbose:
+        print("{:.2f} s".format(time.perf_counter() - t))
 
-    if tn.get('plot_dispatch', False):
+    if verbose:
+        print("Running {}...".format(method), end=" ", flush=True)
+    t = time.perf_counter()
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        if method == 'SOO':
+            sol = solve_sizing_SOO(model, meta, dimension=mode)
+            sols = [sol]
+        else:
+            sols = solve_sizing_MOO(
+                model, meta, method='weighted_sum',
+                weights=tn.get('weight_sweep'))
+    t_wall = time.perf_counter() - t
+    if verbose:
+        print("{:.2f} s".format(t_wall))
+
+    summaries = []
+    for sol in sols:
+        summary = build_summary(
+            mode=mode, tn=tn,
+            os_result=sol['os_result'],
+            prod1_ts=prod1_ts, prod2_ts=prod2_ts,
+            price_eco=price_eco, price_env=price_env,
+            annual_cost_eco=annual_cost_eco,
+            annual_cost_env=annual_cost_env,
+            opex_eco=opex_eco,
+            capex_nominal_eco=capex_nominal_eco,
+            capex_nominal_env=capex_nominal_env,
+            discount_rate_eco=sc['discount_rate'],
+            discount_rate_env=0.0,
+            n_year=n_year,
+            t_wall=t_wall, caught=caught,
+        )
+        summary['method'] = sol['method']
+        summary['dimension'] = sol.get('dimension', mode)
+        if 'weight' in sol:
+            summary['weight'] = sol['weight']
+        summary['objectives'] = sol['objectives']
+        summaries.append(summary)
+
+    if tn.get('plot_dispatch', False) and method == 'SOO':
         start_dt = pd.Timestamp(
-            f"{price_year}-01-01 00:00", tz='UTC').tz_localize(None)
+            "{}-01-01 00:00".format(price_year), tz='UTC').tz_localize(None)
         price_label = ('Price [EUR/MWh]' if mode == 'economic'
                        else 'MDF [kgCO2e/MWh]')
+        price_series = price_eco if mode == 'economic' else price_env
         plot_dispatch(
-            os_result,
-            price=price_ts.data,
+            sols[0]['os_result'],
+            price=price_series.data,
             grid_cap=sc['p_grid_max'],
             h_start=0, h_end=24 * 365,
-            title=f"{mode.capitalize()} dispatch",
+            title="{} SOO dispatch".format(mode.capitalize()),
             max_points=8760,
             start_datetime=start_dt,
             price_label=price_label,
         )
 
-    return os_result, summary
+    return sols, summaries
 
 
 if __name__ == '__main__':
@@ -265,7 +284,8 @@ if __name__ == '__main__':
             'stor2': {'name': None,   'costs_year': 2020},
         },
         'technical': {
-            'mode': 'economic',
+            'mode': 'environmental',
+            'method': 'weighted_sum',
             'token': '96e53647b34ef4fb37b6958e9285eff9938ad7ce',
             'budget_tol': 1e-4,
             'formulation': 'milp',
@@ -273,9 +293,33 @@ if __name__ == '__main__':
             'beta_obj': BETA_OBJ_DEFAULT,
             'verbose': True,
             'plot_dispatch': True,
+            'weight_sweep': [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
         },
     }
-    os_result, summary = run_case(case)
-    if summary is not None:
-        for k, v in summary.items():
-            print(f"{k:>24}: {v}")
+    sols, summaries = run_case(case)
+
+    output_dir = 'outputs'
+    os.makedirs(output_dir, exist_ok=True)
+    df = pd.DataFrame(summaries)
+    summary_path = os.path.join(
+        output_dir, "summary_{}.csv".format(case['technical']['method']))
+    df.to_csv(summary_path, index=False)    
+
+    if case['technical']['method'] == 'weighted_sum':
+        path = plot_pareto(
+            sols,
+            mode=case['technical']['mode'],
+            output_dir=output_dir,
+            filename='pareto_front.png',
+        )
+
+    for s in summaries:
+        print("method={}  weight={}  J_eco={:.4g}  J_env={:.4g}".format(
+            s['method'],
+            s.get('weight', 'n/a'),
+            s['objectives']['economic'],
+            s['objectives']['environmental']))
+        if s['method'] == 'SOO':
+            print("-" * 40)
+            for k, v in s.items():
+                print(f"{k:>24}: {v}")       
