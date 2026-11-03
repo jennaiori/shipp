@@ -45,20 +45,20 @@ class Storage:
         opex_var (float): Deprecated alias for opex_var_economic
     '''
     def __init__(self, e_cap: float = 0, p_cap: float = 0,
-                 eff_in: float = 1, eff_out: float = 1,
-                 e_cost: float = 0, p_cost: float = 0,
-                 soc_min: float = 0, soc_max: float = 1,
-                 lifetime: int = 8,
-                 opex_fix: float = 0, opex_var: float = 0,
-                 duration: float = None,
-                 p_cost_economic: float = None,
-                 p_cost_environmental: float = None,
-                 e_cost_economic: float = None,
-                 e_cost_environmental: float = None,
-                 opex_fix_economic: float = None,
-                 opex_fix_environmental: float = None,
-                 opex_var_economic: float = None,
-                 opex_var_environmental: float = None) -> None:
+                eff_in: float = 1, eff_out: float = 1,
+                e_cost: float = 0, p_cost: float = 0,
+                soc_min: float = 0, soc_max: float = 1,
+                lifetime: int = 8,
+                opex_fix: float = 0, opex_var: float = 0,
+                duration: float = None,
+                p_cost_economic: float = None,
+                p_cost_environmental: float = None,
+                e_cost_economic: float = None,
+                e_cost_environmental: float = None,
+                opex_fix_economic: float = None,
+                opex_fix_environmental: float = None,
+                opex_var_economic: float = None,
+                opex_var_environmental: float = None) -> None:
         if e_cap is not None:
             assert e_cap >= 0
         if p_cap is not None:
@@ -80,46 +80,27 @@ class Storage:
         self.lifetime = lifetime
         self.duration = duration
 
-        # Economic p_cost
-        if p_cost_economic is not None:
-            self.p_cost_economic = p_cost_economic
-        else:
-            self.p_cost_economic = p_cost
-        # Environmental p_cost falls back to economic
-        if p_cost_environmental is not None:
-            self.p_cost_environmental = p_cost_environmental
-        else:
-            self.p_cost_environmental = self.p_cost_economic
+        # Economic costs
+        self.p_cost_economic = (p_cost_economic
+                                if p_cost_economic is not None else p_cost)
+        self.e_cost_economic = (e_cost_economic
+                                if e_cost_economic is not None else e_cost)
+        self.opex_fix_economic = (opex_fix_economic
+                                if opex_fix_economic is not None else opex_fix)
+        self.opex_var_economic = (opex_var_economic
+                                if opex_var_economic is not None else opex_var)
 
-        # Economic e_cost
-        if e_cost_economic is not None:
-            self.e_cost_economic = e_cost_economic
-        else:
-            self.e_cost_economic = e_cost
-        # Environmental e_cost falls back to economic
-        if e_cost_environmental is not None:
-            self.e_cost_environmental = e_cost_environmental
-        else:
-            self.e_cost_environmental = self.e_cost_economic
+        # Environmental costs
+        self.p_cost_environmental = p_cost_environmental
+        self.e_cost_environmental = e_cost_environmental
+        self.opex_fix_environmental = opex_fix_environmental
+        self.opex_var_environmental = opex_var_environmental
 
-        # OPEX
-        if opex_fix_economic is not None:
-            self.opex_fix_economic = opex_fix_economic
-        else:
-            self.opex_fix_economic = opex_fix
-        if opex_fix_environmental is not None:
-            self.opex_fix_environmental = opex_fix_environmental
-        else:
-            self.opex_fix_environmental = self.opex_fix_economic
-
-        if opex_var_economic is not None:
-            self.opex_var_economic = opex_var_economic
-        else:
-            self.opex_var_economic = opex_var
-        if opex_var_environmental is not None:
-            self.opex_var_environmental = opex_var_environmental
-        else:
-            self.opex_var_environmental = self.opex_var_economic
+        self._has_environmental_cost = any(
+            v is not None for v in (p_cost_environmental,
+                                    e_cost_environmental,
+                                    opex_fix_environmental,
+                                    opex_var_environmental))
 
         # Legacy aliases kept in sync with the economic values
         self.p_cost = self.p_cost_economic
@@ -134,7 +115,6 @@ class Storage:
         return self.eff_in * self.eff_out
 
     def get_tot_costs(self, dimension: str = 'economic') -> float:
-        '''Returns total costs for the storage in the given dimension.'''
         if self.p_cap is None or self.e_cap is None:
             raise ValueError(
                 "Both p_cap and e_cap must be set to valid values to calculate costs.")
@@ -142,11 +122,14 @@ class Storage:
             return (self.p_cap * self.p_cost_economic
                     + self.e_cap * self.e_cost_economic)
         if dimension == 'environmental':
+            if (self.p_cost_environmental is None
+                    or self.e_cost_environmental is None):
+                raise ValueError(
+                    "Storage has no environmental cost basis.")
             return (self.p_cap * self.p_cost_environmental
                     + self.e_cap * self.e_cost_environmental)
         raise ValueError(
-            "dimension must be 'economic' or 'environmental', got '{}'".format(
-                dimension))
+            "dimension must be 'economic' or 'environmental', got '{}'".format(dimension))
 
     def get_min_e(self) -> float:
         if self.e_cap is None:
@@ -155,20 +138,18 @@ class Storage:
         return self.e_cap * self.soc_min
 
     def copy(self) -> "Storage":
-        return Storage(
-            e_cap=self.e_cap, p_cap=self.p_cap,
-            eff_in=self.eff_in, eff_out=self.eff_out,
-            soc_min=self.soc_min, soc_max=self.soc_max,
-            lifetime=self.lifetime,
-            duration=self.duration,
-            p_cost_economic=self.p_cost_economic,
-            p_cost_environmental=self.p_cost_environmental,
-            e_cost_economic=self.e_cost_economic,
-            e_cost_environmental=self.e_cost_environmental,
-            opex_fix_economic=self.opex_fix_economic,
-            opex_fix_environmental=self.opex_fix_environmental,
-            opex_var_economic=self.opex_var_economic,
-            opex_var_environmental=self.opex_var_environmental)
+        return Storage(e_cap=self.e_cap, p_cap=self.p_cap,
+                    eff_in=self.eff_in, eff_out=self.eff_out,
+                    soc_min=self.soc_min, soc_max=self.soc_max,
+                    lifetime=self.lifetime, duration=self.duration,
+                    p_cost_economic=self.p_cost_economic,
+                    p_cost_environmental=self.p_cost_environmental,
+                    e_cost_economic=self.e_cost_economic,
+                    e_cost_environmental=self.e_cost_environmental,
+                    opex_fix_economic=self.opex_fix_economic,
+                    opex_fix_environmental=self.opex_fix_environmental,
+                    opex_var_economic=self.opex_var_economic,
+                    opex_var_environmental=self.opex_var_environmental)
 
     def __repr__(self) -> str:
         return (f"Storage(e_cap={self.e_cap}, p_cap={self.p_cap}, "
@@ -205,15 +186,15 @@ class Production:
         opex_var (float): Deprecated alias for opex_var_economic
     '''
     def __init__(self, power_ts: TimeSeries,
-                 p_cost: float = 0, p_max: float = None,
-                 opex_fix: float = 0, opex_var: float = 0,
-                 p_max_is_decision: bool = False,
-                 p_cost_economic: float = None,
-                 p_cost_environmental: float = None,
-                 opex_fix_economic: float = None,
-                 opex_fix_environmental: float = None,
-                 opex_var_economic: float = None,
-                 opex_var_environmental: float = None) -> None:
+                p_cost: float = 0, p_max: float = None,
+                opex_fix: float = 0, opex_var: float = 0,
+                p_max_is_decision: bool = False,
+                p_cost_economic: float = None,
+                p_cost_environmental: float = None,
+                opex_fix_economic: float = None,
+                opex_fix_environmental: float = None,
+                opex_var_economic: float = None,
+                opex_var_environmental: float = None) -> None:
         self.power = power_ts
         if p_max is not None:
             self.p_max = p_max
@@ -223,34 +204,22 @@ class Production:
             self.p_max = max(self.power.data)
 
         # Economic cost
-        if p_cost_economic is not None:
-            self.p_cost_economic = p_cost_economic
-        else:
-            self.p_cost_economic = p_cost
+        self.p_cost_economic = (p_cost_economic
+                                if p_cost_economic is not None else p_cost)
+        self.opex_fix_economic = (opex_fix_economic
+                                if opex_fix_economic is not None else opex_fix)
+        self.opex_var_economic = (opex_var_economic
+                                if opex_var_economic is not None else opex_var)
 
         # Environmental cost
-        if p_cost_environmental is not None:
-            self.p_cost_environmental = p_cost_environmental
-        else:
-            self.p_cost_environmental = self.p_cost_economic
+        self.p_cost_environmental = p_cost_environmental
+        self.opex_fix_environmental = opex_fix_environmental
+        self.opex_var_environmental = opex_var_environmental
 
-        if opex_fix_economic is not None:
-            self.opex_fix_economic = opex_fix_economic
-        else:
-            self.opex_fix_economic = opex_fix
-        if opex_fix_environmental is not None:
-            self.opex_fix_environmental = opex_fix_environmental
-        else:
-            self.opex_fix_environmental = self.opex_fix_economic
-
-        if opex_var_economic is not None:
-            self.opex_var_economic = opex_var_economic
-        else:
-            self.opex_var_economic = opex_var
-        if opex_var_environmental is not None:
-            self.opex_var_environmental = opex_var_environmental
-        else:
-            self.opex_var_environmental = self.opex_var_economic
+        self._has_environmental_cost = any(
+            v is not None for v in (p_cost_environmental,
+                                    opex_fix_environmental,
+                                    opex_var_environmental))
 
         # Legacy aliases kept in sync with the economic values
         self.p_cost = self.p_cost_economic
@@ -259,26 +228,27 @@ class Production:
         self.p_max_is_decision = p_max_is_decision
 
     def get_tot_costs(self, dimension: str = 'economic') -> float:
-        '''Returns total costs for the production in the given dimension.'''
         if dimension == 'economic':
             return self.p_max * self.p_cost_economic
         if dimension == 'environmental':
+            if self.p_cost_environmental is None:
+                raise ValueError(
+                    "Production has no environmental cost basis.")
             return self.p_max * self.p_cost_environmental
         raise ValueError(
-            "dimension must be 'economic' or 'environmental', got '{}'".format(
-                dimension))
+            "dimension must be 'economic' or 'environmental', got '{}'".format(dimension))
 
     def curtail(self, p_curtail: np.ndarray) -> "Production":
         curtailed_power_ts = TimeSeries(self.power.data - p_curtail, self.power.dt)
         return Production(power_ts=curtailed_power_ts,
-                          p_max=self.p_max,
-                          p_max_is_decision=self.p_max_is_decision,
-                          p_cost_economic=self.p_cost_economic,
-                          p_cost_environmental=self.p_cost_environmental,
-                          opex_fix_economic=self.opex_fix_economic,
-                          opex_fix_environmental=self.opex_fix_environmental,
-                          opex_var_economic=self.opex_var_economic,
-                          opex_var_environmental=self.opex_var_environmental)
+                        p_max=self.p_max,
+                        p_max_is_decision=self.p_max_is_decision,
+                        p_cost_economic=self.p_cost_economic,
+                        p_cost_environmental=self.p_cost_environmental,
+                        opex_fix_economic=self.opex_fix_economic,
+                        opex_fix_environmental=self.opex_fix_environmental,
+                        opex_var_economic=self.opex_var_economic,
+                        opex_var_environmental=self.opex_var_environmental)
 
     def __repr__(self) -> str:
         return (f"Production(p_cost_economic={self.p_cost_economic}, "
