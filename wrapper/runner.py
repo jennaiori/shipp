@@ -1,6 +1,7 @@
 # runner.py
 
 import time
+from turtle import mode
 import warnings
 import pandas as pd
 
@@ -145,6 +146,14 @@ def run_case(case):
     }
     opex_eco = {'prod1': prod1.opex_fix, 'prod2': prod2.opex_fix}
 
+    if mode == 'environmental':
+        for obj in (prod1, prod2, stor1, stor2):
+            obj.p_cost = obj.p_cost_environmental
+            obj.opex_fix = obj.opex_fix_environmental
+            obj.opex_var = obj.opex_var_environmental
+        for stor in (stor1, stor2):
+            stor.e_cost = stor.e_cost_environmental
+
     # --- budget (economic mode only) ---
     budget = sc.get('budget')
     if budget is not None and mode == 'economic':
@@ -256,7 +265,7 @@ if __name__ == '__main__':
             'stor2': {'name': None,   'costs_year': 2020},
         },
         'technical': {
-            'mode': 'environmental',
+            'mode': 'economic',
             'token': '96e53647b34ef4fb37b6958e9285eff9938ad7ce',
             'budget_tol': 1e-4,
             'formulation': 'milp',

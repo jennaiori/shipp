@@ -471,15 +471,16 @@ def build_production(name, mode, params_json, costs_csv, emissions_csv,
         capex_eco = c_eco['capex']
         capex_env = c_env['capex']
 
-    p_cost = annual_eco if mode == 'economic' else annual_env
-
     prod = Production(
         power_ts=power_ts,
-        p_cost=p_cost,
         p_max=None,
         p_max_is_decision=True,
-        opex_fix=opex_eco,
-        opex_var=0.0,
+        p_cost_economic=annual_eco,
+        p_cost_environmental=annual_env,
+        opex_fix_economic=opex_eco,
+        opex_fix_environmental=0.0,
+        opex_var_economic=0.0,
+        opex_var_environmental=0.0,
     )
     return prod, annual_eco, annual_env, capex_eco, capex_env
 
@@ -511,21 +512,20 @@ def build_storage(name, mode, params_json, costs_csv, emissions_csv,
     annual_eco = c_eco['capex'] * n_year / perf['lifetime']
     annual_env = c_env['capex'] * n_year / perf['lifetime']
 
-    e_cost = annual_eco if mode == 'economic' else annual_env
-
     stor = Storage(
-        e_cap=None,
-        p_cap=None,
-        eff_in=perf['eff_charge'],
-        eff_out=perf['eff_discharge'],
-        p_cost=0.0,
-        e_cost=e_cost,
-        soc_min=1.0 - perf['dod'],
-        soc_max=1.0,
+        e_cap=None, p_cap=None,
+        eff_in=perf['eff_charge'], eff_out=perf['eff_discharge'],
+        soc_min=1.0 - perf['dod'], soc_max=1.0,
         lifetime=int(perf['lifetime']),
-        opex_fix=0.0,
-        opex_var=0.0,
         duration=perf['duration'],
+        p_cost_economic=0.0,
+        p_cost_environmental=0.0,
+        e_cost_economic=annual_eco,
+        e_cost_environmental=annual_env,
+        opex_fix_economic=0.0,
+        opex_fix_environmental=0.0,
+        opex_var_economic=0.0,
+        opex_var_environmental=0.0,
     )
     return stor, annual_eco, annual_env, c_eco['capex'], c_env['capex']
 
