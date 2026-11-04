@@ -468,11 +468,11 @@ def solve_sizing_SOO(model, meta, dimension='economic'):
 
     opt = pyo.SolverFactory(meta['name_solver'])
     if 'gurobi' in meta['name_solver']:
-        opt.options['MIPGap'] = 1e-6
+        opt.options['MIPGap'] = 1e-4
         opt.options['Seed'] = 0
         opt.options['Threads'] = 1
         opt.options['StartNodeLimit'] = -3
-        opt.options['NumericFocus'] = 3
+        opt.options['NumericFocus'] = 1
     results = opt.solve(model, tee=meta['verbose'])
     if (results.solver.status is not pyo.SolverStatus.ok
             or results.solver.termination_condition
@@ -539,11 +539,11 @@ def solve_sizing_MOO(model, meta, method='weighted_sum', weights=None,
 
             opt = pyo.SolverFactory(meta['name_solver'])
             if 'gurobi' in meta['name_solver']:
-                opt.options['MIPGap'] = 1e-6
+                opt.options['MIPGap'] = 1e-4
                 opt.options['Seed'] = 0
                 opt.options['Threads'] = 1
                 opt.options['StartNodeLimit'] = -3
-                opt.options['NumericFocus'] = 3
+                opt.options['NumericFocus'] = 1
             results = opt.solve(model, tee=meta['verbose'])
 
             t_solve = time.perf_counter() - t_w
@@ -590,11 +590,11 @@ def solve_sizing_MOO(model, meta, method='weighted_sum', weights=None,
         model.obj = pyo.Objective(expr=model.J_env, sense=pyo.maximize)
         opt = pyo.SolverFactory(meta['name_solver'])
         if 'gurobi' in meta['name_solver']:
-            opt.options['MIPGap'] = 1e-6
+            opt.options['MIPGap'] = 1e-4
             opt.options['Seed'] = 0
             opt.options['Threads'] = 1
             opt.options['StartNodeLimit'] = -3
-            opt.options['NumericFocus'] = 3
+            opt.options['NumericFocus'] = 1
         results = opt.solve(model, tee=meta['verbose'])
         if not (results.solver.status is pyo.SolverStatus.ok
                 and results.solver.termination_condition
@@ -645,11 +645,11 @@ def solve_sizing_MOO(model, meta, method='weighted_sum', weights=None,
 
                 opt = pyo.SolverFactory(meta['name_solver'])
                 if 'gurobi' in meta['name_solver']:
-                    opt.options['MIPGap'] = 1e-6
+                    opt.options['MIPGap'] = 1e-4
                     opt.options['Seed'] = 0
                     opt.options['Threads'] = 1
                     opt.options['StartNodeLimit'] = -3
-                    opt.options['NumericFocus'] = 3
+                    opt.options['NumericFocus'] = 1
                 results = opt.solve(model, tee=meta['verbose'])
 
                 t_solve = time.perf_counter() - t_w
