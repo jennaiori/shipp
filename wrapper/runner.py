@@ -213,6 +213,7 @@ def run_case(case):
                 model, meta, method=method,
                 weights=tn.get('weight_sweep'),
                 n_points=tn.get('n_points', 11),
+                eps=tn.get('epsilon', 1e-4),
                 verbose=verbose)
     t_wall = time.perf_counter() - t
     if verbose:
@@ -288,7 +289,7 @@ if __name__ == '__main__':
         },
         'technical': {
             'mode': 'environmental',
-            'method': 'weighted_sum',
+            'method': 'augmecon',
             'token': '96e53647b34ef4fb37b6958e9285eff9938ad7ce',
             'budget_tol': 1e-4,
             'formulation': 'milp',
@@ -296,7 +297,9 @@ if __name__ == '__main__':
             'beta_obj': BETA_OBJ_DEFAULT,
             'verbose': True,
             'plot_dispatch': True,
-            'weight_sweep': [0.0, 0.2, 0.4, 0.6, 0.8, 1.0],
+            'weight_sweep': [0.0, 0.0125, 0.025, 0.0375, 0.05, 0.075, 0.1, 0.125, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5, 0.6, 0.8, 1.0],
+            'epsilon': 1e-4,
+            'n_points': 17,
         },
     }
     sols, summaries = run_case(case)

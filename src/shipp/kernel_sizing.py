@@ -495,7 +495,7 @@ def solve_sizing_SOO(model, meta, dimension='economic'):
 
 
 def solve_sizing_MOO(model, meta, method='weighted_sum', weights=None,
-                     n_points=11, verbose=False):
+                     n_points=11, eps=1e-4, verbose=False):
     if not meta['env_available']:
         raise ValueError(
             "MOO requires environmental costs; the following assets "
@@ -574,8 +574,124 @@ def solve_sizing_MOO(model, meta, method='weighted_sum', weights=None,
             })
 
     if method == 'augmecon':
-        raise NotImplementedError(
-            "AUGMECON is not yet implemented.")
+        n_pts = int(n_points)
+        if n_pts < 1:
+            raise ValueError(
+                "n_points must be >= 1 for augmecon, got {}".format(n_pts))
+
+        # --- payoff table with lexicographic tie-break ---
+        sol_eco = solve_sizing_SOO(model, meta, dimension='economic')
+        j_eco_max = sol_eco['objectives']['economic']
+
+        if hasattr(model, 'obj'):
+            model.del_component(model.obj)
+        model.lex_fix = pyo.Constraint(
+            expr=model.J_eco >= j_eco_max * (1 - 1e-9))
+        model.obj = pyo.Objective(expr=model.J_env, sense=pyo.maximize)
+        opt = pyo.SolverFactory(meta['name_solver'])
+        if 'gurobi' in meta['name_solver']:
+            opt.options['MIPGap'] = 1e-6
+            opt.options['Seed'] = 0
+            opt.options['Threads'] = 1
+            opt.options['StartNodeLimit'] = -3
+            opt.options['NumericFocus'] = 3
+        results = opt.solve(model, tee=meta['verbose'])
+        if not (results.solver.status is pyo.SolverStatus.ok
+                and results.solver.termination_condition
+                is pyo.TerminationCondition.optimal):
+            raise RuntimeError(
+                "Lexicographic payoff solve (eco->env) failed: status={}, "
+                "termination={}".format(results.solver.status,
+                                        results.solver.termination_condition))
+        j_env_at_eco_max = pyo.value(model.J_env)
+        model.del_component(model.obj)
+        model.del_component(model.lex_fix)
+
+        sol_env = solve_sizing_SOO(model, meta, dimension='environmental')
+        j_env_max = sol_env['objectives']['environmental']
+
+        r_env = j_env_max - j_env_at_eco_max
+        if r_env < 1e-12:
+            raise ValueError(
+                "Environmental range is zero; AUGMECON is undefined.")
+        step = r_env / n_pts
+        margin = max(1e-9 * step, 1e-12 * abs(j_env_max))
+
+        # --- slack variable, RHS param, constraint, objective (once) ---
+        if hasattr(model, 'obj'):
+            model.del_component(model.obj)
+        model.s_env = pyo.Var(domain=pyo.NonNegativeReals)
+        model.augmecon_rhs = pyo.Param(initialize=j_env_at_eco_max,
+                                       mutable=True)
+        model.augmecon_con = pyo.Constraint(
+            expr=model.J_env - model.s_env == model.augmecon_rhs)
+        model.obj = pyo.Objective(
+            expr=model.J_eco + eps * model.s_env / r_env,
+            sense=pyo.maximize)
+
+        solutions = []
+        k = 0
+        try:
+            while k <= n_pts:
+                e_k = j_env_at_eco_max + k * step
+                if k == n_pts:
+                    e_k -= margin
+                model.augmecon_rhs.set_value(e_k)
+
+                if verbose:
+                    print("  eps_k={:.4g} (k={})...".format(e_k, k),
+                          end=" ", flush=True)
+                t_w = time.perf_counter()
+
+                opt = pyo.SolverFactory(meta['name_solver'])
+                if 'gurobi' in meta['name_solver']:
+                    opt.options['MIPGap'] = 1e-6
+                    opt.options['Seed'] = 0
+                    opt.options['Threads'] = 1
+                    opt.options['StartNodeLimit'] = -3
+                    opt.options['NumericFocus'] = 3
+                results = opt.solve(model, tee=meta['verbose'])
+
+                t_solve = time.perf_counter() - t_w
+
+                status = results.solver.status
+                term = results.solver.termination_condition
+                if (status is pyo.SolverStatus.ok
+                        and term is pyo.TerminationCondition.optimal):
+                    eco_val = pyo.value(model.J_eco)
+                    env_val = pyo.value(model.J_env)
+                    slack = pyo.value(model.s_env)
+                    if verbose:
+                        print("{:.2f} s  J_eco={:.4g}  J_env={:.4g}  "
+                              "s={:.4g}".format(t_solve, eco_val, env_val,
+                                                slack))
+                    solutions.append({
+                        'method': 'augmecon',
+                        'epsilon': e_k,
+                        'scale_env': r_env,
+                        'objectives': {'economic': eco_val,
+                                       'environmental': env_val},
+                        'os_result': extract_solution(model, meta),
+                    })
+                    b = int(slack / step)
+                    k += 1 + max(b, 0)
+                elif term in (pyo.TerminationCondition.infeasible,
+                              pyo.TerminationCondition.infeasibleOrUnbounded):
+                    if verbose:
+                        print("infeasible, early exit")
+                    break
+                else:
+                    raise RuntimeError(
+                        "AUGMECON solve did not return an optimal solution: "
+                        "status={}, termination={}, k={}, eps_k={}".format(
+                            status, term, k, e_k))
+        finally:
+            model.del_component(model.obj)
+            model.del_component(model.augmecon_con)
+            model.del_component(model.augmecon_rhs)
+            model.del_component(model.s_env)
+
+        return solutions
 
     if method != 'weighted_sum' and method != 'augmecon':
         raise ValueError(
