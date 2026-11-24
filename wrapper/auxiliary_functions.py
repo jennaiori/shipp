@@ -30,6 +30,12 @@ BETA_OBJ_DEFAULT = 1e-4
 DEFAULT_CACHE_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), 'cache')
 
+ENV_SIGNAL_COLUMNS = {
+    'mdf':  'mdf_kg_per_mwh',
+    'aef':  'em_avg_direct_kg_per_mwh',
+    'moer': 'moer_kg_per_mwh',
+}
+
 
 ### Country identifier conversion
 
@@ -173,41 +179,66 @@ def load_price_from_csv(iso3, year, csv_path, cache_dir=DEFAULT_CACHE_DIR):
     write_cache(cache_file, data, meta)
     return TimeSeries(data, 1.0)
 
-def load_mdf_from_csv(csv_path, year, cache_dir=DEFAULT_CACHE_DIR):
-    """Load the marginal displacement factor series for one year.
+def load_env_signal(source, csv_path, year, cache_dir=DEFAULT_CACHE_DIR):
+    """Load an environmental grid signal for one year from the merged
+    carbon-grid CSV, clipped at zero.
+
+    The CSV is expected to have one row per hour with columns including
+    ``hour_utc`` plus one of ``mdf_kg_per_mwh``, ``em_avg_direct_kg_per_mwh``
+    or ``moer_kg_per_mwh``. See ``ENV_SIGNAL_COLUMNS``.
 
     Args:
-        csv_path (str): path to the MDF CSV, columns 'datetime' and
-            'MDFwind_kgCO2eperMWh'.
+        source (str): one of 'mdf', 'aef', 'moer'.
+        csv_path (str): path to the merged CSV.
         year (int): calendar year to keep.
         cache_dir (str): cache directory.
 
     Returns:
-        TimeSeries: hourly MDF [kgCO2e/MWh], dt=1.0.
+        TimeSeries: hourly signal [kgCO2e/MWh], dt=1.0, values >= 0.
 
     Raises:
+        ValueError: if source is unknown or the expected column is missing.
         FileNotFoundError: if the CSV does not exist.
         ValueError: if no rows match the year.
     """
-    cache_file = cache_path(cache_dir, 'mdf', year=year, source=csv_path)
+    if source not in ENV_SIGNAL_COLUMNS:
+        raise ValueError(
+            "source must be one of {}, got '{}'".format(
+                sorted(ENV_SIGNAL_COLUMNS), source))
+
+    cache_file = cache_path(cache_dir, 'env', source=source,
+                            year=year, csv=csv_path)
     cached = read_cache(cache_file)
     if cached is not None:
         data, _ = cached
         return TimeSeries(np.array(data), 1.0)
 
     if not os.path.isfile(csv_path):
-        raise FileNotFoundError('MDF CSV not found at {}'.format(csv_path))
+        raise FileNotFoundError('CSV not found at {}'.format(csv_path))
 
     df = pd.read_csv(csv_path)
-    df['datetime'] = pd.to_datetime(df['datetime'], dayfirst=True, utc=False)
-    df = df[df['datetime'].dt.year == year]
+    df.columns = [c.strip().lstrip('\ufeff') for c in df.columns]
+
+    val_col = ENV_SIGNAL_COLUMNS[source]
+    if 'hour_utc' not in df.columns:
+        raise ValueError(
+            "CSV must contain 'hour_utc'; columns are {}".format(
+                list(df.columns)))
+    if val_col not in df.columns:
+        raise ValueError(
+            "CSV is missing column '{}' for source '{}'; columns are {}"
+            .format(val_col, source, list(df.columns)))
+
+    df['hour_utc'] = pd.to_datetime(df['hour_utc'], utc=True)
+    df = df[df['hour_utc'].dt.year == year].sort_values('hour_utc')
     if len(df) == 0:
         raise ValueError(
-            'No MDF rows for year {} in {}'.format(year, csv_path))
-    df = df.sort_values('datetime').reset_index(drop=True)
-    data = df['MDFwind_kgCO2eperMWh'].to_numpy(dtype=float)
+            'No rows for year {} in {}'.format(year, csv_path))
 
-    meta = dict(resource='mdf', year=year, source=csv_path,
+    data = np.clip(df[val_col].to_numpy(dtype=float), a_min=0.0, a_max=None)
+
+    meta = dict(resource='env', source=source, year=year,
+                csv=csv_path,
                 fetched_utc=pd.Timestamp.now(tz='UTC').isoformat())
     write_cache(cache_file, data, meta)
     return TimeSeries(data, 1.0)
@@ -1132,7 +1163,6 @@ def pv_generation_profile(lat, lon, year, params_path, tilt=None, azimuth=None,
             ac_model="pvwatts",
             temperature_model="faiman",
             losses_model="pvwatts",
-            transposition_model="perez",
         )
 
     elif dc_model == "pvwatts":
@@ -1161,7 +1191,6 @@ def pv_generation_profile(lat, lon, year, params_path, tilt=None, azimuth=None,
             ac_model="pvwatts",
             temperature_model="faiman",
             losses_model="pvwatts",
-            transposition_model="perez",
         )
 
     else:
@@ -1172,7 +1201,15 @@ def pv_generation_profile(lat, lon, year, params_path, tilt=None, azimuth=None,
         warnings.filterwarnings(
             'ignore', message='invalid value encountered in divide',
             category=RuntimeWarning)
-        mc.run_model(weather)
+        mc.run_model_from_effective_irradiance(
+            pd.DataFrame({
+                "effective_irradiance": effective_irradiance,
+                "poa_global": poa_best["poa_global"].clip(lower=0),
+                "temp_air": weather["temp_air"],
+                "wind_speed": weather["wind_speed"],
+            })
+        )
+        
     ac = mc.results.ac["p_mp"].clip(lower=0)
     ac_per_mwac = ac / inverter["pac0"]
 

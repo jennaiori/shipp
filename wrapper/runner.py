@@ -6,8 +6,8 @@ import pandas as pd
 import os
 
 from auxiliary_functions import (
+    load_env_signal,
     load_price_from_csv,
-    load_mdf_from_csv,
     build_production,
     build_storage,
     get_profile,
@@ -77,7 +77,10 @@ def run_case(case):
     t = time.perf_counter()
     price_eco = load_price_from_csv(
         sc['price_iso3'], price_year, sc['price_csv'])
-    price_env = load_mdf_from_csv(tx['mdf_csv'], price_year)
+
+    env_source = tn.get('env_price_source', 'mdf')
+    price_env = load_env_signal(env_source, tx['env_csv'], price_year)
+
     prod1_ts = TimeSeries(prod1_ts.data[:n], dt)
     prod2_ts = TimeSeries(prod2_ts.data[:n], dt)
     price_eco = TimeSeries(price_eco.data[:n], dt)
@@ -281,7 +284,7 @@ if __name__ == '__main__':
             'costs_csv': 'technology_costs.csv',
             'emissions_csv': 'technology_emissions.csv',
             'inflation_csv': 'inflation.csv',
-            'mdf_csv': 'mdf_nl.csv',
+            'env_csv': 'nl_2023_2024_carbon_grid_signals.csv',
             'prod1': {'name': 'wind', 'costs_year': 2020},
             'prod2': {'name': 'pv',   'costs_year': 2025},
             'stor1': {'name': 'lfp',  'costs_year': 2020},
@@ -289,7 +292,8 @@ if __name__ == '__main__':
         },
         'technical': {
             'mode': 'environmental',
-            'method': 'augmecon',
+            'method': 'weighted_sum',
+            'env_price_source': 'aef',
             'token': '96e53647b34ef4fb37b6958e9285eff9938ad7ce',
             'budget_tol': 1e-4,
             'formulation': 'milp',
